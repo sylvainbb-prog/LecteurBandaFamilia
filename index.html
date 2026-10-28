@@ -15,7 +15,7 @@
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "2.0";
+window.BANDA_VERSION = "2.1";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -572,8 +572,10 @@ async function loadLibrary(){
     if(gh){ try{
       const repo=location.pathname.split("/").filter(Boolean)[0]||gh[1]+".github.io";
       const r=await fetch("https://api.github.com/repos/"+gh[1]+"/"+repo+"/contents/morceaux");
-      if(r.ok){ const known=new Set(list.map(x=>x.file));
-        (await r.json()).filter(f=>SCORE_EXT.test(f.name)&&!known.has(f.name)).forEach(f=>list.push({name:f.name,title:cleanTitle(f.name),file:f.name})); }
+      if(r.ok){ const files=(await r.json()).filter(f=>SCORE_EXT.test(f.name)).map(f=>f.name), present=new Set(files);
+        list=list.filter(x=>present.has(x.file));                          // morceau supprimé du dossier : il disparaît de la liste
+        const known=new Set(list.map(x=>x.file));
+        files.filter(n=>!known.has(n)).forEach(n=>list.push({name:n,title:cleanTitle(n),file:n})); }   // morceau ajouté : il apparaît
     }catch(e){} }
     if(list.length){
       list.sort((a,b)=>(a.name||a.file).localeCompare(b.name||b.file,"fr",{numeric:true}));
