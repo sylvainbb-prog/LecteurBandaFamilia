@@ -1,0 +1,49 @@
+LA BANDA FAMILIA – APPLICATION DE RÉPÉTITION
+=============================================
+
+Contenu du dossier
+  index.html            l'application
+  sw.js, manifest...    ce qui la rend installable et utilisable hors connexion
+  icons/                icônes de l'application
+  morceaux/             les partitions (.mxl) et leur liste (songs.json)
+
+METTRE EN LIGNE (gratuit, une seule fois, ~10 minutes) – GitHub Pages
+  1. Créer un compte sur https://github.com (gratuit).
+  2. Bouton « + » en haut à droite → « New repository ».
+     Nom : banda   ·   Public   ·   « Create repository ».
+  3. Sur la page du dépôt : « uploading an existing file ».
+     Glisser TOUT le contenu de ce dossier (index.html, sw.js, manifest.webmanifest,
+     LISEZ-MOI.txt, et les dossiers icons et morceaux) → « Commit changes ».
+  4. « Settings » → « Pages » → Source : « Deploy from a branch »,
+     Branch : « main » et « / (root) » → « Save ».
+  5. Une minute plus tard, l'application est en ligne à l'adresse :
+        https://VOTRE-COMPTE.github.io/banda/
+     C'est ce lien (ou le QR code de la séance) que vous donnez aux musiciens.
+
+INSTALLER SUR UN TÉLÉPHONE
+  iPhone / iPad : ouvrir le lien dans Safari → Partager → « Sur l'écran d'accueil ».
+  Android      : ouvrir le lien dans Chrome → bouton « Installer l'application »
+                 (ou menu ⋮ → « Installer l'application »).
+  Ordinateur   : Chrome / Edge → icône d'installation dans la barre d'adresse.
+
+HORS CONNEXION (concert)
+  Avec une connexion, ouvrir l'application et toucher « Hors connexion » :
+  tous les morceaux et les sons sont téléchargés. Ensuite tout fonctionne sans réseau
+  (sauf la séance synchronisée, qui a besoin d'internet pour relier les téléphones).
+
+AJOUTER OU MODIFIER UN MORCEAU
+  Dans MuseScore : Fichier → Propriétés du projet → renseigner le Titre,
+  désactiver « Son réel », puis Fichier → Exporter → MusicXML compressé (.mxl).
+  Sur GitHub : ouvrir le dossier « morceaux » → « Add file » → « Upload files ».
+  Nommer le fichier avec son numéro, par exemple « 12 - Nouveau morceau.mxl » :
+  il apparaît automatiquement dans la liste (trié par numéro).
+  Pour remplacer un morceau, déposer un fichier portant exactement le même nom.
+
+METTRE À JOUR L'APPLICATION
+  Déposer la nouvelle version de index.html (et sw.js) au même endroit sur GitHub.
+  Les téléphones la récupèrent automatiquement à l'ouverture suivante.
+
+NOTE
+  Les fichiers .mxl préparés par Claude contiennent en plus la mise en page de chaque
+  partie séparée (mode « Comme imprimé »). Un export fait directement depuis MuseScore
+  fonctionne aussi : ce mode utilise alors les lignes du conducteur.
