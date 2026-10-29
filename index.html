@@ -15,7 +15,7 @@
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "2.4";
+window.BANDA_VERSION = "2.6";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -290,6 +290,7 @@ dialog input[type=text]{width:100%}
   .transport{padding-top:6px}
 }
 .lp,.lpnote{display:none}
+.tmid{display:contents}
 @media (pointer: coarse){ .kbd{display:none} }
 /* ===== téléphone en paysage : la partition d'abord ===== */
 @media (orientation: landscape) and (max-height: 500px) and (pointer: coarse){
@@ -300,11 +301,20 @@ dialog input[type=text]{width:100%}
   .bar{height:12px;border-radius:6px}
   .controls{margin-top:4px;gap:6px}
   .lp{display:inline-flex}
-  .lpsp{flex:1}
-  button.ic.lp{width:38px;height:38px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;flex-shrink:0}
+  /* commandes principales fixes à gauche (lecture) et à droite (séance, réglages, paramètres) ; le reste défile au milieu */
+  .controls{flex-wrap:nowrap!important;overflow:visible!important}
+  .tmid{display:flex;flex:1;min-width:0;gap:6px;align-items:center;overflow-x:auto;scrollbar-width:none;padding:0 4px;
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000 12px,#000 calc(100% - 12px),transparent);mask-image:linear-gradient(90deg,transparent,#000 12px,#000 calc(100% - 12px),transparent)}
+  .tmid::-webkit-scrollbar{display:none}
+  .tmid>*{flex-shrink:0}
+  .tmid .marks{flex:0 0 auto;max-width:none;overflow:visible}
+  .tmain{flex-shrink:0;gap:10px}
+  #lpBack{margin-left:14px;opacity:.75}
+  button.ic.lp{width:44px;height:44px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;flex-shrink:0}
   button.ic.lp svg{width:19px;height:19px}
-  .play{width:42px;height:42px} .play svg{width:20px;height:20px}
-  #stopBtn{width:36px;height:36px}
+  .play{width:58px;height:58px} .play svg{width:26px;height:26px}
+  #stopBtn{width:48px;height:48px} #stopBtn svg{width:20px;height:20px}
+  .posbox{min-width:0;max-width:120px} .pos{white-space:normal;line-height:1.15}
   .pos{font-size:13px} .snd{display:none}
   .tempo span{min-width:44px;font-size:12px}
   .marks button{min-height:32px;padding:2px 10px}
@@ -378,6 +388,11 @@ body[data-theme=fete] .play{box-shadow:0 8px 20px #e0218a55}
 #passPick .pp-b{display:flex;gap:6px;flex-wrap:wrap}
 #passPick button{min-height:36px;padding:4px 12px;font-weight:700;border-color:#3b82f6;color:#3b82f6;background:transparent}
 #passPick button:hover{background:#3b82f622}
+
+/* aperçu depuis la barre d'avancement */
+.bar .peekhead{position:absolute;top:-2px;bottom:-2px;width:3px;margin-left:-1px;background:#3b82f6;box-shadow:0 0 8px #3b82f6;border-radius:2px;pointer-events:none}
+#peekHint{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:7;background:#1e293bf0;color:#fff;font-size:13px;border-radius:20px;padding:5px 6px 5px 14px;box-shadow:0 4px 14px #0005;white-space:nowrap;display:flex;align-items:center;gap:10px}
+#peekHint button{min-height:28px;padding:2px 12px;border-radius:14px;background:#3b82f6;border:none;color:#fff;font-weight:700;font-size:12px}
 
 </style>
 </head>
@@ -479,22 +494,23 @@ body[data-theme=fete] .play{box-shadow:0 8px 20px #e0218a55}
           <div id="followBanner"></div>
           <div class="loading" id="loading" style="display:none">Chargement…</div></div>
         <div class="transport">
-          <div class="bar lk" id="bar"><div class="fill" id="fill"></div><div class="loopz" id="loopz"></div><div class="head" id="head"></div></div>
+          <div class="bar" id="bar" title="Avancement du morceau : touchez pour voir un endroit de la partition"><div class="fill" id="fill"></div><div class="loopz" id="loopz"></div><div class="head" id="head"></div></div>
           <div class="controls">
-            <button id="lpBack" class="ic lp" title="Liste des morceaux"><svg><use href="#i-back"/></svg></button>
             <div class="tmain">
               <button id="stopBtn" class="ic lk" title="Retour au début"><svg><use href="#i-stop"/></svg></button>
               <button class="play lk" id="playBtn" title="Lecture / pause (espace)"><svg><use href="#i-play"/></svg></button>
               <div class="posbox"><span class="pos" id="pos">Mes. 1</span><span class="snd" id="sndState" title="Sons d'instruments"><i></i><span>Sons</span></span></div>
             </div>
+            <div class="tmid">
             <div class="tempo lk" title="Vitesse"><button id="tempoDown" class="ic sm2">−</button><span id="tempoLbl">100 %</span><button id="tempoUp" class="ic sm2">+</button></div>
             <form class="goto lk" id="gotoForm" title="Aller directement à une mesure"><label for="gotoIn">Mes.</label><input id="gotoIn" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="n°" autocomplete="off"><button type="submit" class="ic sm2" aria-label="Aller"><svg><use href="#i-chev"/></svg></button></form>
             <div class="loopctl lk" title="Boucle : choisir les mesures (ou glisser le doigt sur la barre de progression)"><button id="loopBtn"><svg class="sm"><use href="#i-loop"/></svg><span>Boucle</span></button><input type="text" id="loopA" placeholder="de" inputmode="numeric" autocomplete="off" title="Début : tapez le numéro, ou touchez la case puis la mesure sur la partition"><span class="arr">→</span><input type="text" id="loopB" placeholder="à" inputmode="numeric" autocomplete="off" title="Fin : tapez le numéro, ou touchez la case puis la mesure sur la partition"></div>
             <div class="marks lk" id="marks"></div>
-            <span class="lp lpsp"></span>
+            </div>
             <button id="lpSess" class="ic lp" title="Séance"><svg><use href="#i-cast"/></svg></button>
             <button id="lpSide" class="ic lp" title="Réglages"><svg><use href="#i-sliders"/></svg></button>
             <button id="lpSet" class="ic lp" title="Paramètres"><svg><use href="#i-gear"/></svg></button>
+            <button id="lpBack" class="ic lp" title="Quitter le morceau (liste des morceaux)"><svg><use href="#i-back"/></svg></button>
           </div>
         </div>
       </div>
@@ -1661,6 +1677,7 @@ function loopRange(){
 }
 async function play(noCount){
   if(!S.model) return;
+  endPeek();
   const ac=audio(); if(ac.state!=="running") await ac.resume();
   const lr=loopRange();
   if(lr && (curSeq<lr[0]||curSeq>lr[1])){ curSeq=lr[0]; curOff=0; }
@@ -1720,7 +1737,7 @@ function stopAudio(){
   S.playing=false; stopTicker(); cancelAnimationFrame(S.rafId); setPlayIcon(false);
   if(AC) newSession();
 }
-function stop(){ if(S.playing) stopAudio(); curSeq=0; curOff=0; if(S.model){ updateUI(0,0); updateCursor(true);} if(SY.role==="m") syncPush(); }
+function stop(){ endPeek(); if(S.playing) stopAudio(); curSeq=0; curOff=0; if(S.model){ updateUI(0,0); updateCursor(true);} if(SY.role==="m") syncPush(); }
 /* minuterie dans un « worker » : elle n'est pas freinée quand la page ou l'onglet est occupé */
 let TICKER=null;
 function startTicker(){ stopTicker();
@@ -1793,8 +1810,10 @@ function updateCursor(force,k,off){
   if(!S.osmd||!S.steps.length) return;
   if(k===undefined){ k=curSeq; off=curOff; }
   const e=S.seq[k]; if(!e) return;
+  if(S.peek && performance.now()>S.peek.until) endPeek();
+  const peeking=!!S.peek;
   const large=$("curSel").value==="large";
-  if(isLine()){ updateLineView(k,off);
+  if(isLine()){ if(peeking) return; updateLineView(k,off);
     const ph=$("playhead"); if(large){ const w=beatPx(k); ph.style.width=w+"px"; ph.style.marginLeft=(-w/2)+"px"; } else { ph.style.width=""; ph.style.marginLeft=""; }
     return; }
   const G=S.geo, m=G&&G.meas[e.mi], pc=$("pcur");
@@ -1803,6 +1822,7 @@ function updateCursor(force,k,off){
     const px=x-(large?w/2:1), ph=sy.bottom-sy.top-8; pc._x=px;
     pc.style.transform="translate3d("+px.toFixed(1)+"px,"+(sy.top+4)+"px,0)";            // déplacement par la carte graphique : pas de redessin de la partition
     if(pc._w!==w){ pc._w=w; pc.style.width=w+"px"; } if(pc._h!==ph){ pc._h=ph; pc.style.height=ph+"px"; } if(pc.style.display!=="block") pc.style.display="block"; }
+  if(peeking) return;            // aperçu en cours : le curseur avance, mais l'écran reste sur l'endroit regardé
   const key=k+":"+(m?m.sys:-1);
   if(!force && key===lastCur) return;
   if(m && pc && S.wideScore){ const wrap=$("scoreWrap"), x=pc._x||0; if(x<wrap.scrollLeft+40||x>wrap.scrollLeft+wrap.clientWidth-160) wrap.scrollLeft=Math.max(0,x-wrap.clientWidth*0.25); }
@@ -1869,7 +1889,7 @@ function onScoreClick(e){
   if(!S.model||S.dragged) return;
   if(SY.role==="f"){ lockedToast(); return; }
   const mi=measureAtPoint(e.clientX,e.clientY); if(mi<0) return;
-  const act=S.pick?pickK:jumpTo;
+  const act=S.pick?pickK:(k=>{ endPeek(); jumpTo(k); });
   if(isLine()){ act(mi); return; }            // en défilement, chaque passage est une mesure distincte
   const occ=S.seq.filter(x=>x.mi===mi); if(!occ.length) return;
   if(occ.length>1){ choosePass(occ,e.clientX,e.clientY,act); return; }
@@ -2045,15 +2065,35 @@ $("loopBtn").onclick=()=>{ endPick(); if(S.loop){ setLoopK(null); return; }
 });
 // fin du choix : touche Échap, ou un clic ailleurs que sur la partition / les cases
 document.addEventListener("pointerdown",ev=>{ if(!S.pick) return; if(ev.target.closest("#scoreWrap,.loopctl,#passPick")) return; endPick(); },true);
-// progress bar : tap = seek, drag = loop selection
+// barre d'avancement : elle montre où l'on en est ; la toucher (ou y glisser le doigt) fait seulement VOIR cet endroit.
+// La lecture ne bouge que si l'on touche ensuite une mesure.
 (function(){
-  const bar=$("bar"); let down=null, moved=false;
-  bar.addEventListener("pointerdown",e=>{ if(!S.model) return; down=barSeq(e.clientX); moved=false; bar.setPointerCapture(e.pointerId); });
-  bar.addEventListener("pointermove",e=>{ if(down===null) return; const k=barSeq(e.clientX); if(Math.abs(k-down)>=1){ moved=true; S.loop={a:Math.min(k,down),b:Math.max(k,down)}; updateLoopZone(); } });
-  bar.addEventListener("pointerup",e=>{ if(down===null) return; const k=barSeq(e.clientX);
-    if(moved){ const a=Math.min(k,down), b=Math.max(k,down); setLoopK(a,b); toast("Boucle "+kLabel(a)+" → "+kLabel(b)); }
-    else seekSeq(k); down=null; });
+  const bar=$("bar"); let down=false;
+  bar.addEventListener("pointerdown",e=>{ if(!S.model) return; down=true; bar.setPointerCapture(e.pointerId); peekAt(barSeq(e.clientX)); });
+  bar.addEventListener("pointermove",e=>{ if(down) peekAt(barSeq(e.clientX)); });
+  bar.addEventListener("pointerup",()=>{ down=false; if(S.peek&&S.playing) S.peek.until=performance.now()+4000; });
+  bar.addEventListener("pointercancel",()=>{ down=false; });
 })();
+function peekAt(k){
+  if(!S.geo||!S.seq[k]) return;
+  S.peek={k,until:(S.playing||SY.role==="f")?performance.now()+4000:Infinity};
+  const e=S.seq[k], wrap=$("scoreWrap"), G=S.geo;
+  $("turn").style.display="none"; const jm=$("jumpMark"); if(jm) jm.style.display="none";
+  if(isLine()){ updateLineView(k,0); $("playhead").style.visibility="hidden"; }
+  else { const m=G.meas[e.mi]; if(m){ const sy=G.sys[m.sys]; wrap.scrollTop=Math.max(0,sy.top-(m.sys===0?0:12)); } }
+  let g=$("peekHead"); if(!g){ g=document.createElement("div"); g.id="peekHead"; g.className="peekhead"; $("bar").appendChild(g); }
+  g.style.left=(e.t/S.total*100)+"%";
+  let h=$("peekHint"); if(!h){ h=document.createElement("div"); h.id="peekHint"; $("scoreBox").appendChild(h); }
+  h.innerHTML="Aperçu : mesure "+e.M.number+(e.passes>1?" ("+passLabel(e)+")":"")+(SY.role==="f"?"":" — <b>touchez une mesure</b> pour y aller")+' <button type="button" id="peekBack">Revenir</button>';
+  $("peekBack").onclick=ev=>{ ev.stopPropagation(); endPeek(); };
+}
+function endPeek(){
+  if(!S.peek) return; S.peek=null;
+  const g=$("peekHead"); if(g) g.remove(); const h=$("peekHint"); if(h) h.remove();
+  $("playhead").style.visibility=""; lastCur=""; S.pend=null;
+  if(S.playing){ const p=currentPos(); if(p) updateCursor(true,p.k,p.off); } else updateCursor(true);
+}
+
 /* raccourcis clavier : espace lecture/pause · ←/→ mesure précédente/suivante · Début retour au début · +/- tempo · B boucle · R réglages */
 document.addEventListener("keydown",e=>{
   if(e.target.tagName==="INPUT"||e.target.tagName==="SELECT"||e.target.tagName==="TEXTAREA"||e.ctrlKey||e.metaKey||e.altKey) return;
