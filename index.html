@@ -15,7 +15,7 @@
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "2.1";
+window.BANDA_VERSION = "2.3";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -203,8 +203,12 @@ body.light #turnBlur, body.light #turnSkip{backdrop-filter:none!important;-webki
 .goto input{width:48px;min-height:32px;padding:4px 6px;border:none;background:transparent;text-align:center;box-shadow:none!important;font-weight:700}
 .loopctl{display:flex;align-items:center;gap:4px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:2px}
 .loopctl button{min-height:32px;padding:4px 10px;border:none;background:transparent;border-radius:9px;font-weight:600;font-size:13px}
-.loopctl button.on{background:var(--accent2);color:#111}
-.loopctl input{width:50px;min-height:32px;padding:4px 4px;text-align:center;border:none;background:transparent;box-shadow:none!important}
+.loopctl button.on{background:var(--accent2)!important;color:#111!important;border-color:transparent!important;box-shadow:0 0 10px color-mix(in srgb,var(--accent2) 50%,transparent)!important}
+.loopctl input.picking{background:color-mix(in srgb,#3b82f6 22%,transparent);box-shadow:inset 0 0 0 2px #3b82f6!important;border-radius:8px}
+body.picking #score{cursor:crosshair}
+body.picking #scoreWrap{box-shadow:0 0 0 3px #3b82f6,var(--shadow)}
+#pickHint{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:7;background:#3b82f6;color:#fff;font-weight:700;font-size:13px;border-radius:20px;padding:6px 14px;box-shadow:0 4px 14px #0005;pointer-events:none;white-space:nowrap}
+.loopctl input{width:58px;min-height:32px;padding:4px 4px;text-align:center;border:none;background:transparent;box-shadow:none!important}
 .loopctl .arr{color:var(--muted)}
 .marks{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;max-width:100%}
 .marks::-webkit-scrollbar{display:none}
@@ -327,6 +331,16 @@ body[data-theme=fete] .side{background:#fff6ec}
 body[data-theme=fete] .card{background:#fff}
 body[data-theme=fete] .play{box-shadow:0 8px 20px #e0218a55}
 
+/* passages des reprises (1re fois / dernière fois) */
+.pos .pass{color:#3b82f6;font-weight:800}
+.mnum{position:absolute;font:600 11px/1 var(--ffB);color:#666;pointer-events:none;white-space:nowrap;z-index:2}
+.mnum.rep{color:#1d4ed8;background:#dbeafe;border-radius:6px;padding:2px 5px;font-weight:700}
+#passPick{position:fixed;z-index:50;background:var(--bg2);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:10px;box-shadow:0 14px 40px #0007;animation:pop .2s var(--ease)}
+#passPick .pp-t{font-size:13px;font-weight:700;margin:0 4px 8px}
+#passPick .pp-b{display:flex;gap:6px;flex-wrap:wrap}
+#passPick button{min-height:36px;padding:4px 12px;font-weight:700;border-color:#3b82f6;color:#3b82f6;background:transparent}
+#passPick button:hover{background:#3b82f622}
+
 </style>
 </head>
 <body data-theme="neon">
@@ -435,7 +449,7 @@ body[data-theme=fete] .play{box-shadow:0 8px 20px #e0218a55}
             </div>
             <div class="tempo lk" title="Vitesse"><button id="tempoDown" class="ic sm2">−</button><span id="tempoLbl">100 %</span><button id="tempoUp" class="ic sm2">+</button></div>
             <form class="goto lk" id="gotoForm" title="Aller directement à une mesure"><label for="gotoIn">Mes.</label><input id="gotoIn" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="n°" autocomplete="off"><button type="submit" class="ic sm2" aria-label="Aller"><svg><use href="#i-chev"/></svg></button></form>
-            <div class="loopctl lk" title="Boucle : choisir les mesures (ou glisser le doigt sur la barre de progression)"><button id="loopBtn"><svg class="sm"><use href="#i-loop"/></svg><span>Boucle</span></button><input type="number" id="loopA" min="1" placeholder="de" inputmode="numeric"><span class="arr">→</span><input type="number" id="loopB" min="1" placeholder="à" inputmode="numeric"></div>
+            <div class="loopctl lk" title="Boucle : choisir les mesures (ou glisser le doigt sur la barre de progression)"><button id="loopBtn"><svg class="sm"><use href="#i-loop"/></svg><span>Boucle</span></button><input type="text" id="loopA" placeholder="de" inputmode="numeric" autocomplete="off" title="Début : tapez le numéro, ou touchez la case puis la mesure sur la partition"><span class="arr">→</span><input type="text" id="loopB" placeholder="à" inputmode="numeric" autocomplete="off" title="Fin : tapez le numéro, ou touchez la case puis la mesure sur la partition"></div>
             <div class="marks lk" id="marks"></div>
           </div>
         </div>
@@ -689,6 +703,47 @@ function fifthsDelta(dia, chr){ for(let d=-11; d<=11; d++){ if(((d*7-chr)%12+12)
    Score model
    ===================================================================== */
 /* MuseScore recopie dans chaque mesure « % » les textes de la mesure d'origine (repères, nuances…) : on retire ces doublons */
+/* mode « défilement » : la partition est déroulée dans l'ordre réellement joué (reprises, 1re/2e fois, D.S., coda),
+   pour une lecture parfaitement linéaire. Une mesure jouée plusieurs fois apparaît plusieurs fois. */
+function unrollForLine(doc,root){
+  const pe=root.querySelector("score-partwise > part"); if(!pe||!S.seq) return;
+  const ms=[...pe.querySelectorAll(":scope > measure")];
+  // attributs en vigueur au début de chaque mesure (armure, mesure, clé, divisions)
+  const state={}, snap=[], mrl=[]; let len=0;
+  ms.forEach((me,mi)=>{
+    snap[mi]={...state};
+    const at=me.querySelector(":scope > attributes");
+    if(at) ["divisions","key","time","clef","transpose"].forEach(t=>{ const e=at.querySelector(":scope > "+t); if(e) state[t]=e; });
+    const mr=me.querySelector("attributes > measure-style > measure-repeat");
+    if(mr){ if(mr.getAttribute("type")==="start") len=parseInt(mr.textContent)||1; else len=0; }
+    mrl[mi]=len;
+  });
+  const seen=new Set(), out=[];
+  S.seq.forEach((e,k)=>{
+    const c=ms[e.mi].cloneNode(true);
+    c.setAttribute("number",String(k+1)); c.removeAttribute("implicit");
+    c.querySelectorAll(":scope > print").forEach(x=>x.remove());
+    // plus de reprises ni de renvois : on joue tout droit
+    c.querySelectorAll(":scope > barline").forEach(b=>{ b.querySelectorAll("repeat,ending,segno,coda").forEach(x=>x.remove()); if(!b.querySelector("bar-style")) b.remove(); else if(b.querySelector("bar-style").textContent==="heavy-light") b.querySelector("bar-style").textContent="light-light"; });
+    c.querySelectorAll(":scope > direction").forEach(d=>{
+      if(d.querySelector("segno,coda")||d.querySelector("sound[dalsegno],sound[dacapo],sound[tocoda],sound[fine],sound[coda],sound[segno]")) { d.remove(); return; }
+      const w=[...d.querySelectorAll("words")].map(x=>x.textContent).join(" ");
+      if(/^\s*(d\.?\s?[cs]\.?|to ?coda|fine|al coda)/i.test(w)) { d.remove(); return; }
+      if(seen.has(e.mi) && d.querySelector("rehearsal,metronome")) d.remove(); });
+    c.querySelectorAll("attributes > measure-style > measure-repeat").forEach(x=>{ const st=x.parentNode; x.remove(); if(!st.children.length) st.remove(); });
+    // après un saut : on redonne armure / mesure / clé en vigueur
+    const prev=k>0?S.seq[k-1].mi:-1;
+    if(k>0 && prev!==e.mi-1){ let at=c.querySelector(":scope > attributes");
+      if(!at){ at=doc.createElement("attributes"); c.insertBefore(at,c.firstChild); }
+      ["divisions","key","time","transpose","clef"].forEach(t=>{ if(!at.querySelector(":scope > "+t) && snap[e.mi][t]) at.appendChild(snap[e.mi][t].cloneNode(true)); });
+      const ORDER=["footnote","level","divisions","key","time","staves","part-symbol","instruments","clef","staff-details","transpose","directive","measure-style"];
+      [...at.children].sort((a,b)=>ORDER.indexOf(a.tagName)-ORDER.indexOf(b.tagName)).forEach(x=>at.appendChild(x)); }
+    // signe % seulement si la (les) mesure(s) répétée(s) précède(nt) vraiment
+    const L=mrl[e.mi]; if(L){ let ok=true; for(let j=1;j<=L;j++) if(!S.seq[k-j]||S.seq[k-j].mi!==e.mi-j) ok=false; if(ok) c.setAttribute("data-rep",L); }
+    seen.add(e.mi); out.push(c);
+  });
+  ms.forEach(m=>m.remove()); out.forEach(c=>pe.appendChild(c));
+}
 function cleanRepeatCopies(doc){
   const sig=d=>{ const c=d.cloneNode(true); c.querySelectorAll("*").forEach(e=>{ ["default-x","default-y","relative-x","relative-y"].forEach(a=>e.removeAttribute(a)); }); return c.textContent.replace(/\s+/g," ").trim()+"|"+[...c.querySelectorAll("direction-type > *")].map(e=>e.tagName+":"+[...e.children].map(x=>x.tagName).join(",")).join(";"); };
   doc.querySelectorAll("score-partwise > part").forEach(pe=>{
@@ -938,6 +993,16 @@ function displayXml(model, partIndex){
         });
       });
     });
+    // les crochets de 1re / 2e fois ne sont exportés que dans la 1re partie : on les recopie dans ma partie
+    if(partIndex!==0){ const srcMs=[...partEls[0].querySelectorAll(":scope > measure")];
+      srcMs.forEach((sm,mi)=>{ const tgt=myMs[mi]; if(!tgt) return;
+        sm.querySelectorAll(":scope > barline").forEach(sb=>{ const ends=[...sb.querySelectorAll(":scope > ending")]; if(!ends.length) return;
+          const loc=sb.getAttribute("location")||"right";
+          let tb=[...tgt.querySelectorAll(":scope > barline")].find(b=>(b.getAttribute("location")||"right")===loc);
+          if(!tb){ tb=doc.createElement("barline"); tb.setAttribute("location",loc);
+            if(loc==="left"){ const after=[...tgt.children].find(c=>!["print","attributes"].includes(c.tagName)); after?after.before(tb):tgt.appendChild(tb); } else tgt.appendChild(tb); }
+          if(tb.querySelector(":scope > ending")) return;
+          ends.forEach(en=>{ const c=en.cloneNode(true); const rp=tb.querySelector(":scope > repeat"); rp?rp.before(c):tb.appendChild(c); }); }); }); }
     partEls.forEach((pe,pi)=>{ if(pi!==partIndex) pe.remove(); });
     const myId=mine.getAttribute("id");
     root.querySelectorAll("part-list > score-part").forEach(sp=>{ if(sp.getAttribute("id")!==myId) sp.remove(); });
@@ -954,12 +1019,14 @@ function displayXml(model, partIndex){
   // keep credits / layout hints out of OSMD's way
   root.querySelectorAll("credit").forEach(c=>c.remove());
   root.querySelectorAll("direction").forEach(d=>{ const w=[...d.querySelectorAll("words")].map(x=>x.textContent).join(" "); if(w.length>60) d.remove(); });
+  if(isLine()) unrollForLine(doc,root);
   // mesures « % » : MuseScore exporte les notes recopiées ; on les remplace par le signe de répétition, comme sur la partie imprimée
   S.repMeas={};
   { let len=0; [...root.querySelectorAll("score-partwise > part > measure")].forEach((me,mi)=>{
       const mr=me.querySelector("attributes > measure-style > measure-repeat");
       if(mr){ if(mr.getAttribute("type")==="start") len=parseInt(mr.textContent)||1; else if(mr.getAttribute("type")==="stop") len=0;
         const ms=mr.parentNode; mr.remove(); if(!ms.children.length){ const at=ms.parentNode; ms.remove(); if(at&&!at.children.length) at.remove(); } }
+      if(me.hasAttribute("data-rep")){ len=parseInt(me.getAttribute("data-rep"))||0; me.removeAttribute("data-rep"); }
       if(!len) return;
       let t=0,mx=0; for(const c of me.children){ const d=c.querySelector(":scope > duration"); const dv=d?parseFloat(d.textContent):0;
         if(c.tagName==="note"){ if(!c.querySelector("chord")&&!c.querySelector("grace")) t+=dv; } else if(c.tagName==="backup") t-=dv; else if(c.tagName==="forward") t+=dv; mx=Math.max(mx,t); }
@@ -1234,7 +1301,8 @@ async function openBuffer(buf, name, title){
 }
 function songId(buf){ const b=new Uint8Array(buf); let h=2166136261; const st=Math.max(1,Math.floor(b.length/4096)); for(let i=0;i<b.length;i+=st){ h^=b[i]; h=Math.imul(h,16777619)>>>0; } return b.length.toString(36)+"-"+h.toString(36); }
 function buildSequence(){
-  let t=0; S.seq=S.order.map((mi,k)=>{ const M=S.model.meas[mi]; const dur=M.len*60/M.tempo; const e={k,mi,t,dur,M}; t+=dur; return e; });
+  let t=0; const cnt={}; S.seq=S.order.map((mi,k)=>{ const M=S.model.meas[mi]; const dur=M.len*60/M.tempo; cnt[mi]=(cnt[mi]||0)+1; const e={k,mi,t,dur,M,pass:cnt[mi]}; t+=dur; return e; });
+  S.seq.forEach(e=>{ e.passes=cnt[e.mi]; });
   S.total=t;
   S.evByMeasure=new Map();
   S.model.parts.forEach((P,pi)=>{ for(const e of P.events){ if(!S.evByMeasure.has(e.m)) S.evByMeasure.set(e.m,[]); S.evByMeasure.get(e.m).push({...e,p:pi}); } });
@@ -1261,7 +1329,7 @@ function setupParts(){
   const seen=new Set();
   S.seq.forEach(e=>{ for(const t of e.M.marks){ const key=t+"@"+e.mi; if(seen.has(key)) continue; seen.add(key);
     const b=document.createElement("button"); b.textContent=t; b.onclick=()=>seekSeq(e.k); mk.appendChild(b); } });
-  $("loopA").value=""; $("loopB").value=""; S.loop=null; $("loopBtn").classList.remove("on"); updateLoopZone();
+  $("loopA").value=""; $("loopB").value=""; S.loop=null; S.loopDraft=null; endPick(); $("loopBtn").classList.remove("on"); updateLoopZone();
 }
 /* barre de volume : le nom de la piste est dans la barre, on glisse pour régler */
 function bindBar(bar,get,set){
@@ -1321,6 +1389,7 @@ async function renderScore(){
   osmd.Sheet.Instruments.forEach(ins=>{ ins.Visible=true; });   // la partition affichée ne contient plus que ma partie
   const idem=$("layoutSel").value==="idem";
   try{ const R=osmd.EngravingRules; R.TitleBottomDistance=3.5; R.VoltaOffset=3;
+    if(line){ R.SheetMaximumWidth=Math.max(32767,S.seq.length*900); R.RenderMeasureNumbers=false; }
     R.NewSystemAtXMLNewSystemAttribute=idem; R.AutoGenerateMultipleRestMeasuresFromRestMeasures=false; }catch(e){}
   const uz=($("zoom").value/100);
   if(idem){
@@ -1344,6 +1413,7 @@ async function renderScore(){
     try{
       const ws=[]; osmd.GraphicSheet.MeasureList.forEach(row=>{ const g=(row||[]).find(x=>x&&x.ParentMusicSystem); if(g){ const ps=g.PositionAndShape; ws.push(ps.BorderRight-ps.BorderLeft-(g.beginInstructionsWidth||0)); } });
       ws.sort((a,b)=>a-b); const w=Math.max(14,ws[Math.floor(ws.length*0.9)]||20);
+      osmd.EngravingRules.SheetMaximumWidth=Math.min(osmd.EngravingRules.SheetMaximumWidth,(ws.length*(w+2)+60)*10*osmd.zoom);
       osmd.EngravingRules.FixedMeasureWidth=true; osmd.EngravingRules.FixedMeasureWidthFixedValue=w; osmd.EngravingRules.FixedMeasureWidthUseForPickupMeasures=true;
       osmd.render();
     }catch(e){ console.warn("fixed width",e); }
@@ -1367,9 +1437,13 @@ async function renderScore(){
   }catch(e){ console.warn("cursor",e); }
   decorateSvg(host);
   buildGeometry();
+  // défilement : numéro de chaque mesure, et passage (1re / 2e fois) en bleu pour les reprises
+  if(line && S.geo) S.geo.meas.forEach((m,k)=>{ const e=S.seq[k]; if(!m||!e) return;
+    const d=document.createElement("div"); d.className="mnum"+(e.passes>1?" rep":"");
+    d.textContent=e.M.number+(e.passes>1?" · "+passLabel(e):""); d.style.left=(m.x+S.pad+4)+"px"; d.style.top=(m.y+24-2.2*m.u-14)+"px"; host.appendChild(d); });
   // signe « % » des mesures répétées
   if(S.geo&&S.repMeas) Object.entries(S.repMeas).forEach(([mi,len])=>{ const m=S.geo.meas[+mi]; if(!m||m.mr) return;
-    const u=m.u, cx=(m.xs+m.x2)/2+6, cy=m.y+2*u, w=3.2*u, h=4*u;
+    const u=m.u, cx=(m.xs+m.x2)/2+6+(line?S.pad:0), cy=m.y+2*u+(line?24:0), w=3.2*u, h=4*u;
     const d=document.createElement("div"); d.className="mrep"; d.style.cssText=`position:absolute;left:${cx-w/2}px;top:${cy-h/2}px;width:${w}px;height:${h}px;pointer-events:none`;
     d.innerHTML=`<svg viewBox="0 0 32 40" width="${w}" height="${h}"><line x1="6" y1="34" x2="26" y2="6" stroke="#000" stroke-width="5" stroke-linecap="round"/><circle cx="7" cy="12" r="3.6"/><circle cx="25" cy="28" r="3.6"/>${len>1?'<text x="16" y="-4" font-size="14" font-weight="bold" text-anchor="middle">'+len+'</text>':''}</svg>`;
     host.appendChild(d); });
@@ -1416,7 +1490,7 @@ function applyCurStyle(){
   lastCur=""; if(S.model) updateCursor(true);
 }
 function beatPx(mi){
-  const G=S.geo, m=G&&G.meas[mi], M=S.model.meas[mi]; if(!m||!M) return 24;
+  const G=S.geo, m=G&&G.meas[mi], M=dmeas(mi); if(!m||!M) return 24;
   const n=m.mr?m.mr.n:1;
   return Math.max(40,Math.min(135,1.125*(m.x2-m.xs)/n*(4/M.beatType)/M.len));   // un peu plus d'une pulsation
 }
@@ -1454,9 +1528,11 @@ function buildGeometry(){
   if(isLine()) $("playhead").style.left=($("scoreWrap").offsetLeft+S.pad)+"px";
 }
 function isLine(){ return $("layoutSel").value==="line"; }
+function dmeas(i){ return isLine()?(S.seq[i]&&S.seq[i].M):S.model.meas[i]; }   // mesure du modèle pour une mesure affichée
+function dIdx(k){ return isLine()?k:S.seq[k].mi; }
 function xAt(mi,off){
   const G=S.geo; if(!G) return 0; const m=G.meas[mi];
-  if(m){ const len=S.model.meas[mi]?S.model.meas[mi].len:4; const a=m.xs+6, b=m.x2+6; let f=Math.max(0,Math.min(1,off/len)); if(m.mr) f=(m.mr.j+f)/m.mr.n; return a+(b-a)*f; }
+  if(m){ const len=dmeas(mi)?dmeas(mi).len:4; const a=m.xs+6, b=m.x2+6; let f=Math.max(0,Math.min(1,off/len)); if(m.mr) f=(m.mr.j+f)/m.mr.n; return a+(b-a)*f; }
   const pts=G.mx[mi]||[];
   const len=S.model.meas[mi]?S.model.meas[mi].len:4;
   if(!pts.length) return m?m.x+(m.x2-m.x)*Math.min(1,off/len):0;
@@ -1531,10 +1607,8 @@ function updateLineView(mi,off){
 let curSeq=0, curOff=0;
 function seqAtTime(sec){ let lo=0,hi=S.seq.length-1; while(lo<hi){ const m=(lo+hi+1)>>1; if(S.seq[m].t<=sec) lo=m; else hi=m-1; } return lo; }
 function loopRange(){
-  if(!S.loop) return null;
-  const a=S.seq.findIndex(e=>parseInt(e.M.number)>=S.loop[0]);
-  if(a<0) return null;
-  let b=a; for(let i=a;i<S.seq.length;i++){ if(parseInt(S.seq[i].M.number)<=S.loop[1] && parseInt(S.seq[i].M.number)>=S.loop[0]) b=i; else if(i>a) break; }
+  if(!S.loop||!S.seq||!S.seq.length) return null;
+  const a=Math.max(0,Math.min(S.seq.length-1,S.loop.a)), b=Math.max(a,Math.min(S.seq.length-1,S.loop.b));
   return [a,b];
 }
 async function play(noCount){
@@ -1672,8 +1746,8 @@ function updateCursor(force,k,off){
   if(k===undefined){ k=curSeq; off=curOff; }
   const e=S.seq[k]; if(!e) return;
   const large=$("curSel").value==="large";
-  if(isLine()){ updateLineView(e.mi,off);
-    const ph=$("playhead"); if(large){ const w=beatPx(e.mi); ph.style.width=w+"px"; ph.style.marginLeft=(-w/2)+"px"; } else { ph.style.width=""; ph.style.marginLeft=""; }
+  if(isLine()){ updateLineView(k,off);
+    const ph=$("playhead"); if(large){ const w=beatPx(k); ph.style.width=w+"px"; ph.style.marginLeft=(-w/2)+"px"; } else { ph.style.width=""; ph.style.marginLeft=""; }
     return; }
   const G=S.geo, m=G&&G.meas[e.mi], pc=$("pcur");
   if(m && pc){ const sy=G.sys[m.sys]; const x=xAt(e.mi,off)-6;
@@ -1692,7 +1766,9 @@ function updateUI(k,off){
   const pct=S.total?sec/S.total*100:0;
   $("fill").style.width=pct+"%"; $("head").style.left="calc("+pct+"% - 1px)";
   const beat=Math.floor(off*(e.M.beatType/4))+1;
-  const txt="Mes. "+e.M.number+" · temps "+beat; if(S._posTxt!==txt){ S._posTxt=txt; $("pos").textContent=txt; }
+  const pl=e.passes>1?passLabel(e):"";
+  const txt="Mes. "+e.M.number+(pl?"|"+pl:"")+" · temps "+beat;
+  if(S._posTxt!==txt){ S._posTxt=txt; $("pos").innerHTML="Mes. "+e.M.number+(pl?' <span class="pass">'+pl+'</span>':"")+" · temps "+beat; }
 }
 function seekSeq(k, off=0){
   const was=S.playing; if(was) stopAudio();
@@ -1716,23 +1792,40 @@ function gotoMeasure(txt){
   if(!mis.length){ const v=parseInt(n,10); if(!isNaN(v)) mis=S.model.meas.map((m,i)=>parseInt(m.number,10)===v?i:-1).filter(i=>i>=0); }
   const occ=S.seq.filter(x=>mis.includes(x.mi));
   if(!occ.length){ toast("Mesure "+n+" introuvable",1600); return; }
-  const ref=S.playing&&currentPos()?currentPos().k:curSeq;
-  const k=occ.reduce((a,b)=>Math.abs(b.k-ref)<Math.abs(a.k-ref)?b:a).k;
-  const lr=loopRange(); if(lr && (k<lr[0]||k>lr[1])) setLoop(null);
-  seekSeq(k,0);
-  toast("Mesure "+n+(S.playing?"":" – appuie sur ▶"),1400);
+  if(occ.length>1){ const r=$("gotoForm").getBoundingClientRect(); choosePass(occ,r.left+r.width/2,r.top); return; }
+  jumpTo(occ[0].k);
 }
 $("gotoForm").addEventListener("submit",e=>{ e.preventDefault(); const i=$("gotoIn"); gotoMeasure(i.value); i.value=""; i.blur(); });
+function passLabel(e){ return e.pass===1?"1re fois":e.pass===e.passes?"dernière fois":e.pass+"e fois"; }
+function jumpTo(k){
+  const lr=loopRange(); if(lr && (k<lr[0]||k>lr[1])) setLoop(null);
+  seekSeq(k,0); closePass();
+  const e=S.seq[k]; toast("Mesure "+e.M.number+(e.passes>1?" · "+passLabel(e):"")+(S.playing?"":" – appuie sur ▶"),1500);
+}
+/* mesure jouée plusieurs fois (reprise) : on choisit le passage */
+function choosePass(occ,x,y,act){
+  act=act||jumpTo;
+  closePass();
+  const d=document.createElement("div"); d.id="passPick";
+  d.innerHTML=`<div class="pp-t">Mesure ${occ[0].M.number} : quel passage ?</div><div class="pp-b"></div>`;
+  occ.forEach(e=>{ const b=document.createElement("button"); b.textContent=passLabel(e); b.onclick=ev=>{ ev.stopPropagation(); closePass(); act(e.k); }; d.querySelector(".pp-b").appendChild(b); });
+  document.body.appendChild(d);
+  const w=d.offsetWidth, h=d.offsetHeight;
+  d.style.left=Math.max(8,Math.min(window.innerWidth-w-8,x-w/2))+"px"; d.style.top=Math.max(8,Math.min(window.innerHeight-h-8,y-h-14))+"px";
+  clearTimeout(S.ppT); S.ppT=setTimeout(closePass,8000);
+  setTimeout(()=>document.addEventListener("pointerdown",closePassOut,true),0);
+}
+function closePassOut(ev){ const d=$("passPick"); if(d&&!d.contains(ev.target)) closePass(); }
+function closePass(){ const d=$("passPick"); if(d) d.remove(); document.removeEventListener("pointerdown",closePassOut,true); }
 function onScoreClick(e){
   if(!S.model||S.dragged) return;
   if(SY.role==="f"){ lockedToast(); return; }
   const mi=measureAtPoint(e.clientX,e.clientY); if(mi<0) return;
+  const act=S.pick?pickK:jumpTo;
+  if(isLine()){ act(mi); return; }            // en défilement, chaque passage est une mesure distincte
   const occ=S.seq.filter(x=>x.mi===mi); if(!occ.length) return;
-  const ref=S.playing&&currentPos()?currentPos().k:curSeq;
-  const k=occ.reduce((a,b)=>Math.abs(b.k-ref)<Math.abs(a.k-ref)?b:a).k;
-  const lr=loopRange(); if(lr && (k<lr[0]||k>lr[1])) setLoop(null);
-  seekSeq(k,0);
-  toast("Mesure "+S.model.meas[mi].number+(S.playing?"":" – appuie sur ▶"),1400);
+  if(occ.length>1){ choosePass(occ,e.clientX,e.clientY,act); return; }
+  act(occ[0].k);
 }
 function drawBar(){
   const bar=$("bar"); bar.querySelectorAll(".tick,.mark").forEach(x=>x.remove());
@@ -1751,13 +1844,50 @@ function updateLoopZone(){
   const a=S.seq[lr[0]], b=S.seq[lr[1]];
   z.style.display="block"; z.style.left=(a.t/S.total*100)+"%"; z.style.width=((b.t+b.dur-a.t)/S.total*100)+"%";
 }
-function setLoop(a,b){
-  if(!a||!b){ S.loop=null; $("loopBtn").classList.remove("on"); updateLoopZone(); if(SY.role==="m") syncLoopChanged(); return; }
+const SUP="⁰¹²³⁴⁵⁶⁷⁸⁹";
+function fmtK(k){ const e=S.seq[k]; if(!e) return ""; return e.M.number+(e.passes>1?String(e.pass).split("").map(d=>SUP[+d]).join(""):""); }
+function kLabel(k){ const e=S.seq[k]; return e?e.M.number+(e.passes>1?" ("+passLabel(e)+")":""):""; }
+/* boucle définie par deux positions de la séquence jouée : le passage (1re / dernière fois) est donc précis */
+function setLoop(a,b){ if(a==null||b==null){ setLoopK(null); return; } setLoopK(a,b); }
+function setLoopK(a,b){
+  if(a==null||b==null){ S.loop=null; $("loopBtn").classList.remove("on"); updateLoopZone(); if(SY.role==="m") syncLoopChanged(); return; }
   if(b<a) [a,b]=[b,a];
-  S.loop=[a,b]; $("loopA").value=a; $("loopB").value=b;
-  $("loopBtn").classList.add("on"); updateLoopZone();
+  S.loop={a,b}; S.loopDraft=null; $("loopA").value=fmtK(a); $("loopB").value=fmtK(b);
+  $("loopBtn").classList.add("on"); updateLoopZone(); endPick();
   const lr=loopRange(); if(lr && !S.playing && SY.role!=="f"){ curSeq=lr[0]; curOff=0; updateUI(curSeq,0); updateCursor(true); }
   if(SY.role==="m") syncLoopChanged();
+}
+/* « 48 », « 48² », « 48.2 » ou « 48/2 » (2e passage) -> positions possibles dans la séquence */
+function parseMeasureInput(v){
+  v=String(v||"").trim(); if(!v) return null;
+  let pass=null; const sup=v.match(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+$/); if(sup){ pass=parseInt(sup[0].split("").map(c=>SUP.indexOf(c)).join("")); v=v.slice(0,-sup[0].length); }
+  const m=v.match(/^(\d+[a-zA-Z]?)(?:\s*[.\/·,]\s*(\d+))?$/); if(!m) return null;
+  if(m[2]) pass=parseInt(m[2]);
+  let occ=S.seq.filter(e=>String(e.M.number)===m[1]);
+  if(!occ.length) occ=S.seq.filter(e=>parseInt(e.M.number)===parseInt(m[1]));
+  if(pass) occ=occ.filter(e=>e.pass===pass);
+  return occ;
+}
+/* choisir les bornes en touchant la case puis la mesure sur la partition */
+function startPick(which){
+  if(SY.role==="f"||!S.model) return;
+  S.pick=which; document.body.classList.add("picking");
+  $("loopA").classList.toggle("picking",which==="a"); $("loopB").classList.toggle("picking",which==="b");
+  let h=$("pickHint"); if(!h){ h=document.createElement("div"); h.id="pickHint"; $("scoreBox").appendChild(h); }
+  h.textContent=which==="a"?"Touchez la mesure de DÉBUT de la boucle":"Touchez la mesure de FIN de la boucle";
+}
+function endPick(){ S.pick=null; document.body.classList.remove("picking"); $("loopA").classList.remove("picking"); $("loopB").classList.remove("picking"); const h=$("pickHint"); if(h) h.remove(); }
+function pickK(k){
+  if(S.pick==="a"){ S.loopDraft={a:k}; $("loopA").value=fmtK(k); if(S.loop) setLoopK(null); startPick("b"); }
+  else if(S.pick==="b"){ const a=S.loopDraft&&S.loopDraft.a!=null?S.loopDraft.a:(S.loop?S.loop.a:resolveLoopInput("loopA")); 
+    if(a==null){ $("loopB").value=fmtK(k); S.loopDraft={b:k}; startPick("a"); return; }
+    setLoopK(a,k); toast("Boucle "+kLabel(Math.min(a,k))+" → "+kLabel(Math.max(a,k)),2200); }
+}
+function resolveLoopInput(id,after){
+  const occ=parseMeasureInput($(id).value); if(!occ||!occ.length) return null;
+  if(occ.length===1) return occ[0].k;
+  if(after!=null){ const n=occ.find(e=>e.k>=after); if(n) return n.k; }
+  return occ[0].k;
 }
 
 /* =====================================================================
@@ -1844,15 +1974,30 @@ $("curOff").oninput=()=>{ store("banda.curoff",$("curOff").value); curOffUI(); }
 $("minusOne").onclick=()=>{ const on=!S.parts[S.myPart].mute; S.parts.forEach((p,i)=>{ p.solo=false; p.mute=(i===S.myPart)?on:!!S.model.parts[i].hidden; }); drawMixer(); applyGains(); };
 $("soloMine").onclick=()=>{ const on=!(S.parts[S.myPart].solo && S.parts.filter(p=>p.solo).length===1); S.parts.forEach((p,i)=>{ p.mute=false; p.solo=on&&i===S.myPart; }); drawMixer(); applyGains(); };
 $("allOn").onclick=()=>{ S.parts.forEach((p,i)=>{ p.mute=!!S.model.parts[i].hidden; p.solo=false; }); drawMixer(); applyGains(); };
-$("loopBtn").onclick=()=>{ if(S.loop){ setLoop(null); return; } const a=parseInt($("loopA").value), b=parseInt($("loopB").value);
-  if(!a||!b){ const p=currentPos()||{k:curSeq}; const n=parseInt(S.seq[p.k].M.number); setLoop(n,n+3); toast("Boucle mesures "+n+" à "+(n+3)); } else setLoop(a,b); };
+$("loopBtn").onclick=()=>{ endPick(); if(S.loop){ setLoopK(null); return; }
+  const a=resolveLoopInput("loopA"), b=a!=null?resolveLoopInput("loopB",a):null;
+  if(a==null||b==null){ const p=currentPos()||{k:curSeq}; const k=p.k, k2=Math.min(S.seq.length-1,k+3); setLoopK(k,k2); toast("Boucle "+kLabel(k)+" → "+kLabel(k2)); } else setLoopK(a,b); };
+["loopA","loopB"].forEach(id=>{ const el=$(id), w=id==="loopA"?"a":"b";
+  el.addEventListener("pointerdown",()=>startPick(w));
+  el.addEventListener("focus",()=>startPick(w));
+  el.addEventListener("keydown",ev=>{
+    if(ev.key==="Escape"){ endPick(); el.blur(); return; }
+    if(ev.key!=="Enter") return; ev.preventDefault();
+    const occ=parseMeasureInput(el.value); if(!occ||!occ.length){ toast("Mesure introuvable",1500); return; }
+    if(w==="a"){ if(occ.length>1){ const r=el.getBoundingClientRect(); choosePass(occ,r.left+r.width/2,r.top,pickK); return; } pickK(occ[0].k); $("loopB").focus(); }
+    else { const a=S.loopDraft&&S.loopDraft.a!=null?S.loopDraft.a:resolveLoopInput("loopA"); let k;
+      if(occ.length>1&&a==null){ const r=el.getBoundingClientRect(); choosePass(occ,r.left+r.width/2,r.top,pickK); return; }
+      k=(occ.find(e=>a!=null&&e.k>=a)||occ[0]).k; pickK(k); el.blur(); } });
+});
+// fin du choix : touche Échap, ou un clic ailleurs que sur la partition / les cases
+document.addEventListener("pointerdown",ev=>{ if(!S.pick) return; if(ev.target.closest("#scoreWrap,.loopctl,#passPick")) return; endPick(); },true);
 // progress bar : tap = seek, drag = loop selection
 (function(){
   const bar=$("bar"); let down=null, moved=false;
   bar.addEventListener("pointerdown",e=>{ if(!S.model) return; down=barSeq(e.clientX); moved=false; bar.setPointerCapture(e.pointerId); });
-  bar.addEventListener("pointermove",e=>{ if(down===null) return; const k=barSeq(e.clientX); if(Math.abs(k-down)>=1){ moved=true; const a=parseInt(S.seq[Math.min(k,down)].M.number), b=parseInt(S.seq[Math.max(k,down)].M.number); S.loop=[a,b]; updateLoopZone(); } });
+  bar.addEventListener("pointermove",e=>{ if(down===null) return; const k=barSeq(e.clientX); if(Math.abs(k-down)>=1){ moved=true; S.loop={a:Math.min(k,down),b:Math.max(k,down)}; updateLoopZone(); } });
   bar.addEventListener("pointerup",e=>{ if(down===null) return; const k=barSeq(e.clientX);
-    if(moved){ const a=parseInt(S.seq[Math.min(k,down)].M.number), b=parseInt(S.seq[Math.max(k,down)].M.number); setLoop(a,b); toast("Boucle mesures "+a+" à "+b); }
+    if(moved){ const a=Math.min(k,down), b=Math.max(k,down); setLoopK(a,b); toast("Boucle "+kLabel(a)+" → "+kLabel(b)); }
     else seekSeq(k); down=null; });
 })();
 /* raccourcis clavier : espace lecture/pause · ←/→ mesure précédente/suivante · Début retour au début · +/- tempo · B boucle · R réglages */
@@ -2053,7 +2198,7 @@ function applyState(st){
   if(Math.abs(S.speed-st.speed)>1e-6){ if(S.playing) stopAudio(); S.speed=st.speed; $("speed").value=Math.round(st.speed*100); $("speedLbl").textContent=Math.round(st.speed*100)+" %"; $("tempoLbl").textContent=Math.round(st.speed*100)+" %"; }
   $("countIn").checked=!!st.countIn; $("clickOn").checked=!!st.click;
   const lk=JSON.stringify(S.loop||null), nk=JSON.stringify(st.loop||null);
-  if(lk!==nk){ if(st.loop) setLoop(st.loop[0],st.loop[1]); else setLoop(null); }
+  if(lk!==nk){ if(st.loop) setLoopK(st.loop.a,st.loop.b); else setLoopK(null); }
   if(st.mix&&st.mix.length===S.parts.length){ let ch=false; st.mix.forEach((m,i)=>{ const p=S.parts[i]; const mu=!!m[0],so=!!m[1],vo=m[2]/100; if(p.mute!==mu||p.solo!==so||Math.abs(p.vol-vo)>0.005){ p.mute=mu;p.solo=so;p.vol=vo;ch=true; } }); if(ch){ drawMixer(); applyGains(); } }
   // position
   if(!st.playing){
