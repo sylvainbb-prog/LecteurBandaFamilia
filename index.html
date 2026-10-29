@@ -15,7 +15,7 @@
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "2.3";
+window.BANDA_VERSION = "2.4";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -289,6 +289,44 @@ dialog input[type=text]{width:100%}
   .posbox{flex:0 0 auto}
   .transport{padding-top:6px}
 }
+.lp,.lpnote{display:none}
+@media (pointer: coarse){ .kbd{display:none} }
+/* ===== téléphone en paysage : la partition d'abord ===== */
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse){
+  body.inplayer header.top{display:none}
+  .app{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+  #scoreBox{margin:4px 4px 0}
+  .transport{padding:4px 6px calc(4px + env(safe-area-inset-bottom))}
+  .bar{height:12px;border-radius:6px}
+  .controls{margin-top:4px;gap:6px}
+  .lp{display:inline-flex}
+  .lpsp{flex:1}
+  button.ic.lp{width:38px;height:38px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;flex-shrink:0}
+  button.ic.lp svg{width:19px;height:19px}
+  .play{width:42px;height:42px} .play svg{width:20px;height:20px}
+  #stopBtn{width:36px;height:36px}
+  .pos{font-size:13px} .snd{display:none}
+  .tempo span{min-width:44px;font-size:12px}
+  .marks button{min-height:32px;padding:2px 10px}
+  /* réglages : tiroir à droite, toute la hauteur */
+  .side{left:auto;top:0;right:0;bottom:0;width:min(380px,58vw);max-height:none;border-radius:20px 0 0 20px;border-top:none;border-left:1px solid var(--line);
+    transform:translateX(105%);padding:10px 10px calc(10px + env(safe-area-inset-bottom)) 10px;padding-right:calc(10px + env(safe-area-inset-right))}
+  .side .grab{display:none}
+  .lpnote{display:block;margin:0 0 6px}
+  #layoutSeg{display:none}
+  .card{padding:10px;margin-bottom:8px}
+  /* bibliothèque */
+  .hero{flex-direction:row;text-align:left;margin-top:10px;gap:18px}
+  .halo img{width:110px}
+  .hero h2{font-size:30px}
+  .songs{grid-template-columns:repeat(2,1fr)}
+  /* dialogues */
+  dialog{padding:12px 16px;max-height:94dvh;width:min(720px,92vw)}
+  .dtitle{font-size:22px;margin-bottom:4px}
+  .dsec{margin:10px 0 6px}
+  .themes{grid-template-columns:repeat(4,1fr)} .th .sw{height:40px}
+  #toast{bottom:70px}
+}
 @media (max-width: 400px){ .tempo span{min-width:40px} .goto{display:none} }
 /* ===================== caractère de chaque thème ===================== */
 /* 1 néon club */
@@ -415,6 +453,7 @@ body[data-theme=fete] .play{box-shadow:0 8px 20px #e0218a55}
           <div class="seg seg3" id="layoutSeg">
             <button data-v="page">Page</button><button data-v="idem">Comme imprimé</button><button data-v="line">Défilement</button>
           </div>
+          <div class="lpnote small muted">Téléphone en paysage : lecture en défilement (une ligne continue).</div>
           <select id="layoutSel" hidden><option value="page">Page</option><option value="idem">Idem partition imprimée</option><option value="line">Une ligne qui défile</option></select>
           <select id="curSel" hidden><option value="large">Large</option></select>
           <label class="sl"><span>Taille</span><input type="range" id="zoom" min="50" max="160" value="100"></label>
@@ -442,6 +481,7 @@ body[data-theme=fete] .play{box-shadow:0 8px 20px #e0218a55}
         <div class="transport">
           <div class="bar lk" id="bar"><div class="fill" id="fill"></div><div class="loopz" id="loopz"></div><div class="head" id="head"></div></div>
           <div class="controls">
+            <button id="lpBack" class="ic lp" title="Liste des morceaux"><svg><use href="#i-back"/></svg></button>
             <div class="tmain">
               <button id="stopBtn" class="ic lk" title="Retour au début"><svg><use href="#i-stop"/></svg></button>
               <button class="play lk" id="playBtn" title="Lecture / pause (espace)"><svg><use href="#i-play"/></svg></button>
@@ -451,6 +491,10 @@ body[data-theme=fete] .play{box-shadow:0 8px 20px #e0218a55}
             <form class="goto lk" id="gotoForm" title="Aller directement à une mesure"><label for="gotoIn">Mes.</label><input id="gotoIn" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="n°" autocomplete="off"><button type="submit" class="ic sm2" aria-label="Aller"><svg><use href="#i-chev"/></svg></button></form>
             <div class="loopctl lk" title="Boucle : choisir les mesures (ou glisser le doigt sur la barre de progression)"><button id="loopBtn"><svg class="sm"><use href="#i-loop"/></svg><span>Boucle</span></button><input type="text" id="loopA" placeholder="de" inputmode="numeric" autocomplete="off" title="Début : tapez le numéro, ou touchez la case puis la mesure sur la partition"><span class="arr">→</span><input type="text" id="loopB" placeholder="à" inputmode="numeric" autocomplete="off" title="Fin : tapez le numéro, ou touchez la case puis la mesure sur la partition"></div>
             <div class="marks lk" id="marks"></div>
+            <span class="lp lpsp"></span>
+            <button id="lpSess" class="ic lp" title="Séance"><svg><use href="#i-cast"/></svg></button>
+            <button id="lpSide" class="ic lp" title="Réglages"><svg><use href="#i-sliders"/></svg></button>
+            <button id="lpSet" class="ic lp" title="Paramètres"><svg><use href="#i-gear"/></svg></button>
           </div>
         </div>
       </div>
@@ -515,8 +559,8 @@ body[data-theme=fete] .play{box-shadow:0 8px 20px #e0218a55}
     <div class="seg" id="sfqSeg"><button type="button" data-v="hd">Haute qualité</button><button type="button" data-v="light">Léger (4G, vieux téléphones)</button></div>
     <div class="dsec">Performances</div>
     <label class="chk"><input type="checkbox" id="lightMode"><span>Affichage allégé (appareil lent : animation moins fréquente, sans flou)</span></label>
-    <div class="dsec">Raccourcis clavier</div>
-    <p class="small muted" style="margin:0">Espace : lecture / pause · ← → : mesure précédente / suivante · Début : retour au début · + / − : tempo · B : boucle · R : réglages</p>
+    <div class="dsec kbd">Raccourcis clavier</div>
+    <p class="small muted kbd" style="margin:0">Espace : lecture / pause · ← → : mesure précédente / suivante · Début : retour au début · + / − : tempo · B : boucle · R : réglages</p>
     <div class="dsec">Bibliothèque Google Drive <span class="muted small">(facultatif)</span></div>
     <p class="small muted">Inutile si l'application est hébergée avec ses morceaux. Sinon : dossier Google Drive partagé « Tous les utilisateurs disposant du lien », avec un sous-dossier par morceau contenant l'export MusicXML (.mxl).</p>
     <label class="fl">Clé API Google</label>
@@ -1038,7 +1082,7 @@ function displayXml(model, partIndex){
     }); }
   // mise en page « idem partition imprimée » : mêmes fins de ligne et mêmes silences multiples que la partie imprimée
   const idemSys=[];
-  if($("layoutSel").value==="idem"){
+  if(layoutMode()==="idem"){
     const L=S.layout&&S.layout.parts&&S.layout.parts[String(partIndex)];
     const myMs=[...root.querySelectorAll("score-partwise > part > measure")];
     let br=L?L.breaks:myMs.map((m,i)=>{ const p=m.querySelector(":scope > print"); return (i>0&&p&&(p.getAttribute("new-system")==="yes"||p.getAttribute("new-page")==="yes"))?i:-1; }).filter(i=>i>0);
@@ -1387,7 +1431,7 @@ async function renderScore(){
   const xml=displayXml(S.model,S.myPart);
   try{ await osmd.load(xml); }catch(e){ console.error(e); host.innerHTML="<p style='padding:20px;color:#333'>Cette partition n'a pas pu être affichée.</p>"; return; }
   osmd.Sheet.Instruments.forEach(ins=>{ ins.Visible=true; });   // la partition affichée ne contient plus que ma partie
-  const idem=$("layoutSel").value==="idem";
+  const idem=layoutMode()==="idem";
   try{ const R=osmd.EngravingRules; R.TitleBottomDistance=3.5; R.VoltaOffset=3;
     if(line){ R.SheetMaximumWidth=Math.max(32767,S.seq.length*900); R.RenderMeasureNumbers=false; }
     R.NewSystemAtXMLNewSystemAttribute=idem; R.AutoGenerateMultipleRestMeasuresFromRestMeasures=false; }catch(e){}
@@ -1405,7 +1449,7 @@ async function renderScore(){
     if(S.idemInfo&&!S.idemInfo.fromPart) toast("Ce fichier ne contient pas la mise en page de la partie séparée : lignes du conducteur utilisées",4000);
   } else {
     host.style.width="";
-    osmd.zoom=uz*(window.innerWidth<700?0.75:1)*(line?(window.innerHeight<500?1:1.35):1);
+    osmd.zoom=uz*(window.innerWidth<700?0.75:1)*(line?(window.innerHeight<500?1.2:1.35):1);
     try{ osmd.render(); }catch(e){ console.error(e); }
   }
   if(line){
@@ -1440,7 +1484,8 @@ async function renderScore(){
   // défilement : numéro de chaque mesure, et passage (1re / 2e fois) en bleu pour les reprises
   if(line && S.geo) S.geo.meas.forEach((m,k)=>{ const e=S.seq[k]; if(!m||!e) return;
     const d=document.createElement("div"); d.className="mnum"+(e.passes>1?" rep":"");
-    d.textContent=e.M.number+(e.passes>1?" · "+passLabel(e):""); d.style.left=(m.x+S.pad+4)+"px"; d.style.top=(m.y+24-2.2*m.u-14)+"px"; host.appendChild(d); });
+    const pv=S.seq[k-1], start=!pv||pv.mi!==e.mi-1||pv.pass!==e.pass||pv.passes<2;   // le passage est écrit au début de chaque passage
+    d.textContent=e.M.number+(e.passes>1&&start?" · "+passLabel(e):""); d.style.left=(m.x+S.pad+4)+"px"; d.style.top=(m.y+24-2.2*m.u-14)+"px"; host.appendChild(d); });
   // signe « % » des mesures répétées
   if(S.geo&&S.repMeas) Object.entries(S.repMeas).forEach(([mi,len])=>{ const m=S.geo.meas[+mi]; if(!m||m.mr) return;
     const u=m.u, cx=(m.xs+m.x2)/2+6+(line?S.pad:0), cy=m.y+2*u+(line?24:0), w=3.2*u, h=4*u;
@@ -1527,7 +1572,10 @@ function buildGeometry(){
   $("playhead").style.display=isLine()?"block":"none";
   if(isLine()) $("playhead").style.left=($("scoreWrap").offsetLeft+S.pad)+"px";
 }
-function isLine(){ return $("layoutSel").value==="line"; }
+/* téléphone en paysage : on lit toujours en défilement (ligne continue) */
+function phoneLandscape(){ return window.matchMedia("(orientation: landscape) and (max-height: 500px) and (pointer: coarse)").matches; }
+function layoutMode(){ return phoneLandscape()?"line":$("layoutSel").value; }
+function isLine(){ return layoutMode()==="line"; }
 function dmeas(i){ return isLine()?(S.seq[i]&&S.seq[i].M):S.model.meas[i]; }   // mesure du modèle pour une mesure affichée
 function dIdx(k){ return isLine()?k:S.seq[k].mi; }
 function xAt(mi,off){
@@ -1918,7 +1966,13 @@ document.querySelectorAll("#themes .th").forEach(b=>b.onclick=()=>setTheme(b.dat
 setTheme(store("banda.theme")||"neon");
 $("playBtn").onclick=()=>{ S.playing?pause():play(); };
 $("stopBtn").onclick=stop;
-function narrow(){ return window.matchMedia("(max-width: 820px)").matches; }
+function narrow(){ return window.matchMedia("(max-width: 820px), (max-height: 500px) and (pointer: coarse)").matches; }
+$("lpBack").onclick=()=>$("backBtn").click(); $("lpSide").onclick=()=>$("sideToggle").click();
+$("lpSet").onclick=()=>$("settingsBtn").click(); $("lpSess").onclick=()=>$("sessBtn").click();
+/* rotation du téléphone : on refait la mise en page (paysage = défilement) */
+{ let lastLP=phoneLandscape(); const mq=window.matchMedia("(orientation: landscape) and (max-height: 500px) and (pointer: coarse)");
+  const onRot=()=>{ const lp=phoneLandscape(); if(lp===lastLP) return; lastLP=lp; closeSheet(); };   // la mise en page est refaite par l'événement « resize »
+  mq.addEventListener?mq.addEventListener("change",onRot):mq.addListener(onRot); }
 if(store("banda.sideHidden")==="1") document.body.classList.add("sideHidden");
 function closeSheet(){ $("side").classList.remove("open"); $("sheetBack").classList.remove("on"); }
 $("sheetBack").onclick=closeSheet;
