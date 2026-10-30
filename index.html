@@ -15,7 +15,7 @@
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "2.6";
+window.BANDA_VERSION = "2.8";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -309,7 +309,6 @@ dialog input[type=text]{width:100%}
   .tmid>*{flex-shrink:0}
   .tmid .marks{flex:0 0 auto;max-width:none;overflow:visible}
   .tmain{flex-shrink:0;gap:10px}
-  #lpBack{margin-left:14px;opacity:.75}
   button.ic.lp{width:44px;height:44px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;flex-shrink:0}
   button.ic.lp svg{width:19px;height:19px}
   .play{width:58px;height:58px} .play svg{width:26px;height:26px}
@@ -394,6 +393,26 @@ body[data-theme=fete] .play{box-shadow:0 8px 20px #e0218a55}
 #peekHint{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:7;background:#1e293bf0;color:#fff;font-size:13px;border-radius:20px;padding:5px 6px 5px 14px;box-shadow:0 4px 14px #0005;white-space:nowrap;display:flex;align-items:center;gap:10px}
 #peekHint button{min-height:28px;padding:2px 12px;border-radius:14px;background:#3b82f6;border:none;color:#fff;font-weight:700;font-size:12px}
 
+/* bouton Accueil et nom de la partie affichée (toujours visible sur la partition) */
+#scoreTag{position:absolute;top:8px;left:8px;z-index:6;display:flex;align-items:center;gap:6px;pointer-events:none;max-width:60%}
+#partTag{pointer-events:auto;background:#111827d9;color:#fff;font:700 12px/1 var(--ffB);padding:6px 10px;border-radius:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 8px #0003}
+#partTag:empty{display:none}
+#homeFab{display:none;pointer-events:auto;width:32px;height:32px;border-radius:10px;align-items:center;justify-content:center;background:#111827d9;color:#fff;border:none;padding:0;box-shadow:0 2px 8px #0003}
+#homeFab svg{width:18px;height:18px}
+button.ic.home svg{width:19px;height:19px}
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse){
+  #homeFab{display:flex}
+  #scoreTag{top:5px;left:5px}
+  #partTag{font-size:11px;padding:5px 9px}
+}
+
+/* zoom à deux doigts */
+#scoreWrap{touch-action:pan-x pan-y}
+#scoreBox.pinching{overflow:hidden}
+#scoreBox.pinching #scoreWrap{will-change:transform}
+#zoomTip{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:8;background:#111827e6;color:#fff;font:800 22px/1 var(--ffB);padding:12px 18px;border-radius:16px;opacity:0;transition:opacity .25s;pointer-events:none}
+#zoomTip.on{opacity:1}
+
 </style>
 </head>
 <body data-theme="neon">
@@ -401,6 +420,7 @@ body[data-theme=fete] .play{box-shadow:0 8px 20px #e0218a55}
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.6-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" fill="currentColor"/></symbol>
   <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4.2" height="14" rx="1.3" fill="currentColor"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.3" fill="currentColor"/></symbol>
   <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2" fill="currentColor"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 11.2L12 4l8.5 7.2M6 9.6V20h4.5v-5.5h3V20H18V9.6" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-sliders" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></g></symbol>
   <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -416,7 +436,7 @@ body[data-theme=fete] .play{box-shadow:0 8px 20px #e0218a55}
 </svg>
 <div class="app">
   <header class="top">
-    <button id="backBtn" class="ic" title="Liste des morceaux" style="display:none"><svg><use href="#i-back"/></svg></button>
+    <button id="backBtn" class="ic home" title="Accueil : liste des morceaux" style="display:none"><svg><use href="#i-home"/></svg></button>
     <img class="logo" id="logoImg" src="" alt="AFC La Banda Familia">
     <div class="tt"><div class="kick" id="kick">La Banda Familia · répétitions</div><h1 id="title">Nos morceaux</h1></div>
     <div class="tools">
@@ -492,6 +512,7 @@ body[data-theme=fete] .play{box-shadow:0 8px 20px #e0218a55}
           <div id="playhead"></div>
           <div id="turn"><div id="turnPrev"><div id="turnInner"></div><div id="turnSkip"></div></div><div id="turnBlur"></div><div id="turnLbl"></div></div>
           <div id="followBanner"></div>
+          <div id="scoreTag"><button id="homeFab" type="button" title="Accueil : liste des morceaux"><svg><use href="#i-home"/></svg></button><span id="partTag"></span></div>
           <div class="loading" id="loading" style="display:none">Chargement…</div></div>
         <div class="transport">
           <div class="bar" id="bar" title="Avancement du morceau : touchez pour voir un endroit de la partition"><div class="fill" id="fill"></div><div class="loopz" id="loopz"></div><div class="head" id="head"></div></div>
@@ -510,7 +531,6 @@ body[data-theme=fete] .play{box-shadow:0 8px 20px #e0218a55}
             <button id="lpSess" class="ic lp" title="Séance"><svg><use href="#i-cast"/></svg></button>
             <button id="lpSide" class="ic lp" title="Réglages"><svg><use href="#i-sliders"/></svg></button>
             <button id="lpSet" class="ic lp" title="Paramètres"><svg><use href="#i-gear"/></svg></button>
-            <button id="lpBack" class="ic lp" title="Quitter le morceau (liste des morceaux)"><svg><use href="#i-back"/></svg></button>
           </div>
         </div>
       </div>
@@ -1437,6 +1457,7 @@ function applyGains(){
    ===================================================================== */
 async function renderScore(){
   if(!window.opensheetmusicdisplay){ $("score").innerHTML="<p style='padding:20px;color:#333'>Affichage de partition indisponible (pas de connexion ?). La lecture audio reste possible.</p>"; return; }
+  S.steps=[]; S.geo=null; endPeek();
   const host=$("score"); host.innerHTML=""; host.style.paddingLeft=host.style.paddingRight=host.style.paddingBottom="0px"; host.style.transform="";
   const line=isLine();
   $("scoreWrap").classList.toggle("horiz",line);
@@ -1501,7 +1522,7 @@ async function renderScore(){
   if(line && S.geo) S.geo.meas.forEach((m,k)=>{ const e=S.seq[k]; if(!m||!e) return;
     const d=document.createElement("div"); d.className="mnum"+(e.passes>1?" rep":"");
     const pv=S.seq[k-1], start=!pv||pv.mi!==e.mi-1||pv.pass!==e.pass||pv.passes<2;   // le passage est écrit au début de chaque passage
-    d.textContent=e.M.number+(e.passes>1&&start?" · "+passLabel(e):""); d.style.left=(m.x+S.pad+4)+"px"; d.style.top=(m.y+24-2.2*m.u-14)+"px"; host.appendChild(d); });
+    d.textContent=e.M.number+(e.passes>1&&start?" · "+passLabel(e):""); d.style.left=(m.x+S.pad+4)+"px"; d.style.top=(Math.min(m.y-2.6*m.u, m.top-0.6*m.u)+24-16)+"px"; host.appendChild(d); });
   // signe « % » des mesures répétées
   if(S.geo&&S.repMeas) Object.entries(S.repMeas).forEach(([mi,len])=>{ const m=S.geo.meas[+mi]; if(!m||m.mr) return;
     const u=m.u, cx=(m.xs+m.x2)/2+6+(line?S.pad:0), cy=m.y+2*u+(line?24:0), w=3.2*u, h=4*u;
@@ -1556,6 +1577,13 @@ function beatPx(mi){
   return Math.max(40,Math.min(135,1.125*(m.x2-m.xs)/n*(4/M.beatType)/M.len));   // un peu plus d'une pulsation
 }
 /* ---------- geometry : systems, measures (px, relative to the score drawing) ---------- */
+/* point le plus haut des notes d'une mesure (notes aiguës, lignes supplémentaires) */
+function noteTop(g,u){
+  let t=g.PositionAndShape.AbsolutePosition.y;
+  try{ for(const se of g.staffEntries||[]){ const ps=se.PositionAndShape; if(ps) t=Math.min(t,ps.AbsolutePosition.y+ps.BorderMarginTop);
+    for(const gve of se.graphicalVoiceEntries||[]){ const pv=gve.PositionAndShape; if(pv) t=Math.min(t,pv.AbsolutePosition.y+pv.BorderMarginTop); } } }catch(e){}
+  return t*u;
+}
 function buildGeometry(){
   const o=S.osmd, G={sys:[],meas:[],mx:{}}; S.geo=G;
   if(!o||!o.GraphicSheet) return;
@@ -1567,7 +1595,7 @@ function buildGeometry(){
     if(!g){ G.meas[mi]=null; return; }
     const ps=g.PositionAndShape;
     G.meas[mi]={x:(ps.AbsolutePosition.x+ps.BorderLeft)*u,x2:(ps.AbsolutePosition.x+ps.BorderRight)*u,sys:idx.get(g.ParentMusicSystem),
-      xs:(ps.AbsolutePosition.x+ps.BorderLeft+(g.beginInstructionsWidth||0))*u, y:ps.AbsolutePosition.y*u, u};
+      xs:(ps.AbsolutePosition.x+ps.BorderLeft+(g.beginInstructionsWidth||0))*u, y:ps.AbsolutePosition.y*u, u, top:noteTop(g,u)};
   });
   for(const st of S.steps){ (G.mx[st.mi]=G.mx[st.mi]||[]).push(st); }
   // mesures regroupées dans un silence multiple : elles partagent la case du silence
@@ -1749,7 +1777,8 @@ function startTicker(){ stopTicker();
 function stopTicker(){ if(TICKER){ try{ TICKER.postMessage(0); TICKER.terminate(); }catch(e){} TICKER=null; } clearInterval(S.sched); }
 function schedule(){
   S.clickOn=$("clickOn").checked;
-  const ac=AC, horizon=ac.currentTime+0.6;   // 0,6 s d'avance : un ralentissement de l'affichage ne coupe plus le son
+  const ac=AC, now=ac.currentTime, horizon=now+(S.boostUntil>now?4:0.6);   // 0,6 s d'avance (4 s pendant un redessin : rotation)
+  const late=now-0.03;   // notes déjà passées (page bloquée) : on les saute plutôt que de les jouer en retard
   const lr=loopRange();
   while(S.nextCtx<horizon){
     if(S.nextSeq>=S.seq.length || (lr && S.nextSeq>lr[1])){
@@ -1766,7 +1795,7 @@ function schedule(){
     for(const ev of evs){
       { const pp=S.parts[ev.p]; if(silentAll||!pp||pp.mute||(anySolo&&!pp.solo)||pp.vol<=0.001) continue; }   // pistes muettes : on ne calcule rien
       if(ev.off<from-1e-6) continue;
-      const when=t0+ev.off*qs; let dur=Math.max(0.05,ev.dur*qs*(ev.stacc?0.5:0.95));
+      const when=t0+ev.off*qs; if(when<late) continue; let dur=Math.max(0.05,ev.dur*qs*(ev.stacc?0.5:0.95));
       const ps=S.parts[ev.p]; if(!ps) continue;
       const hw=when+(Math.random()-0.5)*(ps.env.hum||0), hv=ev.vel*(0.97+Math.random()*0.06);   // jeu « humain » : micro-écarts
       if(ev.drum!==null && ev.drum!==undefined){ if(!playHit(ps,ev.drum,hw,hv)) drum(ps.gain,ev.drum,hw,hv); continue; }
@@ -1774,7 +1803,7 @@ function schedule(){
       if(playSample(ps,ev.midi,Math.max(when,hw),dur,hv)) continue;
       synthNote(ps.gain,ev.midi,when,dur,ev.vel,S.model.parts[ev.p].program);
     }
-    if(S.clickOn){ const beat=qs*(4/M.beatType); for(let b=0;b*beat<M.len*qs-1e-6;b++){ const w=t0+b*beat; if(w>=S.nextCtx-1e-6) click(w,b===0); } }
+    if(S.clickOn){ const beat=qs*(4/M.beatType); for(let b=0;b*beat<M.len*qs-1e-6;b++){ const w=t0+b*beat; if(w>=S.nextCtx-1e-6&&w>=late) click(w,b===0); } }
     S.nextCtx=t0+M.len*qs; S.nextSeq++;
   }
 }
@@ -1886,7 +1915,7 @@ function choosePass(occ,x,y,act){
 function closePassOut(ev){ const d=$("passPick"); if(d&&!d.contains(ev.target)) closePass(); }
 function closePass(){ const d=$("passPick"); if(d) d.remove(); document.removeEventListener("pointerdown",closePassOut,true); }
 function onScoreClick(e){
-  if(!S.model||S.dragged) return;
+  if(!S.model||S.dragged||performance.now()-(S.pinchEnd||0)<500) return;
   if(SY.role==="f"){ lockedToast(); return; }
   const mi=measureAtPoint(e.clientX,e.clientY); if(mi<0) return;
   const act=S.pick?pickK:(k=>{ endPeek(); jumpTo(k); });
@@ -1987,7 +2016,7 @@ setTheme(store("banda.theme")||"neon");
 $("playBtn").onclick=()=>{ S.playing?pause():play(); };
 $("stopBtn").onclick=stop;
 function narrow(){ return window.matchMedia("(max-width: 820px), (max-height: 500px) and (pointer: coarse)").matches; }
-$("lpBack").onclick=()=>$("backBtn").click(); $("lpSide").onclick=()=>$("sideToggle").click();
+$("homeFab").onclick=()=>$("backBtn").click(); $("lpSide").onclick=()=>$("sideToggle").click();
 $("lpSet").onclick=()=>$("settingsBtn").click(); $("lpSess").onclick=()=>$("sessBtn").click();
 /* rotation du téléphone : on refait la mise en page (paysage = défilement) */
 { let lastLP=phoneLandscape(); const mq=window.matchMedia("(orientation: landscape) and (max-height: 500px) and (pointer: coarse)");
@@ -1999,7 +2028,7 @@ $("sheetBack").onclick=closeSheet;
 $("sideToggle").onclick=()=>{
   if(narrow()){ const o=!$("side").classList.contains("open"); $("side").classList.toggle("open",o); $("sheetBack").classList.toggle("on",o); return; }
   document.body.classList.toggle("sideHidden"); store("banda.sideHidden",document.body.classList.contains("sideHidden")?"1":"0");
-  clearTimeout(rzT); rzT=setTimeout(async()=>{ if(!S.osmd) return; const was=S.playing; if(was) pause(); await renderScore(); if(was) play(true); },340);
+  clearTimeout(rzT); rzT=setTimeout(relayout,340);
 };
 if(store("banda.light")==="1") document.body.classList.add("light");
 $("lightMode").checked=document.body.classList.contains("light");
@@ -2008,11 +2037,58 @@ $("mixReset").onclick=()=>{ if(S.model){ defaultMix(); toast("Volumes remis par 
 bindBar($("gvol"),()=>S.gVol,v=>{ S.gVol=v; store("banda.gvol",v.toFixed(2)); applyMaster(); });
 $("localBtn").onclick=()=>$("localFile").click();
 $("localFile").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; showPlayer(); await openBuffer(await f.arrayBuffer(), f.name, f.name.replace(SCORE_EXT,"")); e.target.value=""; };
-function setKick(){ const P=S.model&&S.model.parts[S.myPart]; $("kick").textContent=P?"Ma partie : "+P.name:"La Banda Familia · répétitions"; }
-$("partSel").onchange=async e=>{ S.myPart=parseInt(e.target.value); setKick(); store("banda.part",S.model.parts[S.myPart].name); drawMixer(); if(true){ const was=S.playing; if(was) pause(); await renderScore(); if(was) play(); } };
-$("viewSel").onchange=async()=>{ const was=S.playing; if(was) pause(); await renderScore(); if(was) play(); };
-$("layoutSel").onchange=async()=>{ const was=S.playing; if(was) pause(); await renderScore(); if(was) play(); };
-let zt=0; $("zoom").oninput=()=>{ clearTimeout(zt); zt=setTimeout(async()=>{ const was=S.playing; if(was) pause(); await renderScore(); if(was) play(); },250); };
+function setKick(){ const P=S.model&&S.model.parts[S.myPart]; $("kick").textContent=P?"Ma partie : "+P.name:"La Banda Familia · répétitions"; $("partTag").textContent=P?P.name:""; $("partTag").title=P?"Partie affichée : "+P.name:""; }
+$("partSel").onchange=async e=>{ S.myPart=parseInt(e.target.value); setKick(); store("banda.part",S.model.parts[S.myPart].name); drawMixer(); relayout(); };
+$("viewSel").onchange=()=>relayout();
+$("layoutSel").onchange=()=>relayout();
+let zt=0; $("zoom").oninput=()=>{ store("banda.zoom",$("zoom").value); clearTimeout(zt); zt=setTimeout(relayout,250); };
+{ const z=parseInt(store("banda.zoom")); if(z>=50&&z<=160) $("zoom").value=z; }
+/* zoom à deux doigts (téléphone, tablette) et pincement du pavé tactile / Ctrl + molette (ordinateur).
+   Pendant le geste, la partition est simplement agrandie à l'image ; au lâcher, elle est redessinée à la nouvelle taille
+   (sans arrêter la musique) et la mesure qui était sous les doigts reste en vue. */
+(function(){
+  const w=$("scoreWrap"), box=$("scoreBox"), zi=$("zoom");
+  const MIN=+zi.min, MAX=+zi.max;
+  let pz=null, wheelT=0;
+  const dist=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+  const mid=t=>({x:(t[0].clientX+t[1].clientX)/2,y:(t[0].clientY+t[1].clientY)/2});
+  function begin(cx,cy){
+    if(!S.osmd) return null;
+    const r=w.getBoundingClientRect();
+    const mi=isLine()?-1:measureAtPoint(cx,cy);
+    const g={z0:+zi.value,scale:1,cx,cy,ox:cx-r.left,oy:cy-r.top,mi};
+    box.classList.add("pinching"); w.style.transformOrigin=g.ox+"px "+g.oy+"px";
+    return g;
+  }
+  function show(g,sc){
+    g.scale=Math.max(MIN/g.z0,Math.min(MAX/g.z0,sc));
+    w.style.transform="scale("+g.scale.toFixed(3)+")";
+    zoomTip(Math.round(g.z0*g.scale));
+  }
+  async function finish(g){
+    w.style.transform=""; box.classList.remove("pinching"); S.pinchEnd=performance.now();
+    const nz=Math.round(Math.max(MIN,Math.min(MAX,g.z0*g.scale))/5)*5;
+    if(Math.abs(nz-g.z0)<5) return;
+    zi.value=nz; store("banda.zoom",nz);
+    await relayout();
+    // garder en vue la mesure qui était sous les doigts (à l'arrêt ; en lecture, la partition suit la musique)
+    if(!S.playing && g.mi>=0 && S.geo && S.geo.meas[g.mi]){ const m=S.geo.meas[g.mi], sy=S.geo.sys[m.sys]; w.scrollTop=Math.max(0,sy.top-g.oy+(sy.bottom-sy.top)/2); }
+  }
+  w.addEventListener("touchstart",e=>{ if(e.touches.length===2){ e.preventDefault(); const c=mid(e.touches); pz=begin(c.x,c.y); if(pz){ pz.d0=dist(e.touches); S.dragged=true; } } },{passive:false});
+  w.addEventListener("touchmove",e=>{ if(pz&&e.touches.length===2){ e.preventDefault(); show(pz,dist(e.touches)/pz.d0); } },{passive:false});
+  const end=e=>{ if(pz&&e.touches.length<2){ const g=pz; pz=null; finish(g); } };
+  w.addEventListener("touchend",end); w.addEventListener("touchcancel",end);
+  // Safari iOS : empêcher le zoom de toute la page
+  ["gesturestart","gesturechange"].forEach(t=>w.addEventListener(t,e=>e.preventDefault(),{passive:false}));
+  // ordinateur : pincement du pavé tactile (= Ctrl + molette)
+  let wg=null;
+  w.addEventListener("wheel",e=>{ if(!e.ctrlKey) return; e.preventDefault();
+    if(!wg) wg=begin(e.clientX,e.clientY); if(!wg) return;
+    show(wg,wg.scale*Math.exp(-e.deltaY*0.01));
+    clearTimeout(wheelT); wheelT=setTimeout(()=>{ const g=wg; wg=null; finish(g); },300); },{passive:false});
+})();
+function zoomTip(v){ let t=$("zoomTip"); if(!t){ t=document.createElement("div"); t.id="zoomTip"; $("scoreBox").appendChild(t); }
+  t.textContent=v+" %"; t.classList.add("on"); clearTimeout(zoomTip.t); zoomTip.t=setTimeout(()=>t.classList.remove("on"),700); }
 $("speed").oninput=e=>{ $("speedLbl").textContent=e.target.value+" %"; $("tempoLbl").textContent=e.target.value+" %"; };
 function nudgeTempo(d){ const r=$("speed"); const v=Math.max(+r.min,Math.min(+r.max,+r.value+d)); if(v===+r.value) return; r.value=v; r.dispatchEvent(new Event("input")); r.dispatchEvent(new Event("change")); }
 $("tempoDown").onclick=()=>nudgeTempo(-5); $("tempoUp").onclick=()=>nudgeTempo(5);
@@ -2124,7 +2200,23 @@ function mediaSession(){
 }
 $("settingsBtn").onclick=()=>{ const c=cfg(); $("cfgKey").value=c.apiKey; $("cfgFolder").value=c.folderId; $("settings").showModal(); };
 $("cfgSave").onclick=()=>{ store("banda.key",$("cfgKey").value.trim()); store("banda.folder",folderIdFrom($("cfgFolder").value)); setTimeout(loadLibrary,50); };
-let rzT=0; window.addEventListener("resize",()=>{ clearTimeout(rzT); rzT=setTimeout(async()=>{ if(!S.osmd) return; const was=S.playing; if(was) pause(); await renderScore(); if(was) play(true); },400); });
+/* changement de taille / rotation : on redessine SANS arrêter la musique. L'horloge audio n'est jamais touchée :
+   on programme quelques secondes de son d'avance pendant que l'affichage se refait, et le curseur se recale tout seul. */
+let rzT=0, rzBusy=false, rzAgain=false;
+async function relayout(){
+  if(!S.osmd) return;
+  if(rzBusy){ rzAgain=true; return; }
+  rzBusy=true;
+  try{
+    if(S.playing&&AC){ S.boostUntil=AC.currentTime+6; schedule(); }
+    await renderScore();
+  } finally {
+    rzBusy=false; S.boostUntil=0;
+    if(S.playing){ const p=currentPos(); if(p) updateCursor(true,p.k,p.off); }
+    if(rzAgain){ rzAgain=false; relayout(); }
+  }
+}
+window.addEventListener("resize",()=>{ clearTimeout(rzT); rzT=setTimeout(relayout,350); });
 
 /* =====================================================================
    Séance synchronisée : un chef, des musiciens
