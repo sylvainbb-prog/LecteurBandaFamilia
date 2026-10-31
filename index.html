@@ -15,7 +15,7 @@
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "3.0";
+window.BANDA_VERSION = "3.1";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -395,8 +395,16 @@ body[data-theme=fete] .play{box-shadow:0 8px 20px #e0218a55}
 
 /* bouton Accueil et nom de la partie affichée (toujours visible sur la partition) */
 #scoreTag{position:absolute;top:8px;left:8px;z-index:6;display:flex;align-items:center;gap:6px;pointer-events:none;max-width:60%}
-#partTag{pointer-events:auto;background:#111827d9;color:#fff;font:700 12px/1 var(--ffB);padding:6px 10px;border-radius:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 8px #0003}
-#partTag:empty{display:none}
+#partTag{pointer-events:auto;display:inline-flex;align-items:center;gap:6px;min-height:28px;background:#111827d9;color:#fff;font:700 12px/1 var(--ffB);padding:6px 10px;border:1px solid #ffffff22;border-radius:12px;white-space:nowrap;max-width:100%;box-shadow:0 2px 8px #0003;cursor:pointer}
+#partTag span{overflow:hidden;text-overflow:ellipsis}
+#partTag svg{flex-shrink:0;opacity:.8}
+#partTag:hover,#partTag[aria-expanded=true]{background:#1f2937f0;border-color:var(--accent)}
+#partTag[hidden]{display:none}
+#partMenu{position:absolute;top:44px;left:8px;z-index:9;min-width:200px;max-width:min(320px,80vw);max-height:min(60vh,420px);overflow:auto;background:#151a26f5;border:1px solid #ffffff26;border-radius:14px;padding:6px;box-shadow:0 12px 30px #0008;display:flex;flex-direction:column;gap:2px}
+#partMenu[hidden]{display:none}
+#partMenu button{text-align:left;display:flex;justify-content:flex-start;align-items:center;background:none;border:none;color:#fff;font:600 14px var(--ffB);padding:10px 12px;border-radius:10px;min-height:40px;cursor:pointer}
+#partMenu button:hover{background:#ffffff14}
+#partMenu button.on{background:var(--accent);color:#111}
 #homeFab{display:none;pointer-events:auto;width:32px;height:32px;border-radius:10px;align-items:center;justify-content:center;background:#111827d9;color:#fff;border:none;padding:0;box-shadow:0 2px 8px #0003}
 #homeFab svg{width:18px;height:18px}
 button.ic.home svg{width:19px;height:19px}
@@ -404,6 +412,7 @@ button.ic.home svg{width:19px;height:19px}
   #homeFab{display:flex}
   #scoreTag{top:5px;left:5px}
   #partTag{font-size:11px;padding:5px 9px}
+  #partMenu{top:40px;left:5px;max-height:70vh}
 }
 
 /* zoom à deux doigts */
@@ -546,7 +555,8 @@ dialog.tuner::backdrop{background:#000c}
           <div id="playhead"></div>
           <div id="turn"><div id="turnPrev"><div id="turnInner"></div><div id="turnSkip"></div></div><div id="turnBlur"></div><div id="turnLbl"></div></div>
           <div id="followBanner"></div>
-          <div id="scoreTag"><button id="homeFab" type="button" title="Accueil : liste des morceaux"><svg><use href="#i-home"/></svg></button><span id="partTag"></span></div>
+          <div id="scoreTag"><button id="homeFab" type="button" title="Accueil : liste des morceaux"><svg><use href="#i-home"/></svg></button><button id="partTag" type="button" title="Changer de partie" aria-haspopup="listbox" aria-expanded="false" hidden><span id="partTagTxt"></span><svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+          <div id="partMenu" role="listbox" aria-label="Choisir ma partie" hidden></div>
           <div class="loading" id="loading" style="display:none">Chargement…</div></div>
         <div class="transport">
           <div class="bar" id="bar" title="Avancement du morceau : touchez pour voir un endroit de la partition"><div class="fill" id="fill"></div><div class="loopz" id="loopz"></div><div class="head" id="head"></div></div>
@@ -2090,7 +2100,21 @@ $("mixReset").onclick=()=>{ if(S.model){ defaultMix(); toast("Volumes remis par 
 bindBar($("gvol"),()=>S.gVol,v=>{ S.gVol=v; store("banda.gvol",v.toFixed(2)); applyMaster(); });
 $("localBtn").onclick=()=>$("localFile").click();
 $("localFile").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; showPlayer(); await openBuffer(await f.arrayBuffer(), f.name, f.name.replace(SCORE_EXT,"")); e.target.value=""; };
-function setKick(){ const P=S.model&&S.model.parts[S.myPart]; $("kick").textContent=P?"Ma partie : "+P.name:"La Banda Familia · répétitions"; $("partTag").textContent=P?P.name:""; $("partTag").title=P?"Partie affichée : "+P.name:""; }
+function setKick(){ const P=S.model&&S.model.parts[S.myPart]; $("kick").textContent=P?"Ma partie : "+P.name:"La Banda Familia · répétitions"; $("partTagTxt").textContent=P?P.name:""; $("partTag").hidden=!P; $("partTag").title=P?"Partie affichée : "+P.name+" – toucher pour changer":""; }
+/* changer de partie en touchant son nom sur la partition */
+function openPartMenu(){
+  const m=$("partMenu"), sel=$("partSel"); m.innerHTML="";
+  [...sel.options].forEach(o=>{ const b=document.createElement("button"); b.type="button"; b.setAttribute("role","option");
+    b.textContent=o.textContent; if(o.value===sel.value){ b.className="on"; b.setAttribute("aria-selected","true"); }
+    b.onclick=ev=>{ ev.stopPropagation(); closePartMenu(); if(sel.value!==o.value){ sel.value=o.value; sel.dispatchEvent(new Event("change")); } };
+    m.appendChild(b); });
+  m.hidden=false; $("partTag").setAttribute("aria-expanded","true");
+  const cur=m.querySelector(".on"); if(cur) cur.scrollIntoView({block:"nearest"});
+}
+function closePartMenu(){ $("partMenu").hidden=true; $("partTag").setAttribute("aria-expanded","false"); }
+$("partTag").onclick=e=>{ e.stopPropagation(); $("partMenu").hidden?openPartMenu():closePartMenu(); };
+document.addEventListener("pointerdown",e=>{ if(!$("partMenu").hidden&&!e.target.closest("#partMenu,#partTag")) closePartMenu(); },true);
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!$("partMenu").hidden) closePartMenu(); });
 $("partSel").onchange=async e=>{ S.myPart=parseInt(e.target.value); setKick(); store("banda.part",S.model.parts[S.myPart].name); drawMixer(); relayout(); };
 $("viewSel").onchange=()=>relayout();
 $("layoutSel").onchange=()=>relayout();
