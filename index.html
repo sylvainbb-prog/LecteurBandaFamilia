@@ -15,7 +15,7 @@
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "2.9";
+window.BANDA_VERSION = "3.0";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -424,8 +424,8 @@ dialog.tuner::backdrop{background:#000c}
 .tu-top{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .tu-ins{font:600 14px/1.3 var(--ffB);color:#cfd3ff}
 #tuClose{color:#fff;background:#ffffff14;border-radius:12px;width:40px;height:40px;font-size:18px}
-.tu-stage{position:relative;width:100%;height:min(46dvh,380px)}
-#tuBall{width:100%;height:100%;display:block}
+.tu-stage{position:relative;width:100%;height:min(52dvh,440px)}
+#tuBall{width:100%;height:100%;display:block;border-radius:18px}
 .tu-concert{position:absolute;right:4px;top:4px;display:flex;align-items:center;gap:6px;background:#ffffff14;border:1px solid #ffffff26;border-radius:12px;padding:5px 9px;font:700 15px var(--ffB)}
 .tu-note{font:800 64px/1 var(--ffT,system-ui);letter-spacing:.5px;margin-top:2px;text-shadow:0 0 24px #fff5}
 .tu-note sub{font-size:24px;opacity:.7;margin-left:3px}
@@ -442,6 +442,8 @@ dialog.tuner::backdrop{background:#000c}
   .tu-stage{grid-row:2/7;height:76dvh}
   .tu-note{font-size:52px;align-self:end}
 }
+.tu-cents.near{color:#d8ffb0}
+.tu-hint.err{font-size:15px;font-weight:600;color:#ffd0e4;max-width:44ch}
 
 </style>
 </head>
@@ -2535,7 +2537,7 @@ function setupOutput(){
   master.connect(AC.destination); OUT.mode="direct";
 }
 function outputPlay(){
-  try{ if(navigator.audioSession) navigator.audioSession.type="playback"; }catch(e){}
+  try{ if(navigator.audioSession&&!OUT.mic) navigator.audioSession.type="playback"; }catch(e){}
   if(!OUT.el) return;
   const pr=OUT.el.play();
   if(pr&&pr.catch) pr.then(()=>{ OUT.unlocked=true; }).catch(()=>{   // lecteur refusé : on repasse en sortie directe
@@ -2617,9 +2619,28 @@ function chirp(sr){
   for(let i=0;i<L;i++){ const t=i/sr, w=Math.pow(Math.sin(Math.PI*i/L),2); d[i]=w*Math.sin(2*Math.PI*(f0*t+(f1-f0)*t*t/(2*T))); }
   return d;
 }
+/* micro : sur iPhone, la session audio doit passer en « lecture + enregistrement » AVANT la demande,
+   sinon Safari refuse le micro sans même poser la question */
 async function micStream(){
-  return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ const e=new Error("nomedia"); e.name="NoMedia"; throw e; }
+  OUT.mic=true;
+  try{ if(navigator.audioSession) navigator.audioSession.type="play-and-record"; }catch(e){}
+  try{ return await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}); }
+  catch(e){
+    if(e.name==="OverconstrainedError"||e.name==="TypeError"){ try{ return await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e2){ OUT.mic=false; throw e2; } }
+    OUT.mic=false; throw e;
+  }
 }
+function micDone(){ OUT.mic=false; try{ if(navigator.audioSession) navigator.audioSession.type="playback"; }catch(e){} if(OUT.el) outputPlay(); }
+function micError(e){
+  const ios=isIOS();
+  if(e&&e.name==="NoMedia") return "Ce navigateur ne donne pas accès au micro. Ouvrez l'application dans Safari (iPhone) ou Chrome (Android).";
+  if(e&&(e.name==="NotAllowedError"||e.name==="SecurityError")) return ios?"Micro refusé. Sur iPhone : touchez « aA » dans la barre d'adresse › Réglages du site web › Micro › Autoriser (ou Réglages › Safari › Micro), puis réessayez.":"Micro refusé : autorisez le micro pour ce site (icône à gauche de l'adresse), puis réessayez.";
+  if(e&&e.name==="NotFoundError") return "Aucun micro trouvé sur cet appareil.";
+  if(e&&e.name==="NotReadableError") return "Le micro est déjà utilisé par une autre application (appel, dictaphone…).";
+  return "Micro indisponible ("+((e&&e.name)||"erreur")+").";
+}
+function resumeAC(){ const ac=audio(); return Promise.race([ac.resume().catch(()=>{}),new Promise(r=>setTimeout(r,500))]); }
 async function recorder(ac,src){
   const chunks=[];
   if(ac.audioWorklet&&window.AudioWorkletNode){
@@ -2639,10 +2660,12 @@ async function recorder(ac,src){
   return {chunks,stop(){ try{ src.disconnect(sp); sp.disconnect(); g.disconnect(); }catch(e){} }};
 }
 async function measureLatency(onStep){
-  const ac=audio(); try{ await ac.resume(); }catch(e){} outputPlay();
+  const micP=micStream(); micP.catch(()=>{});   // demandé tout de suite, dans le geste
+  const ac=audio(); await resumeAC(); outputPlay();
   if(S.playing) pause();
   let stream;
-  try{ stream=await micStream(); }catch(e){ throw new Error("micro"); }
+  try{ stream=await micP; }catch(e){ const x=new Error("micro"); x.mic=e; throw x; }
+  try{
   const track=stream.getAudioTracks()[0];
   const src=ac.createMediaStreamSource(stream); const rec=await recorder(ac,src);
   const sr=ac.sampleRate, h=chirp(sr), buf=ac.createBuffer(1,h.length,sr); buf.getChannelData(0).set(h);
@@ -2654,11 +2677,13 @@ async function measureLatency(onStep){
   let inLat=0.012; try{ const sl=track.getSettings().latency; if(typeof sl==="number"&&sl>0&&sl<0.2) inLat=sl; }catch(e){}
   stream.getTracks().forEach(t=>t.stop());
   return analyseLatency(rec.chunks,h,t0,offs,sr,inLat);
+  } finally { try{ stream.getTracks().forEach(t=>t.stop()); }catch(e){} micDone(); }
 }
 function analyseLatency(chunks,h,t0,offs,sr,inLat){
   if(!chunks.length) throw new Error("rien");
-  const r0=chunks[0].t; let n=0; chunks.forEach(c=>n+=c.d.length);
-  const y=new Float32Array(n); let p=0; chunks.forEach(c=>{ y.set(c.d,p); p+=c.d.length; });
+  // chaque bloc est rangé à sa date (des blocs peuvent manquer : on laisse un blanc au lieu de décaler la suite)
+  const r0=chunks[0].t, last=chunks[chunks.length-1]; const n=Math.round((last.t-r0)*sr)+last.d.length;
+  const y=new Float32Array(n); chunks.forEach(c=>{ const p=Math.round((c.t-r0)*sr); if(p>=0&&p+c.d.length<=n) y.set(c.d,p); });
   let N=1; while(N<n+h.length) N<<=1;
   const ar=new Float64Array(N), ai=new Float64Array(N), br=new Float64Array(N), bi=new Float64Array(N);
   ar.set(y); br.set(h); fftc(ar,ai,false); fftc(br,bi,false);
@@ -2670,12 +2695,12 @@ function analyseLatency(chunks,h,t0,offs,sr,inLat){
   const sorted=Array.from(bins).sort((a,b)=>a-b), noise=sorted[Math.floor(nb*0.5)]||1e-9;
   let best=-1,bl=0;
   for(let lag=0;lag<=2500;lag++){ let sc=0;
-    for(const o of offs){ const b=Math.round((t0+o-r0)*1000)+lag; if(b>=0&&b<nb) sc+=Math.min(bins[b],noise*60); }
+    for(const o of offs){ const b=Math.round((t0+o-r0)*1000)+lag; if(b>=0&&b<nb) sc+=Math.sqrt(bins[b]); }
     if(sc>best){ best=sc; bl=lag; } }
   const lags=[];
   for(const o of offs){
     const c=Math.round((t0+o-r0+bl/1000)*sr); let bi2=-1,bv=0;
-    for(let i=Math.max(0,c-3*ms);i<Math.min(n,c+3*ms);i++) if(env[i]>bv){ bv=env[i]; bi2=i; }
+    for(let i=Math.max(0,c-12*ms);i<Math.min(n,c+12*ms);i++) if(env[i]>bv){ bv=env[i]; bi2=i; }
     if(bi2>=0 && bv>noise*8) lags.push((r0+bi2/sr)-(t0+o));
   }
   if(lags.length<4) throw new Error("faible");
@@ -2689,13 +2714,162 @@ async function runLatency(){
   const btn=$("latBtn"), info=$("latInfo"); if(btn.disabled) return;
   btn.disabled=true; const old=btn.textContent;
   try{
-    const r=await measureLatency(x=>{ btn.textContent="Écoute… "+Math.round(x*100)+" %"; });
+    let r;
+    try{ r=await measureLatency(x=>{ btn.textContent="Écoute… "+Math.round(x*100)+" %"; }); }
+    catch(e){ if(e.message!=="faible"&&e.message!=="instable") throw e;   // un raté (bruit, à-coup du téléphone) : on refait une fois
+      r=await measureLatency(x=>{ btn.textContent="2e essai… "+Math.round(x*100)+" %"; }); }
     setLead(r.ms); toast("Retard mesuré : "+Math.round(r.ms)+" ms",3500);
   }catch(e){
-    const m={micro:"Accès au micro refusé : autorisez le micro pour mesurer le retard.",faible:"Je n'ai pas bien entendu les bips : montez le volume, rapprochez le téléphone de l'enceinte, et recommencez dans le calme.",instable:"Mesure instable (bruit ?) : recommencez dans le calme.",rien:"Le micro n'a rien enregistré."}[e.message]||("Mesure impossible : "+e.message);
+    const m={micro:micError(e.mic),faible:"Je n'ai pas bien entendu les bips : montez le volume, rapprochez le téléphone de l'enceinte, et recommencez dans le calme.",instable:"Mesure instable (bruit ?) : recommencez dans le calme.",rien:"Le micro n'a rien enregistré."}[e.message]||("Mesure impossible : "+e.message);
     toast(m,5000);
   } finally { btn.disabled=false; btn.textContent=old; latInfo(); }
 }
+
+/* ---------- moteur graphique « Néon Banda » (planche A validée) ---------- */
+const NEON=(function(){
+const TOL=5;
+/* ---------- moteur de boule ---------- */
+const TAU=Math.PI*2;
+function hsh(i,j){ const s=Math.sin(i*127.1+j*311.7)*43758.5453; return s-Math.floor(s); }
+function norm(v){ const l=Math.hypot(v[0],v[1],v[2])||1; return [v[0]/l,v[1]/l,v[2]/l]; }
+const BANDS=18;
+const FACETS=(()=>{ const out=[]; for(let i=0;i<BANDS;i++){ const a0=-Math.PI/2+i*Math.PI/BANDS, a1=a0+Math.PI/BANDS, am=(a0+a1)/2;
+  const nc=Math.max(6,Math.round(40*Math.cos(am))); for(let j=0;j<nc;j++) out.push({i,j,a0,a1,am,l0:j*TAU/nc,l1:(j+1)*TAU/nc,lm:(j+.5)*TAU/nc,h:hsh(i,j)}); } return out; })();
+function sp(lat,lon,rot,tilt){ const x=Math.cos(lat)*Math.sin(lon+rot), y=Math.sin(lat), z=Math.cos(lat)*Math.cos(lon+rot);
+  return [x, y*Math.cos(tilt)-z*Math.sin(tilt), y*Math.sin(tilt)+z*Math.cos(tilt)]; }
+/* draw : ctx, géométrie, options de style, et fonction couleur par facette */
+function drawBall(ctx,cx,cy,R,rot,tilt,colorOf,gap){
+  ctx.fillStyle="#050409"; ctx.beginPath(); ctx.arc(cx,cy,R*1.005,0,TAU); ctx.fill();
+  const vis=[];
+  for(const f of FACETS){
+    const n=sp(f.am,f.lm,rot,tilt); if(n[2]<=0.02) continue;
+    vis.push([f,n]);
+  }
+  for(const [f,n] of vis){
+    const q=[sp(f.a0,f.l0,rot,tilt),sp(f.a0,f.l1,rot,tilt),sp(f.a1,f.l1,rot,tilt),sp(f.a1,f.l0,rot,tilt)];
+    const mx=(q[0][0]+q[2][0])/2, my=(q[0][1]+q[2][1])/2, k=gap*(0.6+0.4*n[2]);
+    const r=[2*n[2]*n[0],2*n[2]*n[1],2*n[2]*n[2]-1];
+    const c=colorOf(f,n,r);
+    ctx.fillStyle=`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+    ctx.beginPath();
+    q.forEach((p,ix)=>{ const X=cx+R*(p[0]+(mx-p[0])*k), Y=cy-R*(p[1]+(my-p[1])*k); ix?ctx.lineTo(X,Y):ctx.moveTo(X,Y); });
+    ctx.closePath(); ctx.fill();
+  }
+  // ombre du bord + reflet
+  const sh=ctx.createRadialGradient(cx,cy,R*0.55,cx,cy,R); sh.addColorStop(0,"rgba(0,0,0,0)"); sh.addColorStop(1,"rgba(0,0,0,.55)");
+  ctx.fillStyle=sh; ctx.beginPath(); ctx.arc(cx,cy,R,0,TAU); ctx.fill();
+  const hl=ctx.createRadialGradient(cx-R*.38,cy-R*.42,0,cx-R*.38,cy-R*.42,R*.75); hl.addColorStop(0,"rgba(255,255,255,.28)"); hl.addColorStop(1,"rgba(255,255,255,0)");
+  ctx.fillStyle=hl; ctx.beginPath(); ctx.arc(cx,cy,R,0,TAU); ctx.fill();
+}
+/* éclairage d'une facette par des lampes (réflexion miroir) */
+function shade(base,f,n,r,lights,t,sparkle){
+  const dif=Math.max(0,n[0]*-.4+n[1]*.55+n[2]*.73);
+  let c=[base[0]*(0.25+0.45*dif)+18*f.h, base[1]*(0.25+0.45*dif)+18*f.h, base[2]*(0.25+0.45*dif)+22*f.h];
+  for(const L of lights){ const d=Math.max(0,r[0]*L.d[0]+r[1]*L.d[1]+r[2]*L.d[2]); if(d<=0) continue; const p=Math.pow(d,L.e)*L.p*(L.mask?L.mask(f):1);
+    c[0]+=L.c[0]*p; c[1]+=L.c[1]*p; c[2]+=L.c[2]*p; }
+  const tw=Math.pow(Math.max(0,Math.sin(t*(1.6+f.h*2.4)+f.h*60)),28)*sparkle;
+  return c.map(v=>Math.min(255,v+255*tw));
+}
+/* taches de lumière projetées par la boule sur les murs */
+function spots(ctx,W,H,cx,cy,R,rot,tilt,amount,colorOf,filter){
+  if(amount<=0.01) return;
+  ctx.save(); ctx.globalCompositeOperation="lighter";
+  for(let s=0;s<FACETS.length;s+=3){ const f=FACETS[s]; const n=sp(f.am,f.lm,rot,tilt);
+    const r=[2*n[2]*n[0],2*n[2]*n[1],2*n[2]*n[2]-1]; if(r[2]>0.2) continue;
+    if(filter&&!filter(r,f)) continue;
+    const X=cx+r[0]*W*0.62, Y=cy-r[1]*H*0.62; if(X<-20||X>W+20||Y<-20||Y>H+20) continue;
+    const c=colorOf(f,r), rad=R*(0.035+0.03*f.h)*(1+0.6*(1+r[2]));
+    const g=ctx.createRadialGradient(X,Y,0,X,Y,rad); g.addColorStop(0,`rgba(${c[0]},${c[1]},${c[2]},${0.9*amount})`); g.addColorStop(1,`rgba(${c[0]},${c[1]},${c[2]},0)`);
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(X,Y,rad,0,TAU); ctx.fill(); }
+  ctx.restore();
+}
+function glow(ctx,cx,cy,r0,r1,col,a){ if(a<=0.005) return; const g=ctx.createRadialGradient(cx,cy,r0,cx,cy,r1); g.addColorStop(0,`rgba(${col},${a})`); g.addColorStop(1,`rgba(${col},0)`); ctx.save(); ctx.globalCompositeOperation="lighter"; ctx.fillStyle=g; ctx.fillRect(cx-r1,cy-r1,r1*2,r1*2); ctx.restore(); }
+function mixc(a,b,t){ return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t]; }
+function string(ctx,cx,cy,R,col){ ctx.strokeStyle=col; ctx.lineWidth=Math.max(1,R*0.012); ctx.beginPath(); ctx.moveTo(cx,0); ctx.lineTo(cx,cy-R); ctx.stroke(); }
+function star(ctx,x,y,r,col){ ctx.fillStyle=col; ctx.beginPath(); ctx.moveTo(x,y-r*2); ctx.lineTo(x+r*.35,y-r*.35); ctx.lineTo(x+r*2,y); ctx.lineTo(x+r*.35,y+r*.35); ctx.lineTo(x,y+r*2); ctx.lineTo(x-r*.35,y+r*.35); ctx.lineTo(x-r*2,y); ctx.lineTo(x-r*.35,y-r*.35); ctx.closePath(); ctx.fill(); }
+
+const ROSE=[255,45,149], BLEU=[59,108,255], ANIS=[198,244,50], OR=[255,201,74], BLANC=[255,255,255], CYAN=[80,220,255], ROUGE=[255,60,40];
+
+/* ---------- les 4 planches ---------- */
+/* ---------- néons du logo AFC : 4 groupes de 2 tubes, pas tout à fait centrés ----------
+   angles en degrés (0 = droite, 90 = bas), relevés sur le logo */
+const LOGO_ROSE=[255,46,150], LOGO_BLEU=[48,92,200], LOGO_ANIS=[190,232,60];
+const NEON_GROUPS=[
+  {id:"haut", a0:242, a1:323, cols:[LOGO_ROSE,LOGO_ROSE]},
+  {id:"droite", a0:330, a1:415, cols:[LOGO_ANIS,LOGO_BLEU]},   // anis en haut à droite, bleu en bas
+  {id:"bas", a0:62, a1:143, cols:[LOGO_ROSE,LOGO_ROSE]},
+  {id:"gauche", a0:150, a1:235, cols:[LOGO_ANIS,LOGO_BLEU]}    // anis en bas à gauche, bleu en haut
+];
+const ROWS=BANDS/2;   // 9 lignes de facettes par hémisphère
+function litRows(c){ if(c===null||Math.abs(c)<=TOL) return 0; return Math.min(ROWS,Math.ceil((Math.abs(c)-TOL)/40*ROWS)); }
+function neonArc(ctx,cx,cy,rad,a0,a1,col0,col1,on,w,from,to){
+  // tube néon : halo coloré + âme blanche ; from/to = portion allumée (0..1) le long de l'arc
+  const seg=48, A0=a0*Math.PI/180, A1=a1*Math.PI/180;
+  ctx.save(); ctx.lineCap="round";
+  // verre éteint
+  ctx.strokeStyle="rgba(255,255,255,.08)"; ctx.lineWidth=w*1.4; ctx.beginPath(); ctx.arc(cx,cy,rad,A0,A1); ctx.stroke();
+  if(on>0.01&&to>from){
+    ctx.globalCompositeOperation="lighter";
+    for(let k=0;k<seg;k++){ const u0=k/seg, u1=(k+1)/seg; if(u1<from||u0>to) continue;
+      const s0=Math.max(u0,from), s1=Math.min(u1,to), b0=A0+(A1-A0)*s0, b1=A0+(A1-A0)*s1+0.004;
+      const col=mixc(col0,col1,(s0+s1)/2).map(v=>v|0);
+      for(const [lw,al] of [[w*7,.08],[w*3.6,.22],[w*1.8,.6]]){ ctx.strokeStyle=`rgba(${col},${al*on})`; ctx.lineWidth=lw; ctx.beginPath(); ctx.arc(cx,cy,rad,b0,b1); ctx.stroke(); }
+      const core=mixc(col,[255,255,255],.75).map(v=>v|0);
+      ctx.strokeStyle=`rgba(${core},${on})`; ctx.lineWidth=w*.7; ctx.beginPath(); ctx.arc(cx,cy,rad,b0,b1); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+function neonBanda(variant){ return function(ctx,W,H,s,t){
+  const cx=W/2, cy=H*.45, R=Math.min(W,H)*.235, tilt=.24;
+  s.rot+=s.dt*(.2+1.1*s.ok);
+  const c=s.sil?null:s.c, up=c!==null&&c>TOL, dn=c!==null&&c<-TOL, n=litRows(c), frac=n/ROWS;
+  const colUp=LOGO_ROSE, colDn=variant==="bleu"?LOGO_BLEU:LOGO_ROSE;
+  // rayons de soleil (juste)
+  if(s.ok>.02){ ctx.save(); ctx.translate(cx,cy); ctx.globalCompositeOperation="lighter";
+    for(let i=0;i<20;i++){ const an=i/20*TAU+t*.3, len=Math.max(W,H)*(.8+.15*Math.sin(t*2.4+i));
+      const g=ctx.createLinearGradient(0,0,Math.cos(an)*len,Math.sin(an)*len); g.addColorStop(0,`rgba(255,226,150,${.38*s.ok})`); g.addColorStop(1,"rgba(255,226,150,0)");
+      ctx.fillStyle=g; ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,len,an-.03,an+.03); ctx.closePath(); ctx.fill(); }
+    ctx.restore(); }
+  // halo général
+  glow(ctx,cx,cy,R*.9,R*2.3,s.ok>.5?"255,226,150":up?"255,46,150":dn?colDn.join(","):"90,80,160",s.sil?.04:.1+.3*s.ok+.2*frac);
+  // néons : 2 tubes par groupe, centre légèrement décalé à droite et vers le bas comme sur le logo
+  const ox=cx+R*.04, oy=cy+R*.02, w=Math.max(1.5,R*.022), rads=[R*1.38,R*1.52];
+  const flick=s.ok>.5&&Math.sin(t*37)>.9?.55:1;
+  for(const g of NEON_GROUPS){
+    for(let k=0;k<2;k++){ const rad=rads[k]+(g.id==="droite"?R*.03:g.id==="gauche"?-R*.02:0);
+      let on=0, from=0, to=1;
+      if(s.ok>.02){ on=s.ok*flick; }
+      if(g.id==="haut"&&up){ on=1; const h=frac/2; from=.5-h; to=.5+h; }       // s'allume depuis le milieu, entièrement si très faux
+      if(g.id==="bas"&&dn){ on=1; const h=frac/2; from=.5-h; to=.5+h; }
+      const [c0,c1]=g.cols;
+      neonArc(ctx,ox,oy,rad,g.a0,g.a1,g.id==="bas"&&dn?colDn:c0,g.id==="bas"&&dn?colDn:c1,on,w,from,to);
+    } }
+  string(ctx,cx,cy,R,"rgba(220,220,240,.4)");
+  // boule : éclairage ligne par ligne depuis l'équateur
+  const L=[{d:norm([-.4,.6,.7]),c:[210,210,235],p:.7,e:18}];
+  if(s.ok>0) L.push({d:norm([Math.cos(t*.9),.3,.7]),c:[255,214,120],p:2.4*s.ok,e:4},{d:norm([0,0,1]),c:BLANC,p:1.8*s.ok,e:30});
+  drawBall(ctx,cx,cy,R,s.rot,tilt,(f,nn,r)=>{
+    let col=shade(s.ok>.5?[200,170,110]:[95,92,118],f,nn,r,L,t,.35+1.6*s.ok);
+    let lit=0, tint=null;
+    if(up&&f.i>=ROWS&&f.i<ROWS+n){ lit=1; tint=colUp; }
+    if(dn&&f.i<ROWS&&f.i>=ROWS-n){ lit=1; tint=colDn; }
+    if(lit){ const refl=.55+.7*Math.max(0,r[2]+.2)+.5*Math.pow(Math.max(0,r[1]*(up?1:-1)),3);
+      col=mixc(col,tint.map(v=>Math.min(255,v*refl+40*f.h)),.88); }
+    return col.map(v=>Math.min(255,v));
+  },.1);
+  // petits halos de lumière (juste)
+  spots(ctx,W,H,cx,cy,R,s.rot,tilt,s.ok,(f)=>[[255,214,120],[255,236,190],LOGO_ROSE,LOGO_ANIS][(f.i+f.j)%4],null);
+  if(s.ok>.4&&Math.random()<.6) s.sp.push({x:cx+(Math.random()*2-1)*W*.45,y:cy+(Math.random()*2-1)*H*.42,a:0,l:.6+Math.random()*.7,r:R*(.025+Math.random()*.04)});
+  ctx.save(); ctx.globalCompositeOperation="lighter";
+  s.sp=s.sp.filter(p=>{ p.a+=s.dt; if(p.a>p.l) return false; const al=Math.sin(Math.PI*p.a/p.l); star(ctx,p.x,p.y,p.r*al,`rgba(255,236,190,${al})`); return true; });
+  ctx.restore();
+  // repères
+  ctx.fillStyle="rgba(255,255,255,.45)"; ctx.font=`600 ${Math.round(R*.11)}px Figtree,sans-serif`; ctx.textAlign="right";
+  ctx.fillText("▲ trop haut",cx-R*.08,cy-R*1.72); ctx.fillText("▼ trop bas",cx-R*.08,cy+R*1.84);
+}; }
+
+return {draw:neonBanda("bleu"), TOL};
+})();
 
 /* =====================================================================
    ACCORDEUR « boule à facettes »
@@ -2704,7 +2878,8 @@ async function runLatency(){
    - juste : rayons dorés, paillettes, la boule tourne
    ===================================================================== */
 const FR_NOTES=["Do","Do♯","Ré","Mi♭","Mi","Fa","Fa♯","Sol","Sol♯","La","Si♭","Si"];
-const TU={on:false,stream:null,an:null,buf:null,raf:0,lastDet:0,hist:[],cents:null,shown:null,f:0,midi:null,okSince:0,okFx:0,rot:0,spark:[],lastT:0,silence:0,vib:false};
+const NS={rot:0,ok:0,sp:[],dt:0,c:0,sil:true};
+const TU={target:null,disp:null,on:false,stream:null,an:null,buf:null,raf:0,lastDet:0,hist:[],cents:null,shown:null,f:0,midi:null,okSince:0,okFx:0,rot:0,spark:[],lastT:0,silence:0,vib:false};
 function a4(){ const v=parseFloat(store("banda.a4")); return v>=415&&v<=466?v:440; }
 function setA4(v){ v=Math.max(430,Math.min(450,Math.round(v))); store("banda.a4",String(v)); $("a4v").textContent=v; const s=$("a4set"); if(s) s.textContent=v; }
 function tunerInstrument(){
@@ -2752,123 +2927,69 @@ async function openTuner(){
   $("tuConcert").style.display=I.transp?"":"none";
   $("tuNote").textContent="–"; $("tuOct").textContent=""; $("tuCents").textContent=""; $("tuHint").textContent="Jouez une note tenue…"; $("tuFreq").textContent="";
   if(S.playing&&SY.role!=="f") pause();
-  dlg.showModal(); TU.on=true; TU.cents=null; TU.shown=null; TU.hist=[]; TU.spark=[];
+  const micP=micStream();            // demandé immédiatement, dans le geste de l'utilisateur
+  micP.catch(()=>{});
+  dlg.showModal(); TU.on=true; TU.target=null; TU.disp=null; TU.hist=[]; NS.sp=[]; NS.ok=0;
   sizeBall(); cancelAnimationFrame(TU.raf); TU.lastT=performance.now(); TU.raf=requestAnimationFrame(tunerFrame);
   try{
-    const ac=audio(); try{ await ac.resume(); }catch(e){}
-    TU.stream=await micStream();
+    const ac=audio(); await resumeAC();
+    TU.stream=await micP;
     if(!TU.on){ TU.stream.getTracks().forEach(t=>t.stop()); return; }
     const src=ac.createMediaStreamSource(TU.stream), hp=ac.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=30;
     const an=ac.createAnalyser(); an.fftSize=4096; src.connect(hp); hp.connect(an);
     TU.src=src; TU.an=an; TU.buf=new Float32Array(an.fftSize);
-  }catch(e){ $("tuHint").textContent="Autorisez l'accès au micro pour utiliser l'accordeur."; }
+  }catch(e){ $("tuHint").textContent=micError(e); $("tuHint").classList.add("err"); micDone(); }
 }
 function closeTuner(){
   TU.on=false; cancelAnimationFrame(TU.raf);
   if(TU.stream) TU.stream.getTracks().forEach(t=>t.stop()); TU.stream=null;
   try{ TU.src&&TU.src.disconnect(); }catch(e){} TU.an=null;
   const d=$("tunerDlg"); if(d.open) d.close();
-  if(OUT.el) outputPlay();
+  $("tuHint").classList.remove("err"); micDone();
 }
 function sizeBall(){ const c=$("tuBall"), r=c.getBoundingClientRect(), dpr=Math.min(2,window.devicePixelRatio||1); c.width=Math.round(r.width*dpr); c.height=Math.round(r.height*dpr); }
 function tunerFrame(now){
   if(!TU.on) return;
   const dt=Math.min(0.1,(now-TU.lastT)/1000); TU.lastT=now;
   if(TU.an&&now-TU.lastDet>45){ TU.lastDet=now; tunerDetect(); }
-  const ok=TU.shown!==null&&Math.abs(TU.shown)<=3&&now-TU.okSince>250&&TU.okSince>0;
-  TU.okFx+=((ok?1:0)-TU.okFx)*Math.min(1,dt*6);
-  TU.rot+=dt*(0.18+TU.okFx*1.2);
-  drawBall($("tuBall"),now/1000,ok);
+  // affichage lissé : calme, ne s'affole pas au moindre souffle
+  if(TU.target===null) TU.disp=null; else TU.disp=TU.disp===null?TU.target:TU.disp+(TU.target-TU.disp)*Math.min(1,dt*4.5);
+  const inTol=TU.disp!==null&&Math.abs(TU.disp)<=NEON.TOL;
+  if(inTol){ if(!TU.okSince) TU.okSince=now; } else TU.okSince=0;
+  const okT=inTol&&now-TU.okSince>350?1:0;
+  NS.ok+=(okT-NS.ok)*Math.min(1,dt*5); NS.dt=dt; NS.c=TU.disp===null?0:TU.disp; NS.sil=TU.disp===null;
+  const cv=$("tuBall"), ctx=cv.getContext("2d"), W=cv.width, H=cv.height;
+  if(W&&H){ const bg=ctx.createRadialGradient(W/2,H*.4,0,W/2,H*.45,Math.max(W,H)*.75); bg.addColorStop(0,"#0d0b1a"); bg.addColorStop(1,"#020205");
+    ctx.globalCompositeOperation="source-over"; ctx.fillStyle=bg; ctx.fillRect(0,0,W,H); NEON.draw(ctx,W,H,NS,now/1000); }
+  // textes
+  if(TU.disp!==null){ const c=TU.disp, I=TU.I, ok=NS.ok>.5, rc=Math.round(c);
+    $("tuCents").textContent=(rc>=0?"+":"−")+Math.abs(rc)+" cents";
+    $("tuCents").className="tu-cents "+(ok?"ok":c>NEON.TOL?"hi":c<-NEON.TOL?"lo":"near");
+    const how=I.how?" "+I.how:"";
+    $("tuHint").textContent=ok?"Juste !":Math.abs(c)<=NEON.TOL?"Presque… tenez la note":c>0?(I.keyb||I.drum?"Trop haut":"Trop haut ↑ – tirez"+how):(I.keyb||I.drum?"Trop bas":"Trop bas ↓ – poussez"+how);
+    if(ok&&!TU.vib){ TU.vib=true; try{ navigator.vibrate&&navigator.vibrate(25); }catch(e){} }
+    if(!ok) TU.vib=false;
+  }
   TU.raf=requestAnimationFrame(tunerFrame);
 }
 function tunerDetect(){
   TU.an.getFloatTimeDomainData(TU.buf);
   const r=detectPitch(TU.buf,AC.sampleRate), I=TU.I;
-  if(!r){ TU.silence++; if(TU.silence>12){ TU.shown=null; TU.cents=null; TU.okSince=0; TU.hist=[]; $("tuHint").textContent="Jouez une note tenue…"; $("tuCents").textContent=""; } return; }
+  if(!r){ TU.silence++; if(TU.silence>12){ TU.target=null; TU.hist=[]; $("tuHint").textContent="Jouez une note tenue…"; $("tuCents").textContent=""; } return; }
   TU.silence=0;
   const midiF=69+12*Math.log2(r.f/a4());
   TU.hist.push(midiF); if(TU.hist.length>5) TU.hist.shift();
   const med=[...TU.hist].sort((a,b)=>a-b)[Math.floor(TU.hist.length/2)];
   const n=Math.round(med), cents=(med-n)*100;
-  if(TU.midi!==n){ TU.midi=n; TU.cents=cents; TU.okSince=0; } else TU.cents+= (cents-TU.cents)*0.35;
-  TU.shown=TU.cents;
-  const c=TU.cents, fRef=a4()*Math.pow(2,(n-69)/12), fNow=a4()*Math.pow(2,(med-69)/12);
-  if(Math.abs(c)<=3){ if(!TU.okSince) TU.okSince=performance.now(); } else { TU.okSince=0; TU.vib=false; }
+  if(TU.midi!==n){ TU.midi=n; TU.disp=cents; }   // nouvelle note : pas de glissement depuis l'ancienne
+  TU.target=cents;
+  const fRef=a4()*Math.pow(2,(n-69)/12), fNow=a4()*Math.pow(2,(med-69)/12);
   const w=n-I.tot;   // note écrite pour l'instrument
   $("tuNote").textContent=I.drum?frName(n):frName(w); $("tuOct").textContent=I.drum?frOct(n):frOct(w);
   $("tuCName").textContent=frName(n)+frOct(n);
-  const cs=(c>=0?"+":"−")+Math.abs(c).toFixed(0)+" cents"; $("tuCents").textContent=cs;
-  $("tuCents").className="tu-cents "+(Math.abs(c)<=3?"ok":c>0?"hi":"lo");
   const hz=x=>x.toFixed(1).replace(".",",")+" Hz";
-  if(I.keyb||I.drum){
-    $("tuFreq").innerHTML=frName(n)+frOct(n)+" attendu <b>"+hz(fRef)+"</b> · entendu <b>"+hz(fNow)+"</b>";
-    $("tuHint").textContent=Math.abs(c)<=3?"Juste !":c>0?"Trop haut":"Trop bas";
-  } else {
-    $("tuFreq").textContent=hz(fNow)+" (son réel)";
-    const how=I.how?" "+I.how:"";
-    $("tuHint").textContent=Math.abs(c)<=3?"Juste !":c>0?"Trop haut ↑ – tirez"+how:"Trop bas ↓ – poussez"+how;
-  }
-  if(Math.abs(c)<=3&&TU.okSince&&!TU.vib&&performance.now()-TU.okSince>300){ TU.vib=true; try{ navigator.vibrate&&navigator.vibrate(25); }catch(e){} }
-}
-/* --- dessin de la boule --- */
-function hash(i,j){ const s=Math.sin(i*127.1+j*311.7)*43758.5453; return s-Math.floor(s); }
-function mix(a,b,t){ return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t]; }
-function drawBall(cv,t,ok){
-  const ctx=cv.getContext("2d"), W=cv.width, H=cv.height; if(!W||!H) return;
-  const R=Math.min(W,H)*0.34, cx=W/2, cy=H*0.5, fx=TU.okFx, c=TU.shown;
-  ctx.clearRect(0,0,W,H);
-  // halo
-  let halo=c===null?[90,90,140]:fx>0.5?[255,210,110]:c>0?[255,120,60]:[70,150,255];
-  const hg=ctx.createRadialGradient(cx,cy,R*0.8,cx,cy,R*(1.9+0.6*fx));
-  hg.addColorStop(0,`rgba(${halo.map(Math.round)},${c===null?0.12:0.25+0.35*fx})`); hg.addColorStop(1,"rgba(0,0,0,0)");
-  ctx.fillStyle=hg; ctx.fillRect(0,0,W,H);
-  // rayons quand c'est juste
-  if(fx>0.02){ ctx.save(); ctx.translate(cx,cy); ctx.globalCompositeOperation="lighter";
-    for(let i=0;i<16;i++){ const a=i/16*Math.PI*2+t*0.5, len=R*(2.2+0.5*Math.sin(t*3+i));
-      const g=ctx.createLinearGradient(0,0,Math.cos(a)*len,Math.sin(a)*len);
-      g.addColorStop(0,`rgba(255,235,170,${0.45*fx})`); g.addColorStop(1,"rgba(255,235,170,0)");
-      ctx.fillStyle=g; ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,len,a-0.045,a+0.045); ctx.closePath(); ctx.fill(); }
-    ctx.restore(); }
-  // fil
-  ctx.strokeStyle="rgba(200,200,220,.55)"; ctx.lineWidth=Math.max(1,R*0.012); ctx.beginPath(); ctx.moveTo(cx,0); ctx.lineTo(cx,cy-R); ctx.stroke();
-  // repères : trop haut / trop bas
-  ctx.fillStyle="rgba(255,255,255,.45)"; ctx.font=`${Math.round(R*0.09)}px system-ui,sans-serif`; ctx.textAlign="left";
-  ctx.textAlign="center"; ctx.fillText("▲ trop haut",cx,Math.max(R*0.12,cy-R*1.14)); ctx.fillText("▼ trop bas",cx,Math.min(H-R*0.05,cy+R*1.22));
-  ctx.strokeStyle="rgba(255,255,255,.35)"; ctx.setLineDash([R*0.04,R*0.04]); ctx.beginPath(); ctx.moveTo(cx-R*1.25,cy); ctx.lineTo(cx-R*1.04,cy); ctx.moveTo(cx+R*1.04,cy); ctx.lineTo(cx+R*1.25,cy); ctx.stroke(); ctx.setLineDash([]);
-  // boule
-  ctx.fillStyle="#0b0b12"; ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.fill();
-  const NR=16, NC=32, L=[-0.42,0.55,0.72], rot=TU.rot;
-  const s=c===null?0:Math.min(1,Math.abs(c)/50), up=c!==null&&c>3, dn=c!==null&&c<-3, top=s*Math.PI/2;
-  const warm=mix([255,200,60],[255,60,40],s), cold=mix([110,220,255],[60,90,255],s);
-  for(let i=0;i<NR;i++){ const p0=-Math.PI/2+i*Math.PI/NR, p1=p0+Math.PI/NR, pm=(p0+p1)/2;
-    for(let j=0;j<NC;j++){ const l0=j*2*Math.PI/NC+rot, l1=l0+2*Math.PI/NC, lm=(l0+l1)/2;
-      const z=Math.cos(pm)*Math.cos(lm); if(z<=0.03) continue;
-      const P=(p,l)=>[cx+R*Math.cos(p)*Math.sin(l), cy-R*Math.sin(p)];
-      const q=[P(p0,l0),P(p0,l1),P(p1,l1),P(p1,l0)], mx=(q[0][0]+q[2][0])/2, my=(q[0][1]+q[2][1])/2, k=0.12;
-      const nx=Math.cos(pm)*Math.sin(lm), ny=Math.sin(pm), dif=Math.max(0,nx*L[0]+ny*L[1]+z*L[2]);
-      const hsh=hash(i,j); let g=28+120*dif+30*hsh;
-      let col=[g,g,g*1.08];
-      const tw=Math.pow(Math.max(0,Math.sin(t*(1.7+hsh*2)+hsh*40)),24);
-      // éclairage selon la justesse
-      let lit=0;
-      if(up&&pm>0&&pm<=top+Math.PI/NR*0.6) lit=1; if(dn&&pm<0&&-pm<=top+Math.PI/NR*0.6) lit=1;
-      if(c!==null&&Math.abs(c)<=3) lit=Math.abs(pm)<Math.PI/NR*1.1?0.8:0;
-      if(lit){ const tint=up?warm:dn?cold:[150,255,170]; col=mix(col,tint.map(v=>v*(0.55+0.45*dif)),0.85*lit); }
-      if(fx>0.01){ const gold=[255,215+30*hsh,120+90*tw]; col=mix(col,gold.map(v=>v*(0.5+0.5*dif)+60*tw),0.9*fx); }
-      const sp=(c===null?0.35:0.6)+fx*1.2; col=col.map(v=>Math.min(255,v+255*tw*sp));
-      ctx.fillStyle=`rgb(${col.map(v=>Math.round(Math.max(0,v)))})`;
-      ctx.beginPath(); q.forEach((pt,ix)=>{ const X=pt[0]+(mx-pt[0])*k, Y=pt[1]+(my-pt[1])*k; ix?ctx.lineTo(X,Y):ctx.moveTo(X,Y); }); ctx.closePath(); ctx.fill();
-    } }
-  // reflet
-  const rg=ctx.createRadialGradient(cx-R*0.38,cy-R*0.42,0,cx-R*0.38,cy-R*0.42,R*0.9);
-  rg.addColorStop(0,"rgba(255,255,255,.22)"); rg.addColorStop(1,"rgba(255,255,255,0)"); ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.fill();
-  // paillettes
-  if(fx>0.3&&Math.random()<0.6) TU.spark.push({x:cx+(Math.random()*2-1)*R*1.8,y:cy+(Math.random()*2-1)*R*1.6,a:0,life:0.6+Math.random()*0.6,s:R*(0.03+Math.random()*0.05)});
-  ctx.save(); ctx.globalCompositeOperation="lighter";
-  TU.spark=TU.spark.filter(p=>{ p.a+=1/60; if(p.a>p.life) return false; const al=Math.sin(Math.PI*p.a/p.life);
-    ctx.fillStyle=`rgba(255,240,200,${al})`; ctx.beginPath(); const r=p.s*al;
-    ctx.moveTo(p.x,p.y-r*2); ctx.lineTo(p.x+r*0.4,p.y-r*0.4); ctx.lineTo(p.x+r*2,p.y); ctx.lineTo(p.x+r*0.4,p.y+r*0.4); ctx.lineTo(p.x,p.y+r*2); ctx.lineTo(p.x-r*0.4,p.y+r*0.4); ctx.lineTo(p.x-r*2,p.y); ctx.lineTo(p.x-r*0.4,p.y-r*0.4); ctx.closePath(); ctx.fill(); return true; });
-  ctx.restore();
+  if(I.keyb||I.drum) $("tuFreq").innerHTML=frName(n)+frOct(n)+" attendu <b>"+hz(fRef)+"</b> · entendu <b>"+hz(fNow)+"</b>";
+  else $("tuFreq").textContent=hz(fNow)+" (son réel)";
 }
 window.addEventListener("resize",()=>{ if(TU.on) sizeBall(); });
 /* --- branchements --- */
