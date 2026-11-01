@@ -5,7 +5,9 @@ Contenu du dossier
   index.html            l'application
   sw.js, manifest...    ce qui la rend installable et utilisable hors connexion
   icons/                icônes de l'application
-  morceaux/             les partitions (.mxl) et leur liste (songs.json)
+  morceaux/             les partitions (.mxl), leur liste (songs.json) et calibrage.json
+                        (mise en page pré-calculée : ouverture des morceaux plus rapide)
+  sons/                 (à créer une fois, voir plus bas) les sons d'instruments
 
 METTRE EN LIGNE (gratuit, une seule fois, ~10 minutes) – GitHub Pages
   1. Créer un compte sur https://github.com (gratuit).
@@ -38,6 +40,18 @@ AJOUTER OU MODIFIER UN MORCEAU
   Nommer le fichier avec son numéro, par exemple « 12 - Nouveau morceau.mxl » :
   il apparaît automatiquement dans la liste (trié par numéro).
   Pour remplacer un morceau, déposer un fichier portant exactement le même nom.
+
+HÉBERGER LES SONS AVEC L'APPLICATION (une fois, recommandé)
+  Sans ce dossier, les sons viennent d'un site gratuit externe ; avec, l'application est autonome.
+  1. Ouvrir l'application (en ligne), Paramètres → « Créer le pack de sons (sons.zip) ».
+     Patienter quelques minutes : le fichier sons.zip (60 à 90 Mo) est téléchargé.
+  2. Décompresser sons.zip : on obtient un dossier « sons ».
+  3. Sur GitHub, page du dépôt → « Add file » → « Upload files » → glisser le dossier « sons »
+     → « Commit changes ». (Chaque fichier fait moins de 25 Mo : l'envoi par le site marche.)
+  4. Paramètres de l'application : la ligne « Sons hébergés avec l'application : N banques ✓ » le confirme.
+  Quotas GitHub (gratuit) : dépôt et site jusqu'à 1 Go, fichiers jusqu'à 100 Mo, trafic ~100 Go/mois.
+  Le pack de sons fait moins de 10 % du quota ; les téléphones ne le téléchargent qu'une fois
+  (ensuite il est gardé dans l'appareil), donc le trafic reste très faible.
 
 METTRE À JOUR L'APPLICATION
   Déposer la nouvelle version de index.html (et sw.js) au même endroit sur GitHub.

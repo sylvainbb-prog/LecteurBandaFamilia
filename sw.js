@@ -2,7 +2,7 @@
    - l'application et ses bibliothèques : en cache dès l'installation
    - les morceaux : la version en ligne si possible, sinon celle du cache
    - les sons d'instruments : téléchargés une fois, puis toujours lus depuis le cache */
-const VERSION="3.4";
+const VERSION="4.0";
 const APP="banda-app-"+VERSION, SONGS="banda-morceaux", SOUNDS="banda-sons", LIBS="banda-libs";
 const SHELL=["./","index.html","manifest.webmanifest","icons/icon-192.png","icons/icon-512.png","icons/apple-touch-icon.png"];
 const CDN=["https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js","https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js",
@@ -36,6 +36,7 @@ self.addEventListener("fetch",e=>{
   if(u.hostname==="api.github.com") return e.respondWith(networkFirst(req,SONGS));
   if(u.origin===location.origin){
     if(/\/morceaux\//.test(u.pathname)) return e.respondWith(networkFirst(req,SONGS));
+    if(/\/sons\/.*-mp3\.js$/.test(u.pathname)) return e.respondWith(cacheFirst(req,SOUNDS));
     if(req.mode==="navigate") return e.respondWith(networkFirst(new Request("index.html"),APP).catch(()=>caches.match("index.html")));
     return e.respondWith(networkFirst(req,APP));
   }

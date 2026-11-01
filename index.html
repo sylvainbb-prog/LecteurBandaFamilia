@@ -11,11 +11,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Tilt+Neon&family=Poppins:wght@400;500;600;700;800&family=Sacramento&family=Montserrat:wght@400;600;800&family=Inter:wght@400;500;600;800&family=Baloo+2:wght@600;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Tilt+Neon&family=Poppins:wght@400;500;600;700;800&family=Sacramento&family=Montserrat:wght@400;600;800&family=Inter:wght@400;500;600;800&family=Baloo+2:wght@600;800&family=Nunito:wght@400;600;700;800&family=Lilita+One&family=Pacifico&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "3.4";
+window.BANDA_VERSION = "4.0";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -462,6 +462,122 @@ dialog.tuner::backdrop{background:#000c}
 #beatBox.inbar{position:static;flex:0 0 auto;width:84px;height:44px;filter:none;align-self:center}
 @media (orientation: landscape) and (max-height: 500px) and (pointer: coarse){ #beatBox.inbar{width:74px;height:40px} }
 
+/* =====================================================================
+   FÊTE : effets hors lecture, pochettes, nouveaux thèmes
+   ===================================================================== */
+#fxLayer{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:9000}
+#bravo{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:9001;pointer-events:none;text-align:center;animation:bravoIn .7s cubic-bezier(.2,1.4,.3,1) both}
+#bravo b{display:block;font:400 clamp(40px,8vw,84px)/1 var(--ffT);color:var(--accent);text-shadow:0 0 18px var(--accent),0 4px 0 #0005;white-space:nowrap}
+#bravo span{display:inline-block;margin-top:10px;font:700 15px var(--ffB);color:#fff;background:#0008;padding:6px 14px;border-radius:20px}
+#bravo.out{animation:bravoOut .6s ease both}
+@keyframes bravoIn{from{opacity:0;transform:translate(-50%,-50%) scale(.4) rotate(-8deg)}to{opacity:1;transform:translate(-50%,-50%)}}
+@keyframes bravoOut{to{opacity:0;transform:translate(-50%,-70%) scale(1.1)}}
+.fxwipe{position:fixed;inset:0;pointer-events:none;z-index:8000;background:radial-gradient(circle at var(--x) var(--y),var(--accent) 0,transparent 60%);mix-blend-mode:screen;animation:wipe .8s ease-out both}
+@keyframes wipe{from{opacity:.75}to{opacity:0}}
+/* dialogues qui s'ouvrent en douceur */
+dialog[open]{animation:dlgIn .32s cubic-bezier(.2,1.2,.3,1)}
+dialog[open]::backdrop{animation:fadeIn .3s ease}
+@keyframes dlgIn{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+/* pochettes */
+.song.dec .num{background:var(--panel2)!important;overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}
+.song .num .cover{position:absolute;inset:0;width:100%;height:100%;opacity:.95}
+.song.dec .num{width:54px;height:54px;border-radius:14px}
+.song .num .nb{position:absolute;right:3px;bottom:3px;font:800 11px/1 var(--ffB);color:#fff;background:#000b;border-radius:6px;padding:3px 5px}
+.song{transition:transform .25s var(--ease),border-color .25s,box-shadow .25s}
+.song:hover .num .cover{animation:coverPulse .9s ease-in-out infinite alternate}
+@keyframes coverPulse{to{transform:scale(1.12) rotate(4deg)}}
+.song:active{transform:scale(.98)}
+/* ambiance de l'accueil : lumières qui flottent (accueil seulement, jamais pendant la lecture) */
+#library{position:relative}
+#library::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.55;
+  background:radial-gradient(circle at 15% 25%,var(--soft),transparent 22%),radial-gradient(circle at 80% 15%,var(--soft),transparent 18%),radial-gradient(circle at 65% 80%,var(--soft),transparent 24%);
+  animation:drift 18s ease-in-out infinite alternate}
+#library>*{position:relative;z-index:1}
+@keyframes drift{to{transform:translate(-3%,4%) scale(1.08)}}
+body.playing .deco i,body.playing .halo::before{animation-play-state:paused!important}
+body.light #library::before,body.light .deco{display:none}
+@media (prefers-reduced-motion:reduce){ #library::before,.deco i{animation:none!important} dialog[open]{animation:none} }
+.th em.new{display:inline-block;font-style:normal;font-size:9px;font-weight:800;text-transform:uppercase;background:var(--accent);color:var(--accent-ink);border-radius:6px;padding:1px 5px;margin-left:4px;vertical-align:1px}
+.themes{grid-template-columns:repeat(3,1fr)}
+@media (max-width:820px){ .themes{grid-template-columns:repeat(2,1fr)} }
+
+/* ---------- thème FIESTA : fanions de papel picado, couleurs de fête de village ---------- */
+body[data-theme=fiesta]{--bg:#fff6e9;--bg2:#fff;--panel:#ffffff;--panel2:#fff0dc;--ink:#2a1630;--muted:#7d6476;--line:#f3dcc4;
+  --accent:#ff3d7f;--accent-ink:#fff;--accent2:#ffb800;--accent3:#00b3a6;--soft:#ff3d7f26;--title:#2a1630;
+  --ffT:"Lilita One","Baloo 2",system-ui,sans-serif;--ffB:Nunito,system-ui,sans-serif;--glow:0 10px 30px #ff3d7f40;--paper:#fff;--shadow:0 0 0 3px #ffb800,0 12px 34px #ff3d7f33}
+body[data-theme=fiesta]{background:radial-gradient(circle at 10% 20%,#ffb80022 0 2px,transparent 3px) 0 0/34px 34px,radial-gradient(circle at 60% 70%,#00b3a622 0 2px,transparent 3px) 0 0/41px 41px,linear-gradient(180deg,#fff6e9,#ffeede) fixed}
+body[data-theme=fiesta] header.top{background:linear-gradient(90deg,#ff3d7f,#ff7a1a 35%,#ffb800 60%,#00b3a6);color:#fff;border-bottom:none}
+body[data-theme=fiesta] header .kick{color:#fff}
+body[data-theme=fiesta] header h1{color:#fff;font-family:var(--ffT);font-weight:400;letter-spacing:.5px;text-shadow:0 2px 0 #0002}
+body[data-theme=fiesta] header button.ic,body[data-theme=fiesta] header .pill{color:#fff;background:#ffffff30;border-color:#ffffff55}
+body[data-theme=fiesta] .hero{background:linear-gradient(135deg,#ff3d7f,#7b4dff);border-radius:30px;padding:26px;color:#fff;box-shadow:0 18px 40px #ff3d7f40}
+body[data-theme=fiesta] .hero h2{color:#fff;font-size:54px;text-shadow:0 3px 0 #0003}
+body[data-theme=fiesta] .hero .muted,body[data-theme=fiesta] .eyebrow{color:#fff}
+body[data-theme=fiesta] .halo img{border:5px solid #fff;background:#fff}
+body[data-theme=fiesta] .song{border:2px solid var(--line);border-radius:20px;box-shadow:0 3px 0 var(--line)}
+body[data-theme=fiesta] .song:nth-child(4n+1){border-top-color:#ff3d7f} body[data-theme=fiesta] .song:nth-child(4n+2){border-top-color:#ffb800}
+body[data-theme=fiesta] .song:nth-child(4n+3){border-top-color:#00b3a6} body[data-theme=fiesta] .song:nth-child(4n){border-top-color:#7b4dff}
+body[data-theme=fiesta] .song:hover{box-shadow:0 8px 0 var(--accent2),0 14px 30px #ff3d7f30;transform:translateY(-4px) rotate(-.4deg)}
+body[data-theme=fiesta] .play{background:linear-gradient(135deg,#ff3d7f,#ff7a1a);box-shadow:0 8px 20px #ff3d7f66}
+body[data-theme=fiesta] .side{background:#fff9f1}
+body[data-theme=fiesta] .card{background:#fff;border-width:2px}
+body[data-theme=fiesta] .seg button.on{background:#ff3d7f;color:#fff}
+.deco.papel{position:fixed;left:0;right:0;top:0;height:22px;z-index:50;pointer-events:none;display:flex}
+.deco.papel i{position:absolute;top:0;height:22px;background:var(--c);clip-path:polygon(0 0,100% 0,100% 62%,75% 100%,50% 62%,25% 100%,0 62%);
+  -webkit-mask:radial-gradient(circle 2.2px at 30% 35%,#0000 98%,#000) ,radial-gradient(circle 2.2px at 70% 35%,#0000 98%,#000);-webkit-mask-composite:source-in;mask-composite:intersect;
+  transform-origin:top center;animation:flutter 2.4s ease-in-out var(--d) infinite alternate}
+@keyframes flutter{from{transform:rotateX(0) skewX(0)}to{transform:rotateX(18deg) skewX(3deg)}}
+body.inplayer .deco.papel{opacity:.85}
+.sw.fiesta{background:linear-gradient(90deg,#ff3d7f,#ffb800,#00b3a6);box-shadow:inset 0 -18px 0 #fff6e9}
+.sw.fiesta::after{content:"";position:absolute;left:0;right:0;top:0;height:14px;background:repeating-linear-gradient(90deg,#fff 0 10px,transparent 10px 20px);clip-path:polygon(0 0,100% 0,100% 50%,0 100%)}
+
+/* ---------- thème GUINGUETTE : soirée d'été, guirlande d'ampoules ---------- */
+body[data-theme=guinguette]{--bg:#0c1626;--bg2:#101d31;--panel:#13233a;--panel2:#1a2e4a;--ink:#fdf3e1;--muted:#a9b4c7;--line:#2a3d5c;
+  --accent:#ffb547;--accent-ink:#1b1206;--accent2:#ff6f61;--accent3:#5fd3c0;--soft:#ffb54724;--title:#ffe2a8;
+  --ffT:Pacifico,cursive;--ffB:Quicksand,system-ui,sans-serif;--glow:0 0 26px #ffb54755;--paper:#fffaf0;--shadow:0 0 0 1.5px #ffb54766,0 16px 40px #000a}
+body[data-theme=guinguette]{background:radial-gradient(ellipse at 50% -10%,#3a2c4f 0,#0c1626 55%) fixed}
+body[data-theme=guinguette] header.top{background:linear-gradient(180deg,#0b1424,#0c1626);border-bottom:1px solid #ffb54733}
+body[data-theme=guinguette] header h1{font-family:var(--ffT);font-weight:400;color:var(--title);text-shadow:0 0 14px #ffb54788}
+body[data-theme=guinguette] .hero h2{color:var(--title);font-size:58px;text-shadow:0 0 18px #ffb54788}
+body[data-theme=guinguette] .song{background:linear-gradient(160deg,#162944,#112038);border-color:#2a3d5c}
+body[data-theme=guinguette] .song:hover{box-shadow:0 0 0 1px #ffb547,0 10px 30px #ffb54733}
+body[data-theme=guinguette] .play{background:radial-gradient(circle at 35% 30%,#ffe2a8,#ffb547 45%,#e0782b);color:#1b1206;box-shadow:0 0 26px #ffb54788}
+body[data-theme=guinguette] .seg button.on{background:#ffb547;color:#1b1206}
+body[data-theme=guinguette] .bar .head{background:#ffe2a8;box-shadow:0 0 12px #ffb547}
+.deco.lights{position:fixed;left:0;right:0;top:0;height:46px;z-index:50;pointer-events:none}
+.deco.lights svg{position:absolute;inset:0 0 auto 0;width:100%;height:40px}
+.deco.lights i{position:absolute;width:9px;height:13px;margin-left:-4.5px;border-radius:50% 50% 45% 45%;background:radial-gradient(circle at 40% 35%,#fff,var(--c) 55%);
+  box-shadow:0 0 10px var(--c),0 0 22px var(--c);animation:bulb 2.4s ease-in-out var(--d) infinite alternate}
+.deco.lights i::before{content:"";position:absolute;left:2px;right:2px;top:-4px;height:5px;background:#3a2a1e;border-radius:2px}
+@keyframes bulb{from{opacity:1;filter:brightness(1.15)}to{opacity:.55;filter:brightness(.8)}}
+body.playing .deco.lights i{animation:none;opacity:.9}
+.sw.guinguette{background:radial-gradient(ellipse at 50% 0,#3a2c4f,#0c1626 70%)}
+.sw.guinguette::after{content:"";position:absolute;left:6%;right:6%;top:10px;height:10px;background:radial-gradient(circle,#ffcf6b 0 3px,transparent 4px) 0 0/14px 10px;filter:drop-shadow(0 0 4px #ffb547)}
+
+/* place réservée pour les fanions / la guirlande au-dessus de l'en-tête */
+body[data-theme=fiesta] header.top,body[data-theme=guinguette] header.top{height:calc(var(--topH) + var(--decoH) + env(safe-area-inset-top));padding-top:calc(8px + var(--decoH) + env(safe-area-inset-top))}
+body[data-theme=fiesta]{--decoH:16px} body[data-theme=guinguette]{--decoH:22px}
+.deco{top:env(safe-area-inset-top)!important}
+@media (max-width:820px), (max-height:500px) and (pointer:coarse){
+  body[data-theme=fiesta]{--decoH:10px} body[data-theme=guinguette]{--decoH:14px}
+  body[data-theme=fiesta] header.top,body[data-theme=guinguette] header.top{height:calc(46px + var(--decoH) + env(safe-area-inset-top));padding-top:calc(4px + var(--decoH) + env(safe-area-inset-top))}
+  .deco.papel,.deco.papel i{height:12px} .deco.lights{transform:scale(.62);transform-origin:top left;width:161%}
+}
+/* petites animations d'accueil par thème (l'accueil n'est jamais affiché pendant la lecture) */
+body[data-theme=neon] .halo img{animation:neonOn 1.8s linear 1 both}
+@keyframes neonOn{0%{opacity:.08;filter:saturate(.2)}8%{opacity:1;filter:none}12%{opacity:.25}20%{opacity:1}34%{opacity:.55}38%,100%{opacity:1}}
+body[data-theme=neon] .hero h2{animation:neonText 2.2s linear 1 both}
+@keyframes neonText{0%,6%{opacity:.15;text-shadow:none}7%{opacity:1}11%{opacity:.3}16%,100%{opacity:1}}
+body[data-theme=scene] .hero{position:relative}
+body[data-theme=scene] .hero::after{content:"";position:absolute;inset:-30px -10px;pointer-events:none;background:radial-gradient(ellipse 22% 60% at 20% 40%,#ffffff1c,transparent 70%);animation:spot 9s ease-in-out infinite alternate;z-index:0}
+@keyframes spot{to{background-position:0 0;transform:translateX(55%)}}
+body[data-theme=boule] .halo img{animation:spin 40s linear infinite}
+body[data-theme=fiesta] .halo img{animation:wobble 3.5s ease-in-out infinite}
+@keyframes wobble{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg) scale(1.03)}}
+body[data-theme=guinguette] .halo img{animation:glowPulse 3s ease-in-out infinite alternate}
+@keyframes glowPulse{from{box-shadow:0 0 18px #ffb54755}to{box-shadow:0 0 44px #ffb547aa}}
+@media (prefers-reduced-motion:reduce){ .halo img,.hero h2,.hero::after{animation:none!important} }
+
 </style>
 </head>
 <body data-theme="neon">
@@ -656,6 +772,8 @@ dialog.tuner::backdrop{background:#000c}
       <button type="button" class="th" data-t="boule"><div class="sw boule"></div><span>Boule à facettes</span></button>
       <button type="button" class="th" data-t="scene"><div class="sw scene"></div><span>Scène</span></button>
       <button type="button" class="th" data-t="fete"><div class="sw fete"></div><span>Jour de fête</span></button>
+      <button type="button" class="th" data-t="fiesta"><div class="sw fiesta"></div><span>Fiesta <em class="new">nouveau</em></span></button>
+      <button type="button" class="th" data-t="guinguette"><div class="sw guinguette"></div><span>Guinguette <em class="new">nouveau</em></span></button>
     </div>
     <div class="dsec">Son</div>
     <div class="latrow"><span id="latInfo">Retard du son : automatique</span>
@@ -668,6 +786,10 @@ dialog.tuner::backdrop{background:#000c}
     <label class="chk"><input type="checkbox" id="lightMode"><span>Affichage allégé (appareil lent : animation moins fréquente, sans flou)</span></label>
     <div class="dsec kbd">Raccourcis clavier</div>
     <p class="small muted kbd" style="margin:0">Espace : lecture / pause · ← → : mesure précédente / suivante · Début : retour au début · + / − : tempo · B : boucle · R : réglages</p>
+    <div class="dsec">Hébergement des sons <span class="muted small">(administrateur)</span></div>
+    <p class="small muted" id="packInfo" style="margin:0 0 6px"></p>
+    <p class="small muted" style="margin:0 0 8px">Pour une application autonome : créez le pack (environ 60 à 90 Mo, quelques minutes), décompressez <b>sons.zip</b> et déposez le dossier <b>sons</b> à la racine du dépôt GitHub, à côté de index.html.</p>
+    <button type="button" id="packBtn" class="soft">Créer le pack de sons (sons.zip)</button>
     <div class="dsec">Bibliothèque Google Drive <span class="muted small">(facultatif)</span></div>
     <p class="small muted">Inutile si l'application est hébergée avec ses morceaux. Sinon : dossier Google Drive partagé « Tous les utilisateurs disposant du lien », avec un sous-dossier par morceau contenant l'export MusicXML (.mxl).</p>
     <label class="fl">Clé API Google</label>
@@ -781,7 +903,7 @@ async function prepareOffline(){
   }
   let k=0;
   for(const f of fonts){ btn.lastChild.textContent=" Sons "+(++k)+"/"+fonts.size;
-    try{ await fetch(SF_BASE+q+"/"+f+"-mp3.js"); }catch(e){} }
+    try{ await LOCAL_SF.ready; await fetchFirst(fontUrls(q,f)); }catch(e){} }
   btn.disabled=false; btn.lastChild.textContent=" Prêt hors connexion ✓";
   toast("Tout est prêt : les "+S.lib.length+" morceaux et leurs sons fonctionnent sans connexion",4500);
 }
@@ -1290,9 +1412,15 @@ function makeIR(sec){
 const FONTS={};
 const PCN={C:0,Db:1,D:2,Eb:3,E:4,F:5,Gb:6,G:7,Ab:8,A:9,Bb:10,B:11};
 function sfQuality(){ return store("banda.sfq")==="light"?"FluidR3_GM":"MusyngKite"; }
+/* sons hébergés avec l'application (dossier « sons/ » du site) en priorité, sinon la banque en ligne */
+const SF_LOCAL="sons/";
+const LOCAL_SF={ready:null,set:new Set()};
+LOCAL_SF.ready=fetch(SF_LOCAL+"index.json",{cache:"no-cache"}).then(r=>r.ok?r.json():null).then(j=>{ if(j&&j.fonts) for(const [f,list] of Object.entries(j.fonts)) list.forEach(n=>LOCAL_SF.set.add(f+"/"+n)); }).catch(()=>{});
+function fontUrls(font,name){ const u=[]; if(LOCAL_SF.set.has(font+"/"+name)) u.push(SF_LOCAL+font+"/"+name+"-mp3.js"); u.push(SF_BASE+font+"/"+name+"-mp3.js"); return u; }
+async function fetchFirst(urls){ let err; for(const u of urls){ try{ const r=await fetch(u); if(r.ok) return r; err=new Error(r.status); }catch(e){ err=e; } } throw err||new Error("introuvable"); }
 function loadFont(font,name){
   const key=font+"/"+name;
-  if(!FONTS[key]) FONTS[key]=fetch(SF_BASE+font+"/"+name+"-mp3.js").then(r=>{ if(!r.ok) throw new Error(r.status); return r.text(); }).then(t=>{
+  if(!FONTS[key]) FONTS[key]=LOCAL_SF.ready.then(()=>fetchFirst(fontUrls(font,name))).then(r=>r.text()).then(t=>{
     const notes=new Map(), rx=/"([A-G]b?)(-?\d)"\s*:\s*"data:audio\/[a-z0-9]+;base64,([^"]+)"/g; let m;
     while((m=rx.exec(t))) notes.set(12*(parseInt(m[2])+1)+PCN[m[1]], m[3]);
     if(!notes.size) throw new Error("banque vide");
@@ -1527,7 +1655,16 @@ function applyGains(){
 /* =====================================================================
    Score display (OpenSheetMusicDisplay)
    ===================================================================== */
+/* calibrage de mise en page (largeur « comme imprimé », largeur de mesure du défilement) :
+   calculé une fois pour toutes (fichier morceaux/calibrage.json, puis mémoire de l'appareil) → un seul dessin au lieu de plusieurs */
+const CALIB={map:null,p:null};
+function calibLoad(){ if(!CALIB.p) CALIB.p=fetch("morceaux/calibrage.json",{cache:"no-cache"}).then(r=>r.ok?r.json():{}).catch(()=>({})).then(j=>{ let loc={}; try{ loc=JSON.parse(store("banda.calib")||"{}"); }catch(e){} CALIB.map=Object.assign({},j,loc); return CALIB.map; }); return CALIB.p; }
+function calibKey(){ const P=S.model&&S.model.parts[S.myPart]; return (S.src?S.src.sid:"")+"|"+(P?P.name:""); }
+function calibGet(){ return (CALIB.map||{})[calibKey()]||{}; }
+function calibSet(o){ const k=calibKey(); CALIB.map=CALIB.map||{}; CALIB.map[k]=Object.assign({},CALIB.map[k],o);
+  try{ const loc=JSON.parse(store("banda.calib")||"{}"); loc[k]=CALIB.map[k]; const ks=Object.keys(loc); if(ks.length>500) delete loc[ks[0]]; store("banda.calib",JSON.stringify(loc)); }catch(e){} }
 async function renderScore(){
+  await calibLoad();
   if(!window.opensheetmusicdisplay){ $("score").innerHTML="<p style='padding:20px;color:#333'>Affichage de partition indisponible (pas de connexion ?). La lecture audio reste possible.</p>"; return; }
   S.steps=[]; S.geo=null; endPeek();
   const host=$("score"); host.innerHTML=""; host.style.paddingLeft=host.style.paddingRight=host.style.paddingBottom="0px"; host.style.transform="";
@@ -1547,25 +1684,28 @@ async function renderScore(){
   const uz=($("zoom").value/100);
   if(idem){
     // largeur logique fixe (en interlignes) : le zoom change la taille, jamais le nombre de mesures par ligne
-    const W=$("scoreWrap").clientWidth-2, key=S.myPart; let U=S.idemU[key]||175, want=(S.idemInfo&&S.idemInfo.systems)||0;
+    const W=$("scoreWrap").clientWidth-2, key=S.myPart; let U=S.idemU[key]||calibGet().U||175, want=(S.idemInfo&&S.idemInfo.systems)||0;
     for(let it=0;it<8;it++){
       host.style.width=Math.round(W*uz)+"px"; osmd.zoom=(W*uz)/(U*10);
       try{ osmd.render(); }catch(e){ console.error(e); }
       let n=0; try{ osmd.GraphicSheet.MusicPages.forEach(pg=>n+=pg.MusicSystems.length); }catch(e){}
       if(!want||n<=want) break; U*=1.12;
     }
-    S.idemU[key]=U;
+    S.idemU[key]=U; if(calibGet().U!==U) calibSet({U});
     if(S.idemInfo&&!S.idemInfo.fromPart) toast("Ce fichier ne contient pas la mise en page de la partie séparée : lignes du conducteur utilisées",4000);
   } else {
     host.style.width="";
     osmd.zoom=uz*(window.innerWidth<700?0.75:1)*(line?(window.innerHeight<500?1.2:1.35):1);
+    const cw=line&&calibGet().w;
+    if(cw){ try{ const R=osmd.EngravingRules; R.SheetMaximumWidth=Math.min(R.SheetMaximumWidth,(S.seq.length*(cw+2)+60)*10*osmd.zoom);
+      R.FixedMeasureWidth=true; R.FixedMeasureWidthFixedValue=cw; R.FixedMeasureWidthUseForPickupMeasures=true; }catch(e){} }
     try{ osmd.render(); }catch(e){ console.error(e); }
   }
-  if(line){
+  if(line&&!calibGet().w){
     // ligne qui défile : mesures de largeur égale (la plus large utile), pour un défilement régulier
     try{
       const ws=[]; osmd.GraphicSheet.MeasureList.forEach(row=>{ const g=(row||[]).find(x=>x&&x.ParentMusicSystem); if(g){ const ps=g.PositionAndShape; ws.push(ps.BorderRight-ps.BorderLeft-(g.beginInstructionsWidth||0)); } });
-      ws.sort((a,b)=>a-b); const w=Math.max(14,ws[Math.floor(ws.length*0.9)]||20);
+      ws.sort((a,b)=>a-b); const w=Math.max(14,ws[Math.floor(ws.length*0.9)]||20); calibSet({w});
       osmd.EngravingRules.SheetMaximumWidth=Math.min(osmd.EngravingRules.SheetMaximumWidth,(ws.length*(w+2)+60)*10*osmd.zoom);
       osmd.EngravingRules.FixedMeasureWidth=true; osmd.EngravingRules.FixedMeasureWidthFixedValue=w; osmd.EngravingRules.FixedMeasureWidthUseForPickupMeasures=true;
       osmd.render();
@@ -1594,7 +1734,7 @@ async function renderScore(){
   if(line && S.geo) S.geo.meas.forEach((m,k)=>{ const e=S.seq[k]; if(!m||!e||k===0) return;
     const d=document.createElement("div"); d.className="mnum"+(e.passes>1?" rep":"");
     const pv=S.seq[k-1], start=!pv||pv.mi!==e.mi-1||pv.pass!==e.pass||pv.passes<2;   // le passage est écrit au début de chaque passage
-    d.textContent=e.M.number+(e.passes>1&&start?" · "+passLabel(e):""); d.style.left=(m.x+S.pad+4)+"px"; d.style.top=(Math.min(m.y-2.6*m.u, m.top-0.6*m.u)+24-16)+"px"; host.appendChild(d); });
+    d.textContent=e.M.number+(e.passes>1&&start?" · "+passLabel(e):""); d.style.left=(m.x+S.pad+4)+"px"; d.style.top=(Math.min(m.y-2.6*m.u, m.top-0.6*m.u, S.geo.sys[m.sys].top-2)+24-16)+"px"; host.appendChild(d); });
   // signe « % » des mesures répétées
   if(S.geo&&S.repMeas) Object.entries(S.repMeas).forEach(([mi,len])=>{ const m=S.geo.meas[+mi]; if(!m||m.mr) return;
     const u=m.u, cx=(m.xs+m.x2)/2+6+(line?S.pad:0), cy=m.y+2*u+(line?24:0), w=3.2*u, h=4*u;
@@ -1677,6 +1817,8 @@ function buildGeometry(){
     const n=e-st+1; for(let j=st;j<=e;j++) G.meas[j]=Object.assign({},base,{mr:{start:st,n,j:j-st}});
     mi=e; }
   G.sysFirst=[]; G.meas.forEach((m,mi)=>{ if(m && G.sysFirst[m.sys]===undefined) G.sysFirst[m.sys]=mi; });
+  // haut réel de chaque ligne : les notes aiguës (lignes supplémentaires) dépassent du cadre calculé par OSMD
+  G.meas.forEach(m=>{ if(m&&!m.mr&&isFinite(m.top)) G.sys[m.sys].top=Math.min(G.sys[m.sys].top,m.top-8); });
   // screen "pages" : as many systems as fit in the window
   const H=$("scoreWrap").clientHeight; G.pages=[]; G.pageOf=[];
   let i=0; while(i<G.sys.length){ const top=i===0?0:G.sys[i].top; let j=i; while(j+1<G.sys.length && G.sys[j+1].bottom-top<=H) j++;
@@ -1722,14 +1864,15 @@ function moveCursorTo(idx){
    Sur la ligne d'où l'on part ailleurs, la ligne d'arrivée est montrée : encadrée si elle est visible,
    sinon en aperçu en haut (le reste flouté), et l'écran s'y place ensuite sans saut. */
 function nextK(k){ const lr=loopRange(); if(lr && k>=lr[1] && k>=lr[0]) return lr[0]; return k+1<S.seq.length?k+1:-1; }
+const TOP_PAD=40;   // place réservée en haut pour l'étiquette de la partie : rien ne passe dessous
 function updatePage(k,force){
   const G=S.geo, e=S.seq[k]; if(!G||!e||!G.meas[e.mi]) return;
   const s=G.meas[e.mi].sys, wrap=$("scoreWrap"), turn=$("turn"), jm=$("jumpMark"), H=wrap.clientHeight;
-  const vis=(i,sc)=>G.sys[i].top>=sc-2 && G.sys[i].bottom<=sc+H+2;
+  const vis=(i,sc)=>G.sys[i].top>=sc+TOP_PAD-2 && G.sys[i].bottom<=sc+H+2;
   let sc=wrap.scrollTop;
   if(!vis(s,sc)){
     if(S.pend && S.pend.T===s) sc=S.pend.sc;          // on arrive là où l'aperçu montrait la ligne : pas de saut
-    else sc=s===0?0:G.sys[s].top;
+    else sc=s===0?0:G.sys[s].top-TOP_PAD;
     sc=Math.max(0,sc); wrap.scrollTop=sc; sc=wrap.scrollTop;
   }
   S.pend=null;
@@ -1747,8 +1890,8 @@ function updatePage(k,force){
   }
   // ligne d'arrivée hors écran : aperçu, en haut si la place est libre, sinon juste sous la ligne en cours
   const nx=G.sys[T], hT=nx.bottom-nx.top, curTop=G.sys[s].top-sc, curBot=G.sys[s].bottom-sc;
-  const above=curTop>=hT+8;
-  const y0=above?0:Math.max(0,Math.min(curBot+2, H-hT));
+  const above=curTop>=hT+8+TOP_PAD;
+  const y0=above?TOP_PAD:Math.max(TOP_PAD,Math.min(curBot+2, H-hT));
   turn.style.top=y0+"px";
   $("turnPrev").style.height=hT+"px";
   $("turnInner").style.transform="translateY("+(-nx.top)+"px)";
@@ -1757,7 +1900,7 @@ function updatePage(k,force){
   const lb=$("turnLbl"); lb.textContent=(above?"▲ ":"▼ ")+label.replace(/^[↩↪] /,"")+(miT!==G.sysFirst[T]?" (mes. "+S.model.meas[miT].number+")":"");
   lb.style.left=Math.max(6,skip+4)+"px";
   lb.style.top=above?(hT+4)+"px":"-24px";                 // l'étiquette ne cache jamais les notes de l'aperçu
-  $("turnBlur").style.height=(above?Math.max(0,curTop-hT):Math.max(0,H-y0-hT))+"px";
+  $("turnBlur").style.height=(above?Math.max(0,curTop-hT-TOP_PAD):Math.max(0,H-y0-hT))+"px";
   turn.style.display="block";
   S.pend={T, sc:nx.top-y0};
 }
@@ -1858,7 +2001,7 @@ function schedule(){
   while(S.nextCtx-LD<horizon){
     if(S.nextSeq>=S.seq.length || (lr && S.nextSeq>lr[1])){
       if(lr){ S.nextSeq=lr[0]; S.firstOff=0; }   /* boucle : pas de décompte, la musique s'enchaîne */
-      else { if(S.instances.length && ac.currentTime>S.nextCtx+0.3){ if(SY.role==="f"){ stopAudio(); } else stop(); } return; }
+      else { if(S.instances.length && ac.currentTime>S.nextCtx+0.3){ if(SY.role==="f"){ stopAudio(); } else stop(); if(window.fxSongEnd) fxSongEnd(); } return; }
     }
     const e=S.seq[S.nextSeq], M=e.M, qs=60/M.tempo/S.speed;   // seconds per quarter
     const from=S.firstOff||0; S.firstOff=0;
@@ -2007,9 +2150,27 @@ function drawBar(){
   S.seq.forEach(e=>{
     const left=e.t/S.total*100;
     if(e.M.marks.length){ const t=document.createElement("div"); t.className="tick"; t.style.left=left+"%"; bar.appendChild(t);
-      const key=e.M.marks.join("|")+e.mi; if(!seen.has(key)){ seen.add(key); const m=document.createElement("div"); m.className="mark"; m.style.left=left+"%"; m.textContent=e.M.marks[0]; bar.appendChild(m);} }
+      const key=e.M.marks.join("|")+e.mi; if(!seen.has(key)){ seen.add(key); const m=document.createElement("div"); m.className="mark"; m.style.left=left+"%"; m.textContent=e.M.marks[0]; m.dataset.full=e.M.marks[0]; m.title=e.M.marks[0]; bar.appendChild(m);} }
   });
+  layoutMarks();
 }
+/* repères de la barre : jamais tronqués ni superposés — nom complet si la place le permet, sinon abrégé, sinon simple trait */
+function shortMark(t){ const w=t.split(/[\s–\-]+/).filter(Boolean); if(t.length<=3) return t; if(w.length>1) return w.map(x=>x[0]).join("").toUpperCase().slice(0,3); return t.slice(0,3)+"."; }
+function layoutMarks(){
+  const bar=$("bar"), W=bar.clientWidth; if(!W) return;
+  const ms=[...bar.querySelectorAll(".mark")]; let prevRight=-1e9;
+  for(const m of ms){
+    const x=parseFloat(m.style.left)/100*W;
+    let ok=false;
+    for(const txt of [m.dataset.full, shortMark(m.dataset.full)]){
+      m.textContent=txt; m.style.display=""; m.style.transform="";
+      const w=m.offsetWidth; let x0=x; if(x0+w>W-2) x0=W-2-w;          // le dernier repère reste dans la barre
+      if(x0>=prevRight+3){ if(x0!==x) m.style.transform="translateX("+(x0-x)+"px)"; prevRight=x0+w; ok=true; break; }
+    }
+    if(!ok) m.style.display="none";
+  }
+}
+if(window.ResizeObserver) new ResizeObserver(()=>layoutMarks()).observe($("bar"));
 function barSeq(x){ const r=$("bar").getBoundingClientRect(); const sec=Math.max(0,Math.min(1,(x-r.left)/r.width))*S.total; return seqAtTime(sec); }
 function updateLoopZone(){
   const z=$("loopz"); const lr=loopRange();
@@ -2066,10 +2227,10 @@ function resolveLoopInput(id,after){
 /* =====================================================================
    UI wiring
    ===================================================================== */
-function setPlayIcon(on){ const b=$("playBtn"); b.classList.toggle("on",on); b.querySelector("use").setAttribute("href",on?"#i-pause":"#i-play"); }
+function setPlayIcon(on){ const b=$("playBtn"); b.classList.toggle("on",on); document.body.classList.toggle("playing",!!on); if(on&&window.fxClear) fxClear(); b.querySelector("use").setAttribute("href",on?"#i-pause":"#i-play"); }
 function syncLayoutSeg(){ document.querySelectorAll("#layoutSeg button").forEach(b=>b.classList.toggle("on",b.dataset.v===$("layoutSel").value)); }
-function showPlayer(){ document.body.classList.add("inplayer"); $("library").style.display="none"; $("player").classList.add("show"); $("backBtn").style.display="inline-block"; }
-function showLibrary(){ stop(); $("kick").textContent="La Banda Familia · répétitions"; closeSheet(); document.body.classList.remove("inplayer"); $("side").classList.remove("open"); $("player").classList.remove("show"); $("library").style.display="block"; $("backBtn").style.display="none"; $("title").textContent="Nos morceaux"; }
+function showPlayer(){ const was=document.body.classList.contains("inplayer"); document.body.classList.add("inplayer"); $("library").style.display="none"; $("player").classList.add("show"); $("backBtn").style.display="inline-block"; if(!was&&window.fxEnterPlayer) fxEnterPlayer(); }
+function showLibrary(){ stop(); $("kick").textContent="La Banda Familia · répétitions"; closeSheet(); document.body.classList.remove("inplayer"); $("side").classList.remove("open"); $("player").classList.remove("show"); $("library").style.display="block"; $("backBtn").style.display="none"; $("title").textContent="Nos morceaux"; if(window.fxEnterLibrary) fxEnterLibrary(); }
 function showLoading(t){ if($("player").classList.contains("show")){ const l=$("loading"); l.textContent=t; l.style.display="flex"; } else $("libInfo").textContent=t; }
 function hideLoading(){ $("loading").style.display="none"; }
 
@@ -2080,11 +2241,12 @@ $("backBtn").onclick=()=>{ if(SY.role==="f"){ lockedToast("🔒 C'est le chef qu
   w.addEventListener("click",onScoreClick); })();
 /* ---------- thèmes ---------- */
 function setTheme(t){
-  if(!["neon","boule","scene","fete"].includes(t)) t="neon";
+  if(!["neon","boule","scene","fete","fiesta","guinguette"].includes(t)) t="neon";
   document.body.dataset.theme=t; store("banda.theme",t);
-  const img=t==="fete"?IMG.white:IMG.ball; $("logoImg").src=img; $("heroImg").src=img;
+  const img=(t==="fete"||t==="fiesta")?IMG.white:IMG.ball; $("logoImg").src=img; $("heroImg").src=img;
   document.querySelectorAll("#themes .th").forEach(b=>b.classList.toggle("sel",b.dataset.t===t));
-  const tc={neon:"#050507",boule:"#0b0a26",scene:"#1b1c20",fete:"#e0218a"}[t];
+  const tc={neon:"#050507",boule:"#0b0a26",scene:"#1b1c20",fete:"#e0218a",fiesta:"#ff3d7f",guinguette:"#0c1626"}[t];
+  if(window.fxThemeChanged) fxThemeChanged(t);
   let m=document.querySelector('meta[name=theme-color]'); if(!m){ m=document.createElement("meta"); m.name="theme-color"; document.head.appendChild(m); } m.content=tc;
 }
 document.querySelectorAll("#themes .th").forEach(b=>b.onclick=()=>setTheme(b.dataset.t));
@@ -2246,7 +2408,7 @@ function peekAt(k){
   const e=S.seq[k], wrap=$("scoreWrap"), G=S.geo;
   $("turn").style.display="none"; const jm=$("jumpMark"); if(jm) jm.style.display="none";
   if(isLine()){ updateLineView(k,0); $("playhead").style.visibility="hidden"; }
-  else { const m=G.meas[e.mi]; if(m){ const sy=G.sys[m.sys]; wrap.scrollTop=Math.max(0,sy.top-(m.sys===0?0:12)); } }
+  else { const m=G.meas[e.mi]; if(m){ const sy=G.sys[m.sys]; wrap.scrollTop=Math.max(0,sy.top-(m.sys===0?0:TOP_PAD)); } }
   let g=$("peekHead"); if(!g){ g=document.createElement("div"); g.id="peekHead"; g.className="peekhead"; $("bar").appendChild(g); }
   g.style.left=(e.t/S.total*100)+"%";
   let h=$("peekHint"); if(!h){ h=document.createElement("div"); h.id="peekHint"; $("scoreBox").appendChild(h); }
@@ -2358,7 +2520,7 @@ async function startMaster(){
     const pr=new Peer(PEER_PREFIX+SY.code,{debug:1}); SY.peer=pr;
     pr.on("open",()=>sessOpened()); pr.on("close",()=>sessUI());
     pr.on("connection",conn=>{
-      conn.on("open",()=>{ SY.peers.set(conn.peer,{conn,part:"?"}); sessUI(); });
+      conn.on("open",()=>{ SY.peers.set(conn.peer,{conn,part:"?"}); sessUI(); if(window.fxBurst) fxBurst({n:70}); });
       conn.on("data",d=>onMasterMsg(d,conn.peer));
       conn.on("close",()=>{ SY.peers.delete(conn.peer); sessUI(); });
       conn.on("error",()=>{ SY.peers.delete(conn.peer); sessUI(); });
@@ -2427,7 +2589,7 @@ async function startFollower(code){
 function followerConnect(){
   if(SY.role!=="f"||!SY.peer||SY.peer.destroyed) return;
   const conn=SY.peer.connect(PEER_PREFIX+SY.code,{reliable:true}); SY.conn=conn;
-  conn.on("open",()=>followerConnected());
+  conn.on("open",()=>{ followerConnected(); if(window.fxBurst) fxBurst({n:90}); });
   conn.on("data",d=>onFollowerMsg(d));
   conn.on("close",()=>{ if(SY.role!=="f") return; SY.conn=null; $("sessFState").textContent="Chef déconnecté… reconnexion"; banner("⚠ Chef déconnecté – reconnexion…"); sessUI(); scheduleRetry(); });
 }
@@ -2550,6 +2712,34 @@ $("sessSound").onchange=()=>{ if(SY.role==="f") setLocalSound($("sessSound").che
 $("partSel").addEventListener("change",()=>{ if(SY.role==="f") setTimeout(()=>send({t:"part",part:partName()}),50); });
 (function(){ const m=location.search.match(/[?&]seance=([A-Za-z0-9]+)/); if(m){ $("sessCodeIn").value=m[1].toUpperCase(); setTimeout(()=>{ sessUI(); $("sessDlg").showModal(); },300); } })();
 loadLibrary();
+
+/* ---------- pack de sons à héberger sur GitHub (outil de l'administrateur) ----------
+   télécharge depuis la banque en ligne tous les instruments utiles à une banda, dans les deux qualités,
+   et les range dans un fichier sons.zip à décompresser à la racine du dépôt (dossier « sons »). */
+const PACK_INST=["piccolo","flute","clarinet","oboe","bassoon","soprano_sax","alto_sax","tenor_sax","baritone_sax","trumpet","trombone","french_horn","tuba",
+  "accordion","acoustic_grand_piano","drawbar_organ","electric_bass_finger","electric_guitar_clean","steel_drums","choir_aahs","percussion"];
+async function buildSoundPack(){
+  const btn=$("packBtn"); if(btn.disabled) return; btn.disabled=true; const old=btn.textContent;
+  try{
+    if(!window.JSZip) throw new Error("module zip indisponible");
+    const inst=new Set(PACK_INST);
+    for(const it of S.lib||[]){ try{ const r=await fetch(it.url); const xml=await bufferToXml(await r.arrayBuffer(),it.url); buildModel(xml).parts.forEach(P=>inst.add(P.isDrum?"percussion":instrumentFor(P))); }catch(e){} }
+    const zip=new JSZip(), idx={version:1,fonts:{}}, banks=["MusyngKite","FluidR3_GM"], all=[...inst]; let n=0, tot=all.length*banks.length, bytes=0, miss=[];
+    for(const b of banks){ idx.fonts[b]=[];
+      for(const name of all){ btn.textContent="Téléchargement "+(++n)+"/"+tot+"…";
+        try{ const r=await fetch(SF_BASE+b+"/"+name+"-mp3.js"); if(!r.ok) throw 0; const t=await r.text(); bytes+=t.length; zip.file("sons/"+b+"/"+name+"-mp3.js",t); idx.fonts[b].push(name); }
+        catch(e){ miss.push(b+"/"+name); } } }
+    zip.file("sons/index.json",JSON.stringify(idx,null,1));
+    zip.file("sons/LISEZ-MOI.txt","Sons d'instruments de La Banda Familia (banques MusyngKite et FluidR3, projet midi-js-soundfonts).\nDéposer ce dossier « sons » à la racine du dépôt GitHub, à côté de index.html.\n");
+    btn.textContent="Création du fichier…";
+    const blob=await zip.generateAsync({type:"blob",compression:"STORE"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="sons.zip"; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },4000);
+    toast("sons.zip prêt ("+Math.round(bytes/1048576)+" Mo, "+(tot-miss.length)+" banques)"+(miss.length?" – introuvables : "+miss.join(", "):""),6000);
+  }catch(e){ toast("Création du pack impossible : "+(e.message||e),5000); }
+  finally{ btn.disabled=false; btn.textContent=old; }
+}
+$("packBtn").onclick=buildSoundPack;
+LOCAL_SF.ready.then(()=>{ const el=$("packInfo"); if(el) el.textContent=LOCAL_SF.set.size?"Sons hébergés avec l'application : "+LOCAL_SF.set.size+" banques ✓":"Pas encore de sons hébergés : les sons viennent du site gratuit midi-js-soundfonts."; });
 
 /* =====================================================================
    SORTIE AUDIO AUTOMATIQUE + RETARD DU SON (auto-latence)
@@ -3111,6 +3301,126 @@ function beatDodge(){
 }
 $("beatOn").onchange=e=>{ store("banda.beatBox",e.target.checked?"1":"0"); beatSync(); };
 window.addEventListener("resize",()=>{ if(BEAT.on) setTimeout(()=>{ beatSize(); drawBeat(curSeq,curOff,true); },400); });
+
+/* =====================================================================
+   EFFETS FESTIFS — uniquement quand la musique ne joue pas
+   confettis, feux d'artifice, transitions, pochettes de morceaux, décors de thème
+   Tout s'arrête net dès qu'on lance la lecture (fxClear), et rien ne tourne en mode allégé.
+   ===================================================================== */
+const FX={cv:null,ctx:null,p:[],raf:0,last:0,dpr:1,lastClick:{x:innerWidth/2,y:innerHeight/2}};
+function fxAllowed(){ return !S.playing && !document.body.classList.contains("light") && !matchMedia("(prefers-reduced-motion: reduce)").matches; }
+function fxColors(){ const cs=getComputedStyle(document.body); const v=n=>(cs.getPropertyValue(n)||"").trim();
+  const c=[v("--accent"),v("--accent2"),v("--accent3"),"#ffffff","#ffd84d"].filter(Boolean); return c.length?c:["#ff2d95","#c6ff3d","#3b6bff","#fff"]; }
+function fxCanvas(){
+  if(FX.cv) return;
+  const c=document.createElement("canvas"); c.id="fxLayer"; document.body.appendChild(c); FX.cv=c; FX.ctx=c.getContext("2d"); fxSize();
+  addEventListener("resize",fxSize);
+}
+function fxSize(){ if(!FX.cv) return; FX.dpr=Math.min(2,devicePixelRatio||1); FX.cv.width=innerWidth*FX.dpr; FX.cv.height=innerHeight*FX.dpr; }
+function fxClear(){ FX.p=[]; cancelAnimationFrame(FX.raf); FX.raf=0; if(FX.ctx) FX.ctx.clearRect(0,0,FX.cv.width,FX.cv.height); const b=$("bravo"); if(b) b.remove(); }
+function fxRun(){ if(!FX.raf){ FX.last=performance.now(); FX.raf=requestAnimationFrame(fxFrame); } }
+function fxFrame(now){
+  if(!fxAllowed()){ fxClear(); return; }
+  const dt=Math.min(.05,(now-FX.last)/1000); FX.last=now;
+  const ctx=FX.ctx, d=FX.dpr; ctx.clearRect(0,0,FX.cv.width,FX.cv.height);
+  const keep=[];
+  for(const q of FX.p){
+    q.t+=dt; if(q.t>q.life) { if(q.onEnd) q.onEnd(q); continue; }
+    q.vx*=q.drag; q.vy=q.vy*q.drag+q.g*dt; q.x+=q.vx*dt; q.y+=q.vy*dt; q.rot+=q.vr*dt;
+    const a=Math.min(1,(q.life-q.t)/.5)*(q.fade?1-q.t/q.life:1);
+    ctx.save(); ctx.globalAlpha=Math.max(0,a); ctx.translate(q.x*d,q.y*d); ctx.rotate(q.rot);
+    if(q.k==="conf"){ ctx.fillStyle=q.c; const w=q.s*d, h=q.s*d*.45*Math.abs(Math.cos(q.t*q.flip)); ctx.fillRect(-w/2,-h/2,w,h); }
+    else if(q.k==="dot"){ ctx.globalCompositeOperation="lighter"; ctx.fillStyle=q.c; ctx.beginPath(); ctx.arc(0,0,q.s*d,0,7); ctx.fill(); }
+    else if(q.k==="star"){ ctx.globalCompositeOperation="lighter"; ctx.fillStyle=q.c; const r=q.s*d; ctx.beginPath(); ctx.moveTo(0,-r*2); ctx.lineTo(r*.35,-r*.35); ctx.lineTo(r*2,0); ctx.lineTo(r*.35,r*.35); ctx.lineTo(0,r*2); ctx.lineTo(-r*.35,r*.35); ctx.lineTo(-r*2,0); ctx.lineTo(-r*.35,-r*.35); ctx.closePath(); ctx.fill(); }
+    else if(q.k==="rocket"){ ctx.globalCompositeOperation="lighter"; ctx.fillStyle=q.c; ctx.beginPath(); ctx.arc(0,0,2.2*d,0,7); ctx.fill(); }
+    ctx.restore();
+    keep.push(q);
+  }
+  FX.p=keep.concat(FX.add||[]); FX.add=null;
+  if(FX.p.length) FX.raf=requestAnimationFrame(fxFrame); else { FX.raf=0; ctx.clearRect(0,0,FX.cv.width,FX.cv.height); }
+}
+function fxPush(q){ (FX.add=FX.add||[]).push(q); }
+/* pluie de confettis */
+function fxBurst(o={}){
+  if(!fxAllowed()) return; fxCanvas();
+  const cols=o.colors||fxColors(), n=o.n||120, x=o.x??innerWidth/2, y=o.y??innerHeight*.35, sp=o.spread||1;
+  for(let i=0;i<n;i++){ const a=-Math.PI/2+(Math.random()-.5)*Math.PI*1.1*sp, v=260+Math.random()*420;
+    FX.p.push({k:Math.random()<.18?"star":"conf",x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,g:520,drag:.985,rot:Math.random()*6,vr:(Math.random()-.5)*10,flip:6+Math.random()*8,
+      s:6+Math.random()*7,c:cols[i%cols.length],t:0,life:2.6+Math.random()*1.4}); }
+  fxRun();
+}
+/* feux d'artifice */
+function fxFireworks(nb=6){
+  if(!fxAllowed()) return; fxCanvas(); const cols=fxColors();
+  for(let i=0;i<nb;i++) setTimeout(()=>{ if(!fxAllowed()) return;
+    const x=innerWidth*(.15+Math.random()*.7), ty=innerHeight*(.15+Math.random()*.3), c=cols[i%cols.length];
+    const g=900, v=Math.sqrt(2*g*(innerHeight+10-ty));
+    FX.p.push({k:"rocket",x,y:innerHeight+10,vx:(Math.random()-.5)*60,vy:-v,g,drag:1,rot:0,vr:0,s:2,c,t:0,life:v/g,
+      onEnd:q=>{ const m=70; for(let j=0;j<m;j++){ const a=j/m*Math.PI*2, v=140+Math.random()*170;
+        fxPush({k:j%5?"dot":"star",x:q.x,y:q.y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,g:110,drag:.975,rot:0,vr:0,s:j%5?2.2:3,c:Math.random()<.25?"#ffffff":c,t:0,life:1.4+Math.random()*.6,fade:true}); } }});
+    fxRun(); }, i*380+Math.random()*200);
+}
+/* fin de morceau : bravo ! */
+function fxSongEnd(){
+  setTimeout(()=>{ if(!fxAllowed()) return;
+    fxFireworks(7); setTimeout(()=>fxBurst({n:140,y:innerHeight*.3}),500);
+    const b=document.createElement("div"); b.id="bravo"; b.innerHTML="<b>Bravo la banda !</b><span>Fin du morceau</span>"; document.body.appendChild(b);
+    setTimeout(()=>{ b.classList.add("out"); setTimeout(()=>b.remove(),600); },3200);
+  },250);
+}
+/* transitions entre l'accueil et un morceau */
+document.addEventListener("pointerdown",e=>{ FX.lastClick={x:e.clientX,y:e.clientY}; },true);
+function fxEnterPlayer(){
+  if(!fxAllowed()||!document.body.animate) return;
+  const p=$("player"), {x,y}=FX.lastClick, r=Math.hypot(Math.max(x,innerWidth-x),Math.max(y,innerHeight-y));
+  p.animate([{clipPath:`circle(0px at ${x}px ${y}px)`},{clipPath:`circle(${r}px at ${x}px ${y}px)`}],{duration:620,easing:"cubic-bezier(.7,0,.2,1)"});
+  const fl=document.createElement("div"); fl.className="fxwipe"; fl.style.setProperty("--x",x+"px"); fl.style.setProperty("--y",y+"px"); document.body.appendChild(fl); setTimeout(()=>fl.remove(),900);
+}
+function fxEnterLibrary(){
+  if(!fxAllowed()||!document.body.animate) return;
+  $("library").animate([{opacity:0,transform:"scale(.97)"},{opacity:1,transform:"none"}],{duration:420,easing:"cubic-bezier(.2,.8,.2,1)"});
+  [...document.querySelectorAll("#songs .song")].forEach((c,i)=>c.animate([{opacity:0,transform:"translateY(14px) scale(.98)"},{opacity:1,transform:"none"}],{duration:420,delay:60+i*35,easing:"cubic-bezier(.2,.8,.2,1)",fill:"backwards"}));
+}
+/* ---------- pochettes des morceaux : un motif néon unique par titre ---------- */
+function hashStr(s){ let h=2166136261; for(const c of s) h=Math.imul(h^c.charCodeAt(0),16777619); return h>>>0; }
+function cover(title){
+  const h=hashStr(title), r=n=>{ let x=Math.sin(h*0.0001+n*12.9898)*43758.5453; return x-Math.floor(x); };
+  const kind=h%4, cols=["var(--accent)","var(--accent2)","var(--accent3)"], c=i=>cols[(h>>i)%3];
+  let g="";
+  if(kind===0){ for(let i=0;i<7;i++){ const hh=12+r(i)*34; g+=`<rect x="${5+i*7.3}" y="${50-hh}" width="5" height="${hh}" rx="2.5" fill="${c(i)}"/>`; } }          // égaliseur
+  else if(kind===1){ for(let i=0;i<4;i++) g+=`<circle cx="${28+(r(i)-.5)*10}" cy="${28+(r(i+9)-.5)*10}" r="${8+i*6}" fill="none" stroke="${c(i)}" stroke-width="3" opacity="${1-i*.18}"/>`; }   // ondes
+  else if(kind===2){ let d="M2 28"; for(let x=2;x<=54;x+=4) d+=` L${x} ${28+Math.sin(x/5+r(1)*6)*(8+r(2)*10)}`; g=`<path d="${d}" fill="none" stroke="${c(1)}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" transform="translate(0 9)" fill="none" stroke="${c(4)}" stroke-width="2" opacity=".6"/>`; }  // vague
+  else { for(let i=0;i<9;i++){ const x=8+(i%3)*20, y=8+Math.floor(i/3)*20; g+=`<rect x="${x-6}" y="${y-6}" width="12" height="12" rx="3" fill="${c(i)}" opacity="${.35+r(i)*.65}"/>`; } }   // pads
+  return `<svg class="cover" viewBox="0 0 56 56" aria-hidden="true">${g}</svg>`;
+}
+function decorateCards(){
+  document.querySelectorAll("#songs .song:not(.dec)").forEach(b=>{ b.classList.add("dec"); const n=b.querySelector(".num"); if(!n) return;
+    const num=n.textContent.trim(); n.innerHTML=cover(b.querySelector("b").textContent||"")+(num?`<span class="nb">${num}</span>`:""); });
+}
+new MutationObserver(decorateCards).observe($("songs"),{childList:true});
+/* logo : un petit feu d'artifice quand on le touche */
+["logoImg","heroImg"].forEach(id=>{ const el=$(id); if(!el) return; el.style.cursor="pointer";
+  el.addEventListener("click",e=>{ const r=el.getBoundingClientRect(); fxBurst({x:r.left+r.width/2,y:r.top+r.height/2,n:90,spread:2}); el.animate&&el.animate([{transform:"rotate(0) scale(1)"},{transform:"rotate(360deg) scale(1.12)"},{transform:"rotate(360deg) scale(1)"}],{duration:900,easing:"cubic-bezier(.2,.8,.2,1)"}); }); });
+/* ---------- décors des thèmes (guirlandes, fanions) ---------- */
+function fxThemeChanged(t){
+  document.querySelectorAll(".deco").forEach(x=>x.remove());
+  if(t==="guinguette"){
+    const g=document.createElement("div"); g.className="deco lights"; let h="";
+    const n=Math.max(10,Math.round(innerWidth/70));
+    for(let i=0;i<n;i++){ const y=10+Math.sin(i/(n-1)*Math.PI)*16; h+=`<i style="left:${(i+.5)/n*100}%;top:${y}px;--d:${(i*0.37)%2.4}s;--c:${["#ffcf6b","#ff7a59","#ffe9a8","#7fd4c1","#ffb547"][i%5]}"></i>`; }
+    g.innerHTML=`<svg preserveAspectRatio="none" viewBox="0 0 100 30"><path d="M0 8 Q50 40 100 8" fill="none" stroke="#3a2a1e" stroke-width=".6"/></svg>`+h;
+    document.body.appendChild(g);
+  }
+  if(t==="fiesta"){
+    const g=document.createElement("div"); g.className="deco papel"; let h="";
+    const n=Math.max(8,Math.round(innerWidth/60)), cols=["#ff3d7f","#ffb800","#00b3a6","#7b4dff","#ff7a1a","#2fb34a"];
+    for(let i=0;i<n;i++) h+=`<i style="left:${i/n*100}%;width:${100/n}%;--c:${cols[i%cols.length]};--d:${(i%4)*.25}s"></i>`;
+    g.innerHTML=h; document.body.appendChild(g);
+  }
+}
+addEventListener("resize",()=>{ const t=document.body.dataset.theme; if(t==="guinguette"||t==="fiesta"){ clearTimeout(fxThemeChanged.t); fxThemeChanged.t=setTimeout(()=>fxThemeChanged(t),300); } });
+fxThemeChanged(document.body.dataset.theme);
+decorateCards();
 
 </script>
 </body>
