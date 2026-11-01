@@ -47,7 +47,8 @@ HÉBERGER LES SONS AVEC L'APPLICATION (une fois, recommandé)
      Patienter quelques minutes : le fichier sons.zip (60 à 90 Mo) est téléchargé.
   2. Décompresser sons.zip : on obtient un dossier « sons ».
   3. Sur GitHub, page du dépôt → « Add file » → « Upload files » → glisser le dossier « sons »
-     → « Commit changes ». (Chaque fichier fait moins de 25 Mo : l'envoi par le site marche.)
+     → « Commit changes ». (Les grosses banques sont découpées en fichiers de moins de 20 Mo : l'envoi par le site marche.
+     Si GitHub refuse un envoi trop gros d'un coup, envoyer les dossiers MusyngKite et FluidR3_GM séparément.)
   4. Paramètres de l'application : la ligne « Sons hébergés avec l'application : N banques ✓ » le confirme.
   Quotas GitHub (gratuit) : dépôt et site jusqu'à 1 Go, fichiers jusqu'à 100 Mo, trafic ~100 Go/mois.
   Le pack de sons fait moins de 10 % du quota ; les téléphones ne le téléchargent qu'une fois

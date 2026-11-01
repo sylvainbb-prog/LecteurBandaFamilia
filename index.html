@@ -15,7 +15,7 @@
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "4.0";
+window.BANDA_VERSION = "4.1";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -903,7 +903,7 @@ async function prepareOffline(){
   }
   let k=0;
   for(const f of fonts){ btn.lastChild.textContent=" Sons "+(++k)+"/"+fonts.size;
-    try{ await LOCAL_SF.ready; await fetchFirst(fontUrls(q,f)); }catch(e){} }
+    try{ await fetchFontText(q,f); }catch(e){} }
   btn.disabled=false; btn.lastChild.textContent=" Prêt hors connexion ✓";
   toast("Tout est prêt : les "+S.lib.length+" morceaux et leurs sons fonctionnent sans connexion",4500);
 }
@@ -1414,13 +1414,20 @@ const PCN={C:0,Db:1,D:2,Eb:3,E:4,F:5,Gb:6,G:7,Ab:8,A:9,Bb:10,B:11};
 function sfQuality(){ return store("banda.sfq")==="light"?"FluidR3_GM":"MusyngKite"; }
 /* sons hébergés avec l'application (dossier « sons/ » du site) en priorité, sinon la banque en ligne */
 const SF_LOCAL="sons/";
-const LOCAL_SF={ready:null,set:new Set()};
-LOCAL_SF.ready=fetch(SF_LOCAL+"index.json",{cache:"no-cache"}).then(r=>r.ok?r.json():null).then(j=>{ if(j&&j.fonts) for(const [f,list] of Object.entries(j.fonts)) list.forEach(n=>LOCAL_SF.set.add(f+"/"+n)); }).catch(()=>{});
-function fontUrls(font,name){ const u=[]; if(LOCAL_SF.set.has(font+"/"+name)) u.push(SF_LOCAL+font+"/"+name+"-mp3.js"); u.push(SF_BASE+font+"/"+name+"-mp3.js"); return u; }
-async function fetchFirst(urls){ let err; for(const u of urls){ try{ const r=await fetch(u); if(r.ok) return r; err=new Error(r.status); }catch(e){ err=e; } } throw err||new Error("introuvable"); }
+/* les grosses banques sont découpées en morceaux de moins de 20 Mo (limite d'envoi du site GitHub : 25 Mo par fichier) */
+const SF_PART=20e6;
+const LOCAL_SF={ready:null,set:new Set(),parts:{}};
+LOCAL_SF.ready=fetch(SF_LOCAL+"index.json",{cache:"no-cache"}).then(r=>r.ok?r.json():null).then(j=>{ if(j&&j.fonts) for(const [f,list] of Object.entries(j.fonts)) list.forEach(n=>{
+  const nm=typeof n==="string"?n:n.n, k=f+"/"+nm; LOCAL_SF.set.add(k); if(typeof n==="object"&&n.parts>1) LOCAL_SF.parts[k]=n.parts; }); }).catch(()=>{});
+function localFontUrls(font,name){ const k=font+"/"+name, n=LOCAL_SF.parts[k]; if(!n) return [SF_LOCAL+font+"/"+name+"-mp3.js"]; return Array.from({length:n},(_,i)=>SF_LOCAL+font+"/"+name+"-mp3.p"+(i+1)+".js"); }
+async function fetchFontText(font,name){
+  await LOCAL_SF.ready;
+  if(LOCAL_SF.set.has(font+"/"+name)){ try{ const txt=await Promise.all(localFontUrls(font,name).map(u=>fetch(u).then(r=>{ if(!r.ok) throw new Error(r.status); return r.text(); }))); return txt.join(""); }catch(e){ console.warn("sons hébergés",font,name,e); } }
+  const r=await fetch(SF_BASE+font+"/"+name+"-mp3.js"); if(!r.ok) throw new Error(r.status); return r.text();
+}
 function loadFont(font,name){
   const key=font+"/"+name;
-  if(!FONTS[key]) FONTS[key]=LOCAL_SF.ready.then(()=>fetchFirst(fontUrls(font,name))).then(r=>r.text()).then(t=>{
+  if(!FONTS[key]) FONTS[key]=fetchFontText(font,name).then(t=>{
     const notes=new Map(), rx=/"([A-G]b?)(-?\d)"\s*:\s*"data:audio\/[a-z0-9]+;base64,([^"]+)"/g; let m;
     while((m=rx.exec(t))) notes.set(12*(parseInt(m[2])+1)+PCN[m[1]], m[3]);
     if(!notes.size) throw new Error("banque vide");
@@ -2727,7 +2734,9 @@ async function buildSoundPack(){
     const zip=new JSZip(), idx={version:1,fonts:{}}, banks=["MusyngKite","FluidR3_GM"], all=[...inst]; let n=0, tot=all.length*banks.length, bytes=0, miss=[];
     for(const b of banks){ idx.fonts[b]=[];
       for(const name of all){ btn.textContent="Téléchargement "+(++n)+"/"+tot+"…";
-        try{ const r=await fetch(SF_BASE+b+"/"+name+"-mp3.js"); if(!r.ok) throw 0; const t=await r.text(); bytes+=t.length; zip.file("sons/"+b+"/"+name+"-mp3.js",t); idx.fonts[b].push(name); }
+        try{ const r=await fetch(SF_BASE+b+"/"+name+"-mp3.js"); if(!r.ok) throw 0; const t=await r.text(); bytes+=t.length;
+          if(t.length<=SF_PART){ zip.file("sons/"+b+"/"+name+"-mp3.js",t); idx.fonts[b].push(name); }
+          else { const k=Math.ceil(t.length/SF_PART); for(let i=0;i<k;i++) zip.file("sons/"+b+"/"+name+"-mp3.p"+(i+1)+".js",t.slice(i*SF_PART,(i+1)*SF_PART)); idx.fonts[b].push({n:name,parts:k}); } }
         catch(e){ miss.push(b+"/"+name); } } }
     zip.file("sons/index.json",JSON.stringify(idx,null,1));
     zip.file("sons/LISEZ-MOI.txt","Sons d'instruments de La Banda Familia (banques MusyngKite et FluidR3, projet midi-js-soundfonts).\nDéposer ce dossier « sons » à la racine du dépôt GitHub, à côté de index.html.\n");
