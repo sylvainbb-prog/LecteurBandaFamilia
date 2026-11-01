@@ -1,0 +1,2 @@
+Sons d'instruments de La Banda Familia (banques MusyngKite et FluidR3, projet midi-js-soundfonts).
+Déposer ce dossier « sons » à la racine du dépôt GitHub, à côté de index.html.

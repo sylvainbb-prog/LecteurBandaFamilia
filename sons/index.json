@@ -1,0 +1,49 @@
+{
+ "version": 1,
+ "fonts": {
+  "MusyngKite": [
+   "piccolo",
+   "flute",
+   "clarinet",
+   "oboe",
+   "bassoon",
+   "soprano_sax",
+   "alto_sax",
+   "tenor_sax",
+   "baritone_sax",
+   "trumpet",
+   "trombone",
+   "french_horn",
+   "tuba",
+   "accordion",
+   "acoustic_grand_piano",
+   "drawbar_organ",
+   "electric_bass_finger",
+   "electric_guitar_clean",
+   "steel_drums",
+   "choir_aahs"
+  ],
+  "FluidR3_GM": [
+   "piccolo",
+   "flute",
+   "clarinet",
+   "oboe",
+   "bassoon",
+   "soprano_sax",
+   "alto_sax",
+   "tenor_sax",
+   "baritone_sax",
+   "trumpet",
+   "trombone",
+   "french_horn",
+   "tuba",
+   "accordion",
+   "acoustic_grand_piano",
+   "drawbar_organ",
+   "electric_bass_finger",
+   "electric_guitar_clean",
+   "steel_drums",
+   "choir_aahs"
+  ]
+ }
+}
