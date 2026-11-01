@@ -15,7 +15,7 @@
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "4.1";
+window.BANDA_VERSION = "4.2";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -998,10 +998,19 @@ function unrollForLine(doc,root){
     c.querySelectorAll(":scope > print").forEach(x=>x.remove());
     // plus de reprises ni de renvois : on joue tout droit
     c.querySelectorAll(":scope > barline").forEach(b=>{ b.querySelectorAll("repeat,ending,segno,coda").forEach(x=>x.remove()); if(!b.querySelector("bar-style")) b.remove(); else if(b.querySelector("bar-style").textContent==="heavy-light") b.querySelector("bar-style").textContent="light-light"; });
+    // repères de structure gardés pour s'y retrouver avec la partie papier :
+    //  § et ⊕ toujours ; « D.S. / D.C. » et « To Coda » seulement là où l'on saute vraiment ; « Fine » à la toute fin
+    const nx=S.seq[k+1], last=k===S.seq.length-1, MM=S.model.meas;
+    const segI=MM.findIndex(m=>m.segno); let codaI=-1; MM.forEach((m,i)=>{ if(m.coda&&i>0) codaI=i; });
+    // le D.S. / D.C. n'a lieu qu'une fois : le DERNIER retour depuis cette mesure (les précédents sont de simples reprises)
+    let dsK=-1; S.seq.forEach((x,j)=>{ const y=S.seq[j+1]; if(y&&x.mi===e.mi&&y.mi!==x.mi+1&&(y.mi===segI||y.mi===0)) dsK=j; });
+    const toSeg=k===dsK, toCoda=!!nx&&nx.mi!==e.mi+1&&nx.mi===codaI;
     c.querySelectorAll(":scope > direction").forEach(d=>{
-      if(d.querySelector("segno,coda")||d.querySelector("sound[dalsegno],sound[dacapo],sound[tocoda],sound[fine],sound[coda],sound[segno]")) { d.remove(); return; }
       const w=[...d.querySelectorAll("words")].map(x=>x.textContent).join(" ");
-      if(/^\s*(d\.?\s?[cs]\.?|to ?coda|fine|al coda)/i.test(w)) { d.remove(); return; }
+      if(d.querySelector("direction-type > segno,direction-type > coda")||d.querySelector("sound[segno],sound[coda]")) return;
+      if(d.querySelector("sound[tocoda]")||/^\s*(to ?coda|al coda)/i.test(w)){ if(!toCoda) d.remove(); return; }
+      if(d.querySelector("sound[dalsegno],sound[dacapo]")||/^\s*d\.?\s?[cs]\.?/i.test(w)){ if(!toSeg) d.remove(); return; }
+      if(d.querySelector("sound[fine]")||/^\s*fine\b/i.test(w)){ if(!last) d.remove(); return; }
       if(seen.has(e.mi) && d.querySelector("rehearsal,metronome")) d.remove(); });
     c.querySelectorAll("attributes > measure-style > measure-repeat").forEach(x=>{ const st=x.parentNode; x.remove(); if(!st.children.length) st.remove(); });
     // après un saut : on redonne armure / mesure / clé en vigueur
