@@ -15,7 +15,7 @@
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "3.3";
+window.BANDA_VERSION = "3.4";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -889,8 +889,7 @@ function unrollForLine(doc,root){
       ["divisions","key","time","transpose","clef"].forEach(t=>{ if(!at.querySelector(":scope > "+t) && snap[e.mi][t]) at.appendChild(snap[e.mi][t].cloneNode(true)); });
       const ORDER=["footnote","level","divisions","key","time","staves","part-symbol","instruments","clef","staff-details","transpose","directive","measure-style"];
       [...at.children].sort((a,b)=>ORDER.indexOf(a.tagName)-ORDER.indexOf(b.tagName)).forEach(x=>at.appendChild(x)); }
-    // signe % seulement si la (les) mesure(s) répétée(s) précède(nt) vraiment
-    const L=mrl[e.mi]; if(L){ let ok=true; for(let j=1;j<=L;j++) if(!S.seq[k-j]||S.seq[k-j].mi!==e.mi-j) ok=false; if(ok) c.setAttribute("data-rep",L); }
+    // défilement : jamais de signe % ; on écrit toujours les notes à jouer (MuseScore les exporte déjà dans la mesure)
     seen.add(e.mi); out.push(c);
   });
   ms.forEach(m=>m.remove()); out.forEach(c=>pe.appendChild(c));
