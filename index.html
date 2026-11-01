@@ -15,7 +15,7 @@
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "4.2";
+window.BANDA_VERSION = "4.3";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -494,8 +494,8 @@ dialog[open]::backdrop{animation:fadeIn .3s ease}
   animation:drift 18s ease-in-out infinite alternate}
 #library>*{position:relative;z-index:1}
 @keyframes drift{to{transform:translate(-3%,4%) scale(1.08)}}
-body.playing .deco i,body.playing .halo::before{animation-play-state:paused!important}
-body.light #library::before,body.light .deco{display:none}
+body.playing > .deco i,body.playing .halo::before{animation-play-state:paused!important}
+body.light #library::before,body.light > .deco{display:none}
 @media (prefers-reduced-motion:reduce){ #library::before,.deco i{animation:none!important} dialog[open]{animation:none} }
 .th em.new{display:inline-block;font-style:normal;font-size:9px;font-weight:800;text-transform:uppercase;background:var(--accent);color:var(--accent-ink);border-radius:6px;padding:1px 5px;margin-left:4px;vertical-align:1px}
 .themes{grid-template-columns:repeat(3,1fr)}
@@ -557,7 +557,7 @@ body.playing .deco.lights i{animation:none;opacity:.9}
 /* place réservée pour les fanions / la guirlande au-dessus de l'en-tête */
 body[data-theme=fiesta] header.top,body[data-theme=guinguette] header.top{height:calc(var(--topH) + var(--decoH) + env(safe-area-inset-top));padding-top:calc(8px + var(--decoH) + env(safe-area-inset-top))}
 body[data-theme=fiesta]{--decoH:16px} body[data-theme=guinguette]{--decoH:22px}
-.deco{top:env(safe-area-inset-top)!important}
+body > .deco{top:env(safe-area-inset-top)!important}
 @media (max-width:820px), (max-height:500px) and (pointer:coarse){
   body[data-theme=fiesta]{--decoH:10px} body[data-theme=guinguette]{--decoH:14px}
   body[data-theme=fiesta] header.top,body[data-theme=guinguette] header.top{height:calc(46px + var(--decoH) + env(safe-area-inset-top));padding-top:calc(4px + var(--decoH) + env(safe-area-inset-top))}
@@ -3421,7 +3421,7 @@ new MutationObserver(decorateCards).observe($("songs"),{childList:true});
   el.addEventListener("click",e=>{ const r=el.getBoundingClientRect(); fxBurst({x:r.left+r.width/2,y:r.top+r.height/2,n:90,spread:2}); el.animate&&el.animate([{transform:"rotate(0) scale(1)"},{transform:"rotate(360deg) scale(1.12)"},{transform:"rotate(360deg) scale(1)"}],{duration:900,easing:"cubic-bezier(.2,.8,.2,1)"}); }); });
 /* ---------- décors des thèmes (guirlandes, fanions) ---------- */
 function fxThemeChanged(t){
-  document.querySelectorAll(".deco").forEach(x=>x.remove());
+  document.querySelectorAll("body > .deco").forEach(x=>x.remove());   // seulement les guirlandes du thème (les symboles § ⊕ de la partition ont aussi une classe « deco »)
   if(t==="guinguette"){
     const g=document.createElement("div"); g.className="deco lights"; let h="";
     const n=Math.max(10,Math.round(innerWidth/70));
