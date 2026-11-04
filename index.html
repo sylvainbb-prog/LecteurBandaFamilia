@@ -15,7 +15,7 @@
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "4.3";
+window.BANDA_VERSION = "4.7";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -290,6 +290,9 @@ dialog input[type=text]{width:100%}
   .transport{padding-top:6px}
 }
 .lp,.lpnote{display:none}
+.landrow{display:none}
+@media (pointer: coarse){ .landrow{display:block} }
+button.ic.lp.on{border-color:var(--accent);color:var(--accent)}
 .tmid{display:contents}
 @media (pointer: coarse){ .kbd{display:none} }
 /* ===== téléphone en paysage : la partition d'abord ===== */
@@ -322,7 +325,7 @@ dialog input[type=text]{width:100%}
     transform:translateX(105%);padding:10px 10px calc(10px + env(safe-area-inset-bottom)) 10px;padding-right:calc(10px + env(safe-area-inset-right))}
   .side .grab{display:none}
   .lpnote{display:block;margin:0 0 6px}
-  #layoutSeg{display:none}
+  body.landline #layoutSeg{display:none}
   .card{padding:10px;margin-bottom:8px}
   /* bibliothèque */
   .hero{flex-direction:row;text-align:left;margin-top:10px;gap:18px}
@@ -577,6 +580,32 @@ body[data-theme=fiesta] .halo img{animation:wobble 3.5s ease-in-out infinite}
 body[data-theme=guinguette] .halo img{animation:glowPulse 3s ease-in-out infinite alternate}
 @keyframes glowPulse{from{box-shadow:0 0 18px #ffb54755}to{box-shadow:0 0 44px #ffb547aa}}
 @media (prefers-reduced-motion:reduce){ .halo img,.hero h2,.hero::after{animation:none!important} }
+.card.resume{margin-top:12px;margin-bottom:0}
+
+/* ===== aide et premiers pas ===== */
+.dhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.dhead .dtitle{margin:0}
+dialog.qs{max-width:460px;text-align:center;padding:22px 22px 16px}
+.qsIcon{font-size:54px;line-height:1;margin:4px 0 10px;filter:drop-shadow(0 4px 14px var(--soft))}
+.qsText{font-size:16px;line-height:1.5;margin:6px 0 12px;min-height:5.5em}
+.qsAct{display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:10px}
+.qsAct:empty{display:none}
+.qsst{opacity:.8}
+.qsDots{display:flex;justify-content:center;gap:7px;margin:6px 0 14px}
+.qsDots i{width:8px;height:8px;border-radius:50%;background:var(--line);transition:all .25s}
+.qsDots i.on{background:var(--accent);width:22px;border-radius:4px}
+.qsNav{gap:8px;align-items:center}
+button.link{background:none;border:none;color:var(--muted,inherit);opacity:.75;text-decoration:underline;padding:6px}
+dialog.help{max-width:600px}
+.hsec{border:1px solid var(--line);border-radius:14px;margin:0 0 8px;background:var(--panel)}
+.hsec summary{cursor:pointer;padding:12px 14px;font-weight:700;list-style:none;display:flex;align-items:center;gap:8px}
+.hsec summary::-webkit-details-marker{display:none}
+.hsec summary::before{content:"›";display:inline-block;color:var(--accent);font-size:20px;line-height:1;transition:transform .2s}
+.hsec[open] summary::before{transform:rotate(90deg)}
+.htxt{padding:0 14px 12px 32px;line-height:1.5;font-size:14.5px}
+li.latcheck b{color:var(--accent)}
+@media (orientation: landscape) and (max-height: 500px){ .qsIcon{font-size:34px;margin:0 0 4px} .qsText{min-height:0;font-size:14.5px} dialog.qs{max-width:600px;padding:12px 18px} }
+li.latcheck[hidden]{display:none!important}
 
 </style>
 </head>
@@ -598,6 +627,8 @@ body[data-theme=guinguette] .halo img{animation:glowPulse 3s ease-in-out infinit
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-reset" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></g></symbol>
   <symbol id="i-cast" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M8 8a5.6 5.6 0 0 0 0 8M16 8a5.6 5.6 0 0 1 0 8M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14"/></g></symbol>
+  <symbol id="i-view" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M7 9h10M7 12h10M7 15h6"/></g></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.4 9.3a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2.4-2.6 4"/></g><circle cx="12" cy="17.2" r="1.25" fill="currentColor"/></symbol>
   <symbol id="i-note" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.6" fill="currentColor"/><circle cx="16.5" cy="16" r="2.6" fill="currentColor"/></symbol>
 </svg>
 <div class="app">
@@ -610,6 +641,7 @@ body[data-theme=guinguette] .halo img{animation:glowPulse 3s ease-in-out infinit
       <button id="sideToggle" class="ic" title="Afficher / masquer les réglages"><svg><use href="#i-sliders"/></svg></button>
       <button id="fullBtn" class="ic" title="Plein écran"><svg><use href="#i-full"/></svg></button>
       <button id="tuneBtn" class="ic" title="Accordeur"><svg><use href="#i-fork"/></svg></button>
+      <button id="helpBtn" class="ic" title="Aide"><svg><use href="#i-help"/></svg></button>
       <button id="settingsBtn" class="ic" title="Paramètres"><svg><use href="#i-gear"/></svg></button>
     </div>
   </header>
@@ -655,7 +687,11 @@ body[data-theme=guinguette] .halo img{animation:glowPulse 3s ease-in-out infinit
           <div class="seg seg3" id="layoutSeg">
             <button data-v="page">Page</button><button data-v="idem">Comme imprimé</button><button data-v="line">Défilement</button>
           </div>
-          <div class="lpnote small muted">Téléphone en paysage : lecture en défilement (une ligne continue).</div>
+          <div class="landrow" id="landRow">
+            <div class="small" style="margin:10px 0 4px"><b>En paysage</b></div>
+            <div class="seg seg3" id="landSeg"><button data-v="auto">Auto</button><button data-v="line">Défilement</button><button data-v="std">Standard</button></div>
+            <div class="small muted" id="landNote" style="margin-top:4px"></div>
+          </div>
           <select id="layoutSel" hidden><option value="page">Page</option><option value="idem">Idem partition imprimée</option><option value="line">Une ligne qui défile</option></select>
           <select id="curSel" hidden><option value="large">Large</option></select>
           <label class="sl"><span>Taille</span><input type="range" id="zoom" min="50" max="160" value="100"></label>
@@ -698,6 +734,7 @@ body[data-theme=guinguette] .halo img{animation:glowPulse 3s ease-in-out infinit
             <div class="loopctl lk" title="Boucle : choisir les mesures (ou glisser le doigt sur la barre de progression)"><button id="loopBtn"><svg class="sm"><use href="#i-loop"/></svg><span>Boucle</span></button><input type="text" id="loopA" placeholder="de" inputmode="numeric" autocomplete="off" title="Début : tapez le numéro, ou touchez la case puis la mesure sur la partition"><span class="arr">→</span><input type="text" id="loopB" placeholder="à" inputmode="numeric" autocomplete="off" title="Fin : tapez le numéro, ou touchez la case puis la mesure sur la partition"></div>
             <div class="marks lk" id="marks"></div>
             </div>
+            <button id="lpView" class="ic lp" title="Passer en affichage standard"><svg><use href="#i-view"/></svg></button>
             <button id="lpSess" class="ic lp" title="Séance"><svg><use href="#i-cast"/></svg></button>
             <button id="lpSide" class="ic lp" title="Réglages"><svg><use href="#i-sliders"/></svg></button>
             <button id="lpTune" class="ic lp" title="Accordeur"><svg><use href="#i-fork"/></svg></button>
@@ -716,6 +753,10 @@ body[data-theme=guinguette] .halo img{animation:glowPulse 3s ease-in-out infinit
     <div id="sessIdle">
       <p class="small muted">Tous les téléphones affichent le même morceau, au même endroit, au même tempo. Le <b>chef</b> (la pianiste) commande la lecture et choisit les pistes qui sonnent ; les <b>musiciens</b> suivent, chacun avec sa propre partie à l'écran.</p>
       <div class="row" style="margin-top:6px"><button type="button" class="primary" id="sessCreate">Je suis le chef : créer la séance</button></div>
+      <div id="sessResume" class="card resume" style="display:none">
+        <div class="small" id="sessResumeInfo"></div>
+        <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap"><button type="button" class="primary" id="sessResumeF">Reprendre la dernière séance</button><button type="button" id="sessResumeC">Reprendre en chef</button></div>
+      </div>
       <div class="dsec">Rejoindre une séance</div>
       <div class="row" style="margin-top:6px"><input type="text" id="sessCodeIn" placeholder="CODE" maxlength="6" autocomplete="off" autocapitalize="characters" style="width:150px;text-transform:uppercase;font-weight:700;letter-spacing:.1em"><button type="button" class="primary" id="sessJoin">Rejoindre</button></div>
       <p class="small muted" style="margin-top:12px">Réseau : chaque téléphone peut utiliser sa 4G/5G, ou le wifi d'un partage de connexion / d'un petit routeur 4G-5G. Une connexion internet est nécessaire pour la mise en relation.</p>
@@ -727,11 +768,13 @@ body[data-theme=guinguette] .halo img{animation:glowPulse 3s ease-in-out infinit
       <div class="small" style="margin-top:10px"><b id="sessCount">0 musicien connecté</b></div>
       <div class="sesslist" id="sessList"></div>
       <p class="small muted">Vous commandez la lecture, le tempo, les boucles et les pistes jouées (mixeur). Le son ne sort que sur cet appareil.</p>
+      <p class="small muted" id="sessCap"></p>
     </div>
     <div id="sessFollow" style="display:none">
       <p><b id="sessFState">Connexion…</b></p>
       <label class="chk"><input type="checkbox" id="sessSound"><span>Entendre le son sur ce téléphone (casque)</span></label>
       <p class="small muted">Le chef commande la lecture. Vous gardez la main sur votre partie, l'affichage, la taille et le curseur.</p>
+      <p class="small muted" style="margin-top:8px">Le chef doit partir, ou son téléphone ne répond plus ? <button type="button" id="sessTake" style="display:none">Prendre la direction</button></p>
     </div>
     <div class="row dfoot">
       <button type="button" id="sessQuit" style="display:none">Quitter la séance</button>
@@ -747,6 +790,7 @@ body[data-theme=guinguette] .halo img{animation:glowPulse 3s ease-in-out infinit
       <li><input type="checkbox"><div><b>Pas d'appels ni de notifications</b><br><span class="small muted">iPhone : mode Avion, puis réactiver le Wi-Fi si vous passez par un partage de connexion. Sinon : Centre de contrôle → Concentration → Ne pas déranger. Android : mode Ne pas déranger.</span></div></li>
       <li><input type="checkbox"><div><b>Rester sur cette page</b><br><span class="small muted">L'écran reste allumé tant que la page est ouverte. Fermez les autres onglets et applications lourdes. Si vous changez d'appli, la synchro se remet en route au retour.</span></div></li>
       <li><input type="checkbox"><div><b>Batterie chargée</b> (ou mode économie désactivé)</div></li>
+      <li id="latCheck" class="latcheck" hidden><input type="checkbox"><div><b id="latCheckT"></b><br><span class="small muted" id="latCheckX"></span><br><button type="button" class="soft" id="latCheckB" style="margin-top:6px"></button></div></li>
     </ul>
     <div class="row dfoot"><button class="primary" id="checkGo" value="ok">C'est parti</button></div>
   </form>
@@ -765,7 +809,7 @@ body[data-theme=guinguette] .halo img{animation:glowPulse 3s ease-in-out infinit
 </dialog>
 <dialog id="settings">
   <form method="dialog">
-    <div class="dtitle">Paramètres</div>
+    <div class="dhead"><div class="dtitle">Paramètres</div><button type="button" class="soft" id="setHelp"><svg class="sm"><use href="#i-help"/></svg>Aide</button></div>
     <div class="dsec">Apparence</div>
     <div class="themes" id="themes">
       <button type="button" class="th" data-t="neon"><div class="sw neon"></div><span>Néon club</span></button>
@@ -801,6 +845,23 @@ body[data-theme=guinguette] .halo img{animation:glowPulse 3s ease-in-out infinit
       <button value="cancel">Annuler</button>
       <button class="primary" id="cfgSave" value="ok">Enregistrer</button>
     </div>
+  </form>
+</dialog>
+
+<dialog id="qsDlg" class="qs" aria-label="Premiers pas">
+  <div class="qsIcon" id="qsIcon"></div>
+  <div class="dtitle" id="qsTitle"></div>
+  <div class="qsText" id="qsText"></div>
+  <div class="qsAct" id="qsAct"></div>
+  <div class="qsDots" id="qsDots"></div>
+  <div class="row qsNav"><button type="button" class="link" id="qsSkip">Passer</button><span style="flex:1"></span><button type="button" id="qsPrev">Précédent</button><button type="button" class="primary" id="qsNext" autofocus>Suivant</button></div>
+</dialog>
+
+<dialog id="helpDlg" class="help">
+  <form method="dialog">
+    <div class="dhead"><div class="dtitle">Aide</div><button class="ic" value="x" title="Fermer">✕</button></div>
+    <div id="helpList"></div>
+    <div class="row dfoot" style="justify-content:space-between;align-items:center"><span class="small muted" id="helpVer"></span><button type="button" class="primary" id="helpQS">Revoir les premiers pas</button></div>
   </form>
 </dialog>
 
@@ -1683,7 +1744,7 @@ async function renderScore(){
   await calibLoad();
   if(!window.opensheetmusicdisplay){ $("score").innerHTML="<p style='padding:20px;color:#333'>Affichage de partition indisponible (pas de connexion ?). La lecture audio reste possible.</p>"; return; }
   S.steps=[]; S.geo=null; endPeek();
-  const host=$("score"); host.innerHTML=""; host.style.paddingLeft=host.style.paddingRight=host.style.paddingBottom="0px"; host.style.transform="";
+  const host=$("score"); host.innerHTML=""; host.style.paddingLeft=host.style.paddingRight=host.style.paddingBottom="0px"; host.style.transform=""; host.style.marginTop="";
   const line=isLine();
   $("scoreWrap").classList.toggle("horiz",line);
   const osmd=new opensheetmusicdisplay.OpenSheetMusicDisplay(host,{autoResize:false,backend:"svg",drawTitle:!line,drawComposer:false,drawCredits:false,
@@ -1713,6 +1774,7 @@ async function renderScore(){
     host.style.width="";
     osmd.zoom=uz*(window.innerWidth<700?0.75:1)*(line?(window.innerHeight<500?1.2:1.35):1);
     const cw=line&&calibGet().w;
+    if(cw&&landLine()) osmd.zoom=landZoom(cw,uz);
     if(cw){ try{ const R=osmd.EngravingRules; R.SheetMaximumWidth=Math.min(R.SheetMaximumWidth,(S.seq.length*(cw+2)+60)*10*osmd.zoom);
       R.FixedMeasureWidth=true; R.FixedMeasureWidthFixedValue=cw; R.FixedMeasureWidthUseForPickupMeasures=true; }catch(e){} }
     try{ osmd.render(); }catch(e){ console.error(e); }
@@ -1722,6 +1784,7 @@ async function renderScore(){
     try{
       const ws=[]; osmd.GraphicSheet.MeasureList.forEach(row=>{ const g=(row||[]).find(x=>x&&x.ParentMusicSystem); if(g){ const ps=g.PositionAndShape; ws.push(ps.BorderRight-ps.BorderLeft-(g.beginInstructionsWidth||0)); } });
       ws.sort((a,b)=>a-b); const w=Math.max(14,ws[Math.floor(ws.length*0.9)]||20); calibSet({w});
+      if(landLine()) osmd.zoom=landZoom(w,uz);
       osmd.EngravingRules.SheetMaximumWidth=Math.min(osmd.EngravingRules.SheetMaximumWidth,(ws.length*(w+2)+60)*10*osmd.zoom);
       osmd.EngravingRules.FixedMeasureWidth=true; osmd.EngravingRules.FixedMeasureWidthFixedValue=w; osmd.EngravingRules.FixedMeasureWidthUseForPickupMeasures=true;
       osmd.render();
@@ -1760,9 +1823,16 @@ async function renderScore(){
   const pc=document.createElement("div"); pc.id="pcur"; host.appendChild(pc);
   const jm=document.createElement("div"); jm.id="jumpMark"; jm.innerHTML="<span>▶ on reprend ici</span>"; host.appendChild(jm);
   applyCurStyle();
+  if(line&&S.geo&&S.geo.sys[0]){ const w=$("scoreWrap"), sy=S.geo.sys[0], mid=24+(sy.top+sy.bottom)/2, sh=Math.round(w.clientHeight*0.45-mid);
+    if(sh>10&&host.offsetHeight+sh<=w.clientHeight+4) host.style.marginTop=sh+"px"; }   // ligne trop basse pour l'écran : on la centre
   if(line && S.geo && S.geo.sys[0]){ const sy=S.geo.sys[0], w=$("scoreWrap"); w.scrollTop=Math.max(0,(sy.top+sy.bottom)/2-w.clientHeight/2+12); }   // portée centrée en hauteur
   S.pend=null; lastCur=""; { const w=$("scoreWrap"); S.wideScore=w.scrollWidth>w.clientWidth+4; } updateCursor(true);
 }
+/* paysage : zoom pour que MESURES_VISIBLES_PAYSAGE mesures (largeur fixe w, en interlignes) remplissent l'écran à 100 % */
+function landZoom(w,uz){ const W=$("scoreWrap").clientWidth||window.innerWidth; return Math.max(0.2,(W/MESURES_VISIBLES_PAYSAGE)/((w+LAND_GAP)*10))*uz; }
+const LAND_GAP=2;
+function visibleMeasures(){ const G=S.geo; if(!G||!isLine()) return 0; const ms=G.meas.filter(Boolean); if(ms.length<3) return 0;
+  const a=ms[1], b=ms[ms.length-1], per=(b.x-a.x)/(ms.length-2); return per>0?$("scoreWrap").clientWidth/per:0; }
 /* symboles de structure bien visibles : segno et coda dessinés, repères encadrés, D.S./Coda en gras */
 function decorateSvg(host){
   const NS="http://www.w3.org/2000/svg";
@@ -1846,9 +1916,17 @@ function buildGeometry(){
   $("playhead").style.display=isLine()?"block":"none";
   if(isLine()) $("playhead").style.left=($("scoreWrap").offsetLeft+S.pad)+"px";
 }
-/* téléphone en paysage : on lit toujours en défilement (ligne continue) */
+/* ===== Paysage (téléphone, tablette) =====
+   Par défaut, un téléphone en paysage lit en défilement, avec MESURES_VISIBLES_PAYSAGE mesures dans l'écran ;
+   le zoom (curseur « Taille » ou deux doigts) reste libre ensuite et est retenu à part pour le paysage.
+   Réglage « En paysage » : auto (téléphone = défilement, tablette = affichage standard conseillé), défilement, standard. */
+const MESURES_VISIBLES_PAYSAGE=6;
 function phoneLandscape(){ return window.matchMedia("(orientation: landscape) and (max-height: 500px) and (pointer: coarse)").matches; }
-function layoutMode(){ return phoneLandscape()?"line":$("layoutSel").value; }
+function touchLandscape(){ return window.matchMedia("(orientation: landscape) and (pointer: coarse)").matches; }
+function isTablet(){ return window.matchMedia("(pointer: coarse)").matches && Math.min(screen.width,screen.height)>=600; }
+function landPref(){ const v=store("banda.landMode"); return v==="line"||v==="std"?v:"auto"; }
+function landLine(){ if(!touchLandscape()) return false; const p=landPref(); return p==="line"||(p==="auto"&&!isTablet()); }
+function layoutMode(){ return landLine()?"line":$("layoutSel").value; }
 function isLine(){ return layoutMode()==="line"; }
 function dmeas(i){ return isLine()?(S.seq[i]&&S.seq[i].M):S.model.meas[i]; }   // mesure du modèle pour une mesure affichée
 function dIdx(k){ return isLine()?k:S.seq[k].mi; }
@@ -1942,7 +2020,8 @@ async function play(noCount){
   if(lr && (curSeq<lr[0]||curSeq>lr[1])){ curSeq=lr[0]; curOff=0; }
   // en séance, le chef laisse un peu d'avance pour que les musiciens reçoivent l'ordre à temps
   outputPlay();
-  const LD=leadSec(), lead0=SY.role==="m"&&SY.peers.size?Math.max(0.45,peerLeadMax()+0.12):0.12;
+  // en séance, on laisse aux musiciens le temps de recevoir l'ordre (un peu plus quand il passe par un relais)
+  const LD=leadSec(), hop=SY.role==="m"&&accepted().length?treeDepthUsed():0, lead0=hop?Math.max(0.3+0.15*hop,peerLeadMax()+0.08+0.06*hop):0.12;
   let start=ac.currentTime+Math.max(lead0,LD+0.08);
   let ci=null;
   if($("countIn").checked && !noCount){
@@ -1983,6 +2062,7 @@ function pause(){
   if(!S.playing) return;
   const p=currentPos(); if(p){ curSeq=p.k; curOff=p.off; }
   stopAudio();
+  if(S.model&&p){ updateUI(curSeq,curOff); updateCursor(true); }   // affichage exactement à l'endroit de l'arrêt
   if(SY.role==="m") syncPush();
 }
 function newSession(){
@@ -2245,7 +2325,7 @@ function resolveLoopInput(id,after){
    ===================================================================== */
 function setPlayIcon(on){ const b=$("playBtn"); b.classList.toggle("on",on); document.body.classList.toggle("playing",!!on); if(on&&window.fxClear) fxClear(); b.querySelector("use").setAttribute("href",on?"#i-pause":"#i-play"); }
 function syncLayoutSeg(){ document.querySelectorAll("#layoutSeg button").forEach(b=>b.classList.toggle("on",b.dataset.v===$("layoutSel").value)); }
-function showPlayer(){ const was=document.body.classList.contains("inplayer"); document.body.classList.add("inplayer"); $("library").style.display="none"; $("player").classList.add("show"); $("backBtn").style.display="inline-block"; if(!was&&window.fxEnterPlayer) fxEnterPlayer(); }
+function showPlayer(){ const was=document.body.classList.contains("inplayer"); document.body.classList.add("inplayer"); $("library").style.display="none"; $("player").classList.add("show"); $("backBtn").style.display="inline-block"; if(!was&&window.fxEnterPlayer) fxEnterPlayer(); if(!was) setTimeout(landSuggest,2500); }
 function showLibrary(){ stop(); $("kick").textContent="La Banda Familia · répétitions"; closeSheet(); document.body.classList.remove("inplayer"); $("side").classList.remove("open"); $("player").classList.remove("show"); $("library").style.display="block"; $("backBtn").style.display="none"; $("title").textContent="Nos morceaux"; if(window.fxEnterLibrary) fxEnterLibrary(); }
 function showLoading(t){ if($("player").classList.contains("show")){ const l=$("loading"); l.textContent=t; l.style.display="flex"; } else $("libInfo").textContent=t; }
 function hideLoading(){ $("loading").style.display="none"; }
@@ -2273,9 +2353,26 @@ function narrow(){ return window.matchMedia("(max-width: 820px), (max-height: 50
 $("homeFab").onclick=()=>$("backBtn").click(); $("lpSide").onclick=()=>$("sideToggle").click();
 $("lpSet").onclick=()=>$("settingsBtn").click(); $("lpSess").onclick=()=>$("sessBtn").click();
 /* rotation du téléphone : on refait la mise en page (paysage = défilement) */
-{ let lastLP=phoneLandscape(); const mq=window.matchMedia("(orientation: landscape) and (max-height: 500px) and (pointer: coarse)");
-  const onRot=()=>{ const lp=phoneLandscape(); if(lp===lastLP) return; lastLP=lp; closeSheet(); };   // la mise en page est refaite par l'événement « resize »
+{ let lastLP=landLine(); const mq=window.matchMedia("(orientation: landscape)");
+  const onRot=()=>{ const lp=landLine(); landUI(); if(lp===lastLP) return; lastLP=lp; closeSheet(); syncZoom(); landSuggest(); };   // la mise en page est refaite par l'événement « resize »
   mq.addEventListener?mq.addEventListener("change",onRot):mq.addListener(onRot); }
+/* réglage « En paysage » */
+function landUI(){ document.body.classList.toggle("landline",landLine());
+  document.querySelectorAll("#landSeg button").forEach(b=>b.classList.toggle("on",b.dataset.v===landPref()));
+  const n=$("landNote"); if(n){ const p=landPref();
+    n.textContent=p==="auto"?(isTablet()?"Auto : tablette détectée, affichage standard conseillé en paysage.":"Auto : en paysage, défilement sur "+MESURES_VISIBLES_PAYSAGE+" mesures (la taille reste réglable).")
+      :p==="line"?"Toujours en défilement en paysage ("+MESURES_VISIBLES_PAYSAGE+" mesures au départ).":"Toujours l'affichage choisi ci-dessus, même en paysage."; }
+  const lb=$("lpView"); if(lb){ lb.classList.toggle("on",!landLine()); lb.title=landLine()?"Passer en affichage standard":"Revenir au défilement"; } }
+function setLandPref(v){ if(v==="auto") store("banda.landMode",""); else store("banda.landMode",v);
+  try{ if(v==="auto") localStorage.removeItem("banda.landMode"); }catch(e){}
+  landUI(); syncZoom(); relayout(); }
+document.querySelectorAll("#landSeg button").forEach(b=>b.onclick=()=>setLandPref(b.dataset.v));
+if($("lpView")) $("lpView").onclick=()=>{ const toStd=landLine(); setLandPref(toStd?"std":(isTablet()?"line":"auto"));
+  toast(toStd?"Affichage standard en paysage · « Auto » dans Réglages › Affichage pour revenir":"Défilement en paysage",3200); };
+/* tablette en paysage : on signale une fois que l'affichage standard est utilisé (et qu'on peut passer en défilement) */
+function landSuggest(){ if(!touchLandscape()||!isTablet()||landPref()!=="auto"||store("banda.tabHint")==="1"||!document.body.classList.contains("inplayer")) return;
+  store("banda.tabHint","1"); toast("Tablette : affichage standard en paysage. Pour le défilement : Réglages › Affichage › En paysage.",5000); }
+landUI();
 if(store("banda.sideHidden")==="1") document.body.classList.add("sideHidden");
 function closeSheet(){ $("side").classList.remove("open"); $("sheetBack").classList.remove("on"); }
 $("sheetBack").onclick=closeSheet;
@@ -2309,8 +2406,10 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!$("partMenu").hid
 $("partSel").onchange=async e=>{ S.myPart=parseInt(e.target.value); setKick(); store("banda.part",S.model.parts[S.myPart].name); drawMixer(); relayout(); };
 $("viewSel").onchange=()=>relayout();
 $("layoutSel").onchange=()=>relayout();
-let zt=0; $("zoom").oninput=()=>{ store("banda.zoom",$("zoom").value); clearTimeout(zt); zt=setTimeout(relayout,250); };
-{ const z=parseInt(store("banda.zoom")); if(z>=50&&z<=160) $("zoom").value=z; }
+function zoomKey(){ return landLine()?"banda.zoomLand":"banda.zoom"; }
+function syncZoom(){ const z=parseInt(store(zoomKey())); $("zoom").value=(z>=50&&z<=160)?z:100; }
+let zt=0; $("zoom").oninput=()=>{ store(zoomKey(),$("zoom").value); clearTimeout(zt); zt=setTimeout(relayout,250); };
+syncZoom();
 /* zoom à deux doigts (téléphone, tablette) et pincement du pavé tactile / Ctrl + molette (ordinateur).
    Pendant le geste, la partition est simplement agrandie à l'image ; au lâcher, elle est redessinée à la nouvelle taille
    (sans arrêter la musique) et la mesure qui était sous les doigts reste en vue. */
@@ -2337,7 +2436,7 @@ let zt=0; $("zoom").oninput=()=>{ store("banda.zoom",$("zoom").value); clearTime
     w.style.transform=""; box.classList.remove("pinching"); S.pinchEnd=performance.now();
     const nz=Math.round(Math.max(MIN,Math.min(MAX,g.z0*g.scale))/5)*5;
     if(Math.abs(nz-g.z0)<5) return;
-    zi.value=nz; store("banda.zoom",nz);
+    zi.value=nz; store(zoomKey(),nz);
     await relayout();
     // garder en vue la mesure qui était sous les doigts (à l'arrêt ; en lecture, la partition suit la musique)
     if(!S.playing && g.mi>=0 && S.geo && S.geo.meas[g.mi]){ const m=S.geo.meas[g.mi], sy=S.geo.sys[m.sys]; w.scrollTop=Math.max(0,sy.top-g.oy+(sy.bottom-sy.top)/2); }
@@ -2356,7 +2455,7 @@ let zt=0; $("zoom").oninput=()=>{ store("banda.zoom",$("zoom").value); clearTime
     clearTimeout(wheelT); wheelT=setTimeout(()=>{ const g=wg; wg=null; finish(g); },300); },{passive:false});
 })();
 function zoomTip(v){ let t=$("zoomTip"); if(!t){ t=document.createElement("div"); t.id="zoomTip"; $("scoreBox").appendChild(t); }
-  t.textContent=v+" %"; t.classList.add("on"); clearTimeout(zoomTip.t); zoomTip.t=setTimeout(()=>t.classList.remove("on"),700); }
+  t.textContent=v+" %"+(landLine()?" · ≈ "+Math.max(1,Math.round(MESURES_VISIBLES_PAYSAGE*100/v))+" mesures":""); t.classList.add("on"); clearTimeout(zoomTip.t); zoomTip.t=setTimeout(()=>t.classList.remove("on"),700); }
 $("speed").oninput=e=>{ $("speedLbl").textContent=e.target.value+" %"; $("tempoLbl").textContent=e.target.value+" %"; };
 function nudgeTempo(d){ const r=$("speed"); const v=Math.max(+r.min,Math.min(+r.max,+r.value+d)); if(v===+r.value) return; r.value=v; r.dispatchEvent(new Event("input")); r.dispatchEvent(new Event("change")); }
 $("tempoDown").onclick=()=>nudgeTempo(-5); $("tempoUp").onclick=()=>nudgeTempo(5);
@@ -2489,11 +2588,54 @@ window.addEventListener("resize",()=>{ clearTimeout(rzT); rzT=setTimeout(relayou
 /* =====================================================================
    Séance synchronisée : un chef, des musiciens
    ===================================================================== */
-const SY={role:null,code:"",peer:null,peers:new Map(),conn:null,bc:null,id:Math.random().toString(36).slice(2,10),
-  samples:[],offset:null,pending:null,last:null,beacon:0,pingT:0,retry:0,wake:null,wantSong:null,ver:0};
+const SY={role:null,code:"",peer:null,peers:new Map(),conn:null,bc:null,id:devId(),epoch:0,opened:false,lastStateAt:0,joinFails:0,everJoined:false,wantChef:false,
+  samples:[],offset:null,pending:null,last:null,lastRaw:null,depth:0,target:"",avoid:[],full:false,beacon:0,pingT:0,retry:0,openT:0,wake:null,wantSong:null,ver:0};
 const CODE_CH="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+/* identifiant de ce téléphone, gardé d'une ouverture à l'autre (pour reprendre sa séance) */
+function devId(){ if(/[?&]synctest=1/.test(location.search)) return Math.random().toString(36).slice(2,10);   // tests : plusieurs onglets = plusieurs téléphones
+  let d=null; try{ d=localStorage.getItem("banda.dev"); }catch(e){} if(!d){ d=Math.random().toString(36).slice(2,10); try{ localStorage.setItem("banda.dev",d); }catch(e){} } return d; }
+/* dernière séance : code, rôle, date — pour « Reprendre la dernière séance » */
+function saveLastSession(role){ try{ localStorage.setItem("banda.lastSession",JSON.stringify({code:SY.code,role,dev:SY.id,date:Date.now()})); }catch(e){} }
+function lastSession(){ try{ const j=JSON.parse(localStorage.getItem("banda.lastSession")||"null"); if(j&&j.code&&Date.now()-j.date<12*3600e3) return j; }catch(e){} return null; }
 const PEER_PREFIX="afc-labanda-familia-";
 const TEST_BUS=/[?&]synctest=1/.test(location.search);
+if(TEST_BUS) window.Peer=makeMockPeer();
+/* faux PeerJS pour les tests automatiques : plusieurs onglets du même navigateur se parlent par BroadcastChannel,
+   avec les mêmes événements que PeerJS (open, connection, data, close, erreurs « id pris » et « introuvable »).
+   Une liaison qui ne donne plus signe de vie depuis 4 s est déclarée fermée (comme une vraie liaison qui tombe). */
+function makeMockPeer(){
+  const bus=new BroadcastChannel("mock-peerjs"), peers=new Map();
+  bus.onmessage=ev=>{ const m=ev.data;
+    if(m.type==="claim"){ for(const p of peers.values()) if(p.id===m.id&&!p.destroyed) bus.postMessage({type:"taken",id:m.id,nonce:m.nonce}); return; }
+    for(const p of peers.values()) p._msg(m); };
+  class Ev{ constructor(){ this.h={}; } on(e,f){ (this.h[e]=this.h[e]||[]).push(f); return this; } emit(e,...a){ (this.h[e]||[]).forEach(f=>{ try{ f(...a); }catch(err){ console.error(err); } }); } }
+  class Conn extends Ev{
+    constructor(p,peer,cid){ super(); this.p=p; this.peer=peer; this.cid=cid; this.open=false; this.last=performance.now(); }
+    send(d){ if(this.open) bus.postMessage({type:"data",cid:this.cid,to:this.peer,from:this.p.id,d}); }
+    close(){ if(this.closed) return; this.closed=true; const was=this.open; this.open=false; bus.postMessage({type:"close",cid:this.cid,to:this.peer}); this.p.conns.delete(this.cid); if(was||true) this.emit("close"); }
+    _drop(){ if(this.closed) return; this.closed=true; this.open=false; this.p.conns.delete(this.cid); this.emit("close"); }
+  }
+  class P extends Ev{
+    constructor(id,opts){ super(); if(typeof id!=="string") id="mock-"+Math.random().toString(36).slice(2,10); this.id=id; this.conns=new Map(); this.open=false; this.destroyed=false; const me=Symbol(); peers.set(me,this); this._key=me;
+      const nonce=Math.random(); let taken=false; const tk=ev=>{ if(ev.data.type==="taken"&&ev.data.nonce===nonce) taken=true; }; bus.addEventListener("message",tk);
+      bus.postMessage({type:"claim",id,nonce});
+      setTimeout(()=>{ bus.removeEventListener("message",tk); if(this.destroyed) return; if(taken){ this.emit("error",{type:"unavailable-id"}); return; } this.open=true; this.emit("open",id); },150);
+      this.hb=setInterval(()=>{ const now=performance.now(); for(const c of [...this.conns.values()]){ if(c.open) bus.postMessage({type:"hb",cid:c.cid,to:c.peer}); if(now-c.last>4000) c._drop(); } },1000); }
+    connect(target){ const cid=Math.random().toString(36).slice(2); const c=new Conn(this,target,cid); this.conns.set(cid,c);
+      bus.postMessage({type:"conn",cid,to:target,from:this.id});
+      setTimeout(()=>{ if(!c.open&&!c.closed){ this.conns.delete(cid); c.closed=true; this.emit("error",{type:"peer-unavailable"}); } },1500);
+      return c; }
+    _msg(m){ if(this.destroyed||m.to!==this.id) return;
+      if(m.type==="conn"){ const c=new Conn(this,m.from,m.cid); this.conns.set(m.cid,c); this.emit("connection",c); c.open=true; bus.postMessage({type:"ack",cid:m.cid,to:m.from}); setTimeout(()=>c.emit("open"),0); return; }
+      const c=this.conns.get(m.cid); if(!c) return; c.last=performance.now();
+      if(m.type==="ack"){ c.open=true; c.emit("open"); }
+      else if(m.type==="data") c.emit("data",m.d);
+      else if(m.type==="close") c._drop(); }
+    reconnect(){} disconnect(){}
+    destroy(){ if(this.destroyed) return; for(const c of [...this.conns.values()]) c.close(); this.destroyed=true; this.open=false; clearInterval(this.hb); peers.delete(this._key); this.emit("close"); }
+  }
+  return P;
+}
 function lockedToast(m){ toast(m||"🔒 Commandé par le chef",1500); }
 /* -- écran toujours allumé -- */
 async function keepAwake(on){
@@ -2507,63 +2649,161 @@ document.addEventListener("visibilitychange",()=>{
   if(SY.role||S.playing) keepAwake(true);
   if(SY.role==="f"){ SY.samples=[]; burstPing(); send({t:"need"}); }
 });
-/* -- transport : PeerJS (WebRTC), ou BroadcastChannel pour les tests -- */
-function send(msg){ // musicien -> chef
-  if(SY.bc){ SY.bc.postMessage({...msg,from:SY.id,role:"f"}); return; }
-  if(SY.conn&&SY.conn.open){ try{ SY.conn.send(msg); }catch(e){} }
-}
-function sendTo(id,msg){ // chef -> un musicien
-  if(SY.bc){ SY.bc.postMessage({...msg,to:id,role:"m"}); return; }
-  const c=SY.peers.get(id); if(c&&c.conn&&c.conn.open){ try{ c.conn.send(msg); }catch(e){} }
-}
-function broadcast(msg){ // chef -> tous
-  if(SY.bc){ SY.bc.postMessage({...msg,role:"m"}); return; }
-  for(const c of SY.peers.values()) if(c.conn&&c.conn.open){ try{ c.conn.send(msg); }catch(e){} }
-}
+/* -- réglages de l'arbre de la séance (modifiables) --------------------------------------------
+   Le chef accepte MAX_HOTES téléphones en direct ; chacun d'eux devient « hôte » et relaie la séance
+   vers au plus MAX_INVITES_PAR_HOTE autres téléphones. PROFONDEUR_MAX = 2 : chef → hôtes → invités.
+   Capacité = MAX_HOTES × (1 + MAX_INVITES_PAR_HOTE) musiciens (4 × 5 = 20 avec les valeurs par défaut).
+   Pour tester avec peu de téléphones : ajouter ?arbre=2x2 à l'adresse (2 hôtes de 2 invités).            */
+const ARBRE={MAX_HOTES:4, MAX_INVITES_PAR_HOTE:4, PROFONDEUR_MAX:2};
+(function(){ const m=location.search.match(/[?&]arbre=(\d+)x(\d+)/); if(m){ ARBRE.MAX_HOTES=+m[1]; ARBRE.MAX_INVITES_PAR_HOTE=+m[2]; } })();
+/* Serveurs relais facultatifs pour les réseaux 4G/5G qui bloquent les liaisons directes (TURN).
+   Laisser null pour le fonctionnement actuel. Exemple : [{urls:"stun:stun.l.google.com:19302"},{urls:"turn:…",username:"…",credential:"…"}] */
+const ICE_SERVERS=null;
+function peerOpts(){ const o={debug:1}; if(ICE_SERVERS) o.config={iceServers:ICE_SERVERS}; return o; }
+const chefId=()=>PEER_PREFIX+SY.code;
+
+/* -- transport : PeerJS (WebRTC). En test (?synctest=1) un faux PeerJS local (BroadcastChannel) prend sa place. --
+   SY.conn  = le lien vers le « parent » (le chef, ou l'hôte qui nous relaie)
+   SY.peers = les liens vers nos « enfants » (pour le chef : les hôtes ; pour un hôte : ses invités)            */
+function send(msg){ if(SY.conn&&SY.conn.open){ try{ SY.conn.send(msg); }catch(e){} } }                 // vers le parent
+function sendTo(id,msg){ const c=SY.peers.get(id); if(c&&c.conn&&c.conn.open){ try{ c.conn.send(msg); }catch(e){} } }   // vers un enfant
+function broadcast(msg){ for(const c of SY.peers.values()) if(c.acc&&c.conn&&c.conn.open){ try{ c.conn.send(msg); }catch(e){} } }  // vers tous les enfants
+function accepted(){ return [...SY.peers.values()].filter(c=>c.acc); }
 function newCode(){ let c=""; for(let i=0;i<4;i++) c+=CODE_CH[Math.floor(Math.random()*CODE_CH.length)]; return c; }
 function masterNowMs(){ return performance.now(); }
+/* heure du chef vue d'ici : exacte chez le chef, estimée (ping/pong) ailleurs. Un hôte répond à ses invités avec cette
+   estimation : les décalages s'additionnent d'un niveau à l'autre, sans toucher au retard de l'enceinte ni au réglage manuel. */
+function chefNowMs(){ return SY.role==="m"?performance.now():(SY.offset===null?null:performance.now()+SY.offset); }
 function ctxToMs(ctx){ smoothNow(); return (ctx-CLK.off)*1000; }          // temps audio local -> horloge locale (ms)
 function masterMsToCtx(ms){ smoothNow(); return (ms-SY.offset)/1000+CLK.off; } // horloge du chef -> temps audio local
+function treeTotal(){ let n=0; for(const c of accepted()) n+=1+(c.n||0); return n; }
+function treeParts(){ const out=[]; for(const c of accepted()){ out.push(c.part||"?"); (c.parts||[]).forEach(p=>out.push(p)); } return out; }
+function treeDepthUsed(){ return accepted().some(c=>(c.n||0)>0)?2:1; }
+
+/* -- liens enfants (chef et hôtes) -- */
+function setupChildConn(conn){
+  const c={conn,acc:false,part:"?",lead:0,n:0}; SY.peers.set(conn.peer,c);
+  conn.on("data",d=>onChildMsg(d,conn.peer));
+  const gone=()=>{ if(SY.peers.get(conn.peer)!==c) return; SY.peers.delete(conn.peer); sessUI(); reportUp(); };
+  conn.on("close",gone); conn.on("error",gone);
+}
+function admit(from,d){
+  const c=SY.peers.get(from); if(!c) return;
+  Object.assign(c,{part:d.part||"?",lead:d.lead||0,dev:d.dev||null});
+  const avoid=d.avoid||[];
+  if(SY.role==="m"){
+    if(accepted().length<ARBRE.MAX_HOTES) return acceptChild(from,d);
+    // chef plein : on envoie chez l'hôte le moins chargé
+    const hosts=[...SY.peers.entries()].filter(([id,h])=>h.acc&&(h.n||0)<ARBRE.MAX_INVITES_PAR_HOTE&&!avoid.includes(id)).sort((a,b)=>(a[1].n||0)-(b[1].n||0));
+    if(hosts.length){ const [hid,h]=hosts[0]; h.n=(h.n||0)+1; sendTo(from,{t:"redirect",to:hid}); }
+    else sendTo(from,{t:"full",max:ARBRE.MAX_HOTES*(1+ARBRE.MAX_INVITES_PAR_HOTE)});
+    setTimeout(()=>{ const x=SY.peers.get(from); if(x&&!x.acc){ try{ x.conn.close(); }catch(e){} SY.peers.delete(from); } },1500);
+    return;
+  }
+  // hôte : il accepte tant qu'il a de la place, sinon renvoie vers le chef (qui choisira un autre hôte)
+  if(SY.depth>0&&SY.depth<ARBRE.PROFONDEUR_MAX&&accepted().length<ARBRE.MAX_INVITES_PAR_HOTE) return acceptChild(from,d);
+  sendTo(from,{t:"redirect",to:chefId(),avoid:[...avoid,SY.peer&&SY.peer.id]});
+  setTimeout(()=>{ const x=SY.peers.get(from); if(x&&!x.acc){ try{ x.conn.close(); }catch(e){} SY.peers.delete(from); } },1500);
+}
+function acceptChild(from,d){
+  const c=SY.peers.get(from); c.acc=true;
+  sendTo(from,{t:"welcome",depth:(SY.role==="m"?0:SY.depth)+1});
+  if(S.src&&d.sid!==S.src.sid) sendSong(from);
+  if(SY.role==="m") sendTo(from,stateMsg({})); else if(SY.lastRaw) sendTo(from,SY.lastRaw);
+  sessUI(); reportUp(); if(window.fxBurst&&SY.role==="m") fxBurst({n:70});
+}
+function onChildMsg(d,from){
+  const c=SY.peers.get(from); if(!c) return;
+  if(d.t==="ping"){ const m=chefNowMs(); if(m!==null) sendTo(from,{t:"pong",c:d.c,m}); return; }
+  if(d.t==="hello"){ admit(from,d); return; }
+  if(!c.acc) return;
+  if(d.t==="lead"){ c.lead=d.lead||0; reportUp(); return; }
+  if(d.t==="part"){ c.part=d.part; sessUI(); reportUp(); return; }
+  if(d.t==="tree"){ c.n=d.n||0; c.parts=d.parts||[]; c.leadMax=d.lead||0; sessUI(); return; }   // un hôte décrit ses invités
+  if(d.t==="takeover"){ if(SY.role==="m") stepDown(d.dev); else send(d); return; }            // demande de direction : remonte jusqu'au chef
+  if(d.t==="need"){
+    if(S.src&&(d.song||(d.sid&&d.sid!==S.src.sid))) sendSong(from);
+    if(SY.role==="m") sendTo(from,stateMsg({})); else if(SY.lastRaw) sendTo(from,SY.lastRaw);
+    return;
+  }
+}
+/* un hôte résume ses invités au chef : nombre, parties, plus grand retard d'enceinte */
+function reportUp(){
+  if(SY.role!=="f") return;
+  const a=accepted(); send({t:"tree",n:a.length,parts:a.map(c=>c.part||"?"),lead:a.reduce((m,c)=>Math.max(m,c.lead||0),0)});
+}
 
 /* ---------- chef ---------- */
 async function startMaster(){
   const ac=audio(); try{ await ac.resume(); }catch(e){}
   leaveSession(true);
-  SY.role="m"; SY.code=newCode(); document.body.classList.remove("follower");
-  if(TEST_BUS){ SY.bc=new BroadcastChannel("banda-"+SY.code); SY.bc.onmessage=ev=>{ const d=ev.data; if(d.role==="f") onMasterMsg(d,d.from); }; sessOpened(); }
-  else {
-    if(!window.Peer){ toast("Module de synchronisation indisponible (pas de connexion ?)",4000); SY.role=null; return; }
-    const pr=new Peer(PEER_PREFIX+SY.code,{debug:1}); SY.peer=pr;
-    pr.on("open",()=>sessOpened()); pr.on("close",()=>sessUI());
-    pr.on("connection",conn=>{
-      conn.on("open",()=>{ SY.peers.set(conn.peer,{conn,part:"?"}); sessUI(); if(window.fxBurst) fxBurst({n:70}); });
-      conn.on("data",d=>onMasterMsg(d,conn.peer));
-      conn.on("close",()=>{ SY.peers.delete(conn.peer); sessUI(); });
-      conn.on("error",()=>{ SY.peers.delete(conn.peer); sessUI(); });
-    });
-    pr.on("disconnected",()=>{ if(SY.role==="m"){ setTimeout(()=>{ try{ pr.reconnect(); }catch(e){} },1500); } sessUI(); });
-    pr.on("error",e=>{
-      if(e.type==="unavailable-id"){ try{ pr.destroy(); }catch(_){} startMaster(); return; }
-      if(e.type==="network"||e.type==="server-error"||e.type==="socket-error") toast("Réseau indisponible pour la séance – nouvel essai…",3000);
-      console.warn("peer",e); sessUI();
-    });
-  }
+  SY.code=newCode(); SY.epoch=1; claimChef(0,true);
+}
+/* devenir chef de la séance SY.code : prendre l'identifiant de la séance auprès du serveur de mise en relation.
+   Cet identifiant est unique : deux téléphones ne peuvent jamais être chefs en même temps. */
+function claimChef(attempt,fresh){
+  SY.role="m"; SY.depth=0; SY.opened=false; document.body.classList.remove("follower"); applyMaster();
+  if(!window.Peer){ toast("Module de synchronisation indisponible (pas de connexion ?)",4000); SY.role=null; return; }
+  const pr=new Peer(chefId(),peerOpts()); SY.peer=pr;
+  pr.on("open",()=>{ SY.opened=true; saveLastSession("m"); if(fresh) sessOpened(); else { toast("Vous dirigez maintenant la séance "+SY.code,3500); if(window.fxBurst) fxBurst({n:80}); } sessUI(); syncPush(S.playing?{start:true}:{}); });
+  pr.on("close",()=>sessUI());
+  pr.on("connection",conn=>setupChildConn(conn));
+  pr.on("disconnected",()=>{ if(SY.role==="m"&&SY.peer===pr){ setTimeout(()=>{ try{ pr.reconnect(); }catch(e){} },1500); } sessUI(); });
+  pr.on("error",e=>{
+    if(e.type==="unavailable-id"){
+      try{ pr.destroy(); }catch(_){} if(SY.peer===pr) SY.peer=null;
+      if(fresh&&!SY.opened){ SY.code=newCode(); claimChef(0,true); return; }              // code déjà pris par une autre séance : on en tire un autre
+      if(SY.opened){ const code=SY.code; toast("Un autre téléphone dirige maintenant la séance : vous redevenez musicien",4500); SY.role=null; startFollower(code); return; }
+      // reprise : l'ancien chef occupe encore la séance (téléphone parti sans la fermer). Le serveur la libère en une minute environ.
+      if(attempt<45){ $("sessFState")&&($("sessFState").textContent="Prise de la direction… en attente de la libération par l'ancien chef ("+(attempt+1)+")"); sessUI(); SY.retry=setTimeout(()=>{ if(SY.role==="m") claimChef(attempt+1,false); },2000); return; }
+      toast("Impossible de prendre la direction : l'ancien chef est toujours là",4500); const code=SY.code; SY.role=null; startFollower(code); return;
+    }
+    if(e.type==="network"||e.type==="server-error"||e.type==="socket-error") toast("Réseau indisponible pour la séance – nouvel essai…",3000);
+    console.warn("peer",e); sessUI();
+  });
   sessUI(); keepAwake(true);
-  clearInterval(SY.beacon); SY.beacon=setInterval(()=>{ if(SY.role==="m") syncPush({beacon:true}); },1000);
+  clearInterval(SY.beacon); SY.beacon=setInterval(()=>{ if(SY.role==="m"&&SY.opened) syncPush({beacon:true}); },1000);
+}
+/* le chef passe la main : il prévient tout le monde, libère la séance, et redevient musicien sans couper sa lecture */
+function stepDown(newDev){
+  if(SY.role!=="m") return;
+  toast("La direction passe à un autre téléphone",3000);
+  broadcast({t:"handoff",dev:newDev,ep:SY.epoch+1});
+  const code=SY.code;
+  setTimeout(()=>{
+    clearInterval(SY.beacon);
+    for(const c of SY.peers.values()){ try{ c.conn.close(); }catch(e){} } SY.peers.clear();
+    if(SY.peer){ try{ SY.peer.destroy(); }catch(e){} SY.peer=null; }
+    SY.role=null; SY.opened=false;
+    setTimeout(()=>startFollower(code,{quiet:true}),1200);
+  },400);
+}
+/* un musicien prend la direction : avec le chef présent → il demande la main (après confirmation) ;
+   chef disparu → il la prend directement */
+function chefPresent(){ return SY.role==="f"&&SY.conn&&SY.conn.open&&SY.depth>0&&performance.now()-SY.lastStateAt<5000; }
+function requestChef(){
+  if(SY.role!=="f") return;
+  if(chefPresent()){
+    if(!confirm("Prendre la direction de la séance "+SY.code+" ?\nLe chef actuel deviendra musicien, la lecture continue.")) return;
+    send({t:"takeover",dev:SY.id}); toast("Demande envoyée au chef…",2500);
+    clearTimeout(SY.takeT); SY.takeT=setTimeout(()=>{ if(SY.role==="f") toast("Le chef n'a pas répondu : réessayez",3500); },7000);
+  } else becomeChef();
+}
+function becomeChef(){
+  const code=SY.code; clearTimeout(SY.takeT);
+  // on quitte la place de musicien sans arrêter le son ni la partition
+  clearInterval(SY.pingT); clearTimeout(SY.retry); clearTimeout(SY.openT);
+  if(SY.conn){ const c=SY.conn; SY.conn=null; try{ c.close(); }catch(e){} }
+  for(const c of SY.peers.values()){ try{ c.conn.close(); }catch(e){} } SY.peers.clear();
+  if(SY.peer){ try{ SY.peer.destroy(); }catch(e){} SY.peer=null; }
+  SY.code=code; SY.epoch=Math.max(SY.epoch||0,(SY.last&&SY.last.ep)||0)+1; banner("");
+  setTimeout(()=>claimChef(0,false),300);
 }
 function sessOpened(){ sessUI(); toast("Séance "+SY.code+" ouverte",2500); }
-function onMasterMsg(d,from){
-  if(d.t==="ping"){ sendTo(from,{t:"pong",c:d.c,m:masterNowMs()}); return; }
-  if(d.t==="lead"){ const c=SY.peers.get(from); if(c) c.lead=d.lead||0; return; }
-  if(d.t==="hello"){ const c=SY.peers.get(from)||{}; c.part=d.part||"?"; c.lead=d.lead||0; if(SY.bc){ c.conn=null; } SY.peers.set(from,c); sessUI();
-    if(d.sid!==(S.src&&S.src.sid)) sendSong(from); sendTo(from,stateMsg({})); return; }
-  if(d.t==="part"){ const c=SY.peers.get(from); if(c){ c.part=d.part; sessUI(); } return; }
-  if(d.t==="need"){ if(d.song||(d.sid&&d.sid!==(S.src&&S.src.sid))) sendSong(from); sendTo(from,stateMsg({})); return; }
-}
 function sendSong(to){ if(!S.src) return; sendTo(to,{t:"song",sid:S.src.sid,name:S.src.name,title:S.src.title,buf:S.src.buf}); }
 function syncSong(){ if(!S.src) return; broadcast({t:"song",sid:S.src.sid,name:S.src.name,title:S.src.title,buf:S.src.buf}); syncPush(); }
 function stateMsg(extra){
-  const st={t:"state",v:++SY.ver,sid:S.src&&S.src.sid,speed:S.speed,loop:S.loop,countIn:$("countIn").checked,click:$("clickOn").checked,
+  const st={t:"state",ep:SY.epoch||1,v:++SY.ver,sid:S.src&&S.src.sid,speed:S.speed,loop:S.loop,countIn:$("countIn").checked,click:$("clickOn").checked,
     mix:S.parts.map(p=>[p.mute?1:0,p.solo?1:0,Math.round(p.vol*100)]),playing:S.playing,k:curSeq,off:curOff,at:masterNowMs()};
   if(S.playing){
     if(extra.start && S.anchor){ st.k=S.anchor.k; st.off=S.anchor.off; st.at=ctxToMs(S.anchor.ctx); st.start=true; st.ci=extra.ci||null; }
@@ -2579,48 +2819,74 @@ function syncLoopChanged(){ // la boucle change pendant la lecture : nouvelle r�
   if(S.playing){ const p=currentPos(); if(p&&!p.pre){ S.anchor={k:p.k,off:p.off,ctx:smoothNow()}; } syncPush({start:true}); } else syncPush();
 }
 
-/* ---------- musicien ---------- */
-async function startFollower(code){
+
+/* ---------- musicien (et hôte : un musicien qui relaie) ---------- */
+async function startFollower(code,opt){
+  opt=opt||{};
   code=(code||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
   if(code.length<4){ toast("Code de séance incomplet"); return; }
   const ac=audio(); try{ await ac.resume(); }catch(e){}
   leaveSession(true);
-  SY.role="f"; SY.code=code; SY.samples=[]; SY.offset=null; SY.pending=null; SY.last=null;
+  SY.role="f"; SY.code=code; SY.samples=[]; SY.offset=null; SY.pending=null; SY.last=null; SY.lastRaw=null; SY.depth=0; SY.full=false;
+  SY.epoch=0; if(opt.quiet) $("sessSound").checked=true;   // l'ancien chef garde son son
+  SY.joinFails=0; SY.everJoined=!!opt.quiet; SY.resume=!!opt.resume; SY.wantChef=!!opt.asChef; SY.opened=false;
   document.body.classList.add("follower");
   setLocalSound($("sessSound").checked);
   if(!S.model){ showPlayer(); showLoading("En attente du morceau choisi par le chef…"); }
-  if(TEST_BUS){ SY.bc=new BroadcastChannel("banda-"+code); SY.bc.onmessage=ev=>{ const d=ev.data; if(d.role!=="m") return; if(d.to&&d.to!==SY.id) return; onFollowerMsg(d); }; followerConnected(); }
-  else {
-    if(!window.Peer){ toast("Module de synchronisation indisponible (pas de connexion ?)",4000); SY.role=null; return; }
-    const pr=new Peer({debug:1}); SY.peer=pr;
-    pr.on("open",()=>followerConnect());
-    pr.on("disconnected",()=>{ if(SY.role==="f") setTimeout(()=>{ try{ pr.reconnect(); }catch(e){} },1500); });
-    pr.on("error",e=>{ console.warn("peer",e);
-      if(e.type==="peer-unavailable"){ $("sessFState").textContent="Chef introuvable : vérifiez le code… nouvel essai"; scheduleRetry(); }
-      else if(SY.role==="f"){ $("sessFState").textContent="Réseau indisponible… nouvel essai"; scheduleRetry(); }
-      sessUI(); });
-  }
+  if(!window.Peer){ toast("Module de synchronisation indisponible (pas de connexion ?)",4000); SY.role=null; return; }
+  const pr=new Peer(peerOpts()); SY.peer=pr;
+  pr.on("open",()=>connectTo(chefId()));
+  pr.on("connection",conn=>setupChildConn(conn));          // nos propres invités, si le chef fait de nous un hôte
+  pr.on("disconnected",()=>{ if(SY.role==="f") setTimeout(()=>{ try{ pr.reconnect(); }catch(e){} },1500); });
+  pr.on("error",e=>{ console.warn("peer",e);
+    if(e.type==="peer-unavailable"){
+      if(SY.target===chefId()){
+        SY.joinFails++;
+        if(!SY.everJoined&&SY.joinFails>=3){ const msg=SY.resume?"Cette séance n'existe plus (le chef l'a fermée). Demandez le nouveau code au chef ou scannez son QR code.":"Séance "+SY.code+" introuvable : vérifiez le code auprès du chef.";
+          $("sessFState").textContent=msg; banner(""); toast(msg,6000); const was=SY.resume; leaveSession(true); if(was){ sessUI(); $("sessDlg").open||$("sessDlg").showModal(); } return; }
+        $("sessFState").textContent=SY.everJoined?"Chef injoignable… nouvel essai (vous pouvez « Prendre la direction »)":"Recherche de la séance…";
+        if(SY.everJoined) banner("⚠ Chef injoignable – nouvel essai…");
+      } else $("sessFState").textContent="Relais indisponible… on repasse par le chef";
+      scheduleRetry(); }
+    else if(SY.role==="f"){ $("sessFState").textContent="Réseau indisponible… nouvel essai"; scheduleRetry(); }
+    sessUI(); });
   sessUI(); keepAwake(true);
 }
-function followerConnect(){
-  if(SY.role!=="f"||!SY.peer||SY.peer.destroyed) return;
-  const conn=SY.peer.connect(PEER_PREFIX+SY.code,{reliable:true}); SY.conn=conn;
-  conn.on("open",()=>{ followerConnected(); if(window.fxBurst) fxBurst({n:90}); });
-  conn.on("data",d=>onFollowerMsg(d));
-  conn.on("close",()=>{ if(SY.role!=="f") return; SY.conn=null; $("sessFState").textContent="Chef déconnecté… reconnexion"; banner("⚠ Chef déconnecté – reconnexion…"); sessUI(); scheduleRetry(); });
+/* se relier à un parent (le chef, ou l'hôte vers lequel le chef nous a envoyés) */
+function connectTo(target,avoid){
+  if(SY.role!=="f"||!SY.peer||SY.peer.destroyed||SY.full) return;
+  if(SY.conn){ const old=SY.conn; SY.conn=null; try{ old.close(); }catch(e){} }
+  SY.target=target; SY.avoid=avoid||[]; SY.depth=0;
+  const conn=SY.peer.connect(target,{reliable:true}); SY.conn=conn;
+  clearTimeout(SY.openT);
+  SY.openT=setTimeout(()=>{ if(SY.conn===conn&&!conn.open){   // liaison qui ne s'établit pas : réseau qui bloque les connexions directes
+    $("sessFState").textContent="La liaison ne s'établit pas (téléphone du chef ou relais occupé, ou réseau qui bloque). Nouvel essai… Si cela dure, passez sur le wifi de la banda.";
+    banner("⚠ Liaison difficile – nouvel essai…"); try{ conn.close(); }catch(e){} SY.conn=null; scheduleRetry(); } },12000);
+  conn.on("open",()=>{ if(SY.conn!==conn) return; clearTimeout(SY.openT); followerConnected(); });
+  conn.on("data",d=>{ if(SY.conn===conn) onFollowerMsg(d); });
+  conn.on("close",()=>{ if(SY.role!=="f"||SY.conn!==conn) return; SY.conn=null; parentLost(); });
 }
-function scheduleRetry(){ clearTimeout(SY.retry); SY.retry=setTimeout(()=>{ if(SY.role==="f"&&!(SY.conn&&SY.conn.open)) followerConnect(); },2500); }
+/* parent perdu : nos éventuels invités repartent vers le chef, et nous aussi */
+function parentLost(){
+  for(const c of SY.peers.values()){ try{ c.conn.close(); }catch(e){} } SY.peers.clear();
+  SY.depth=0; $("sessFState").textContent="Liaison perdue… reconnexion"; banner("⚠ Liaison perdue – reconnexion…"); sessUI();
+  clearTimeout(SY.retry); SY.retry=setTimeout(()=>connectTo(chefId()),400+Math.random()*900);   // petit délai aléatoire : tout le monde n'arrive pas en même temps
+}
+function scheduleRetry(){ clearTimeout(SY.retry); SY.retry=setTimeout(()=>{ if(SY.role==="f"&&!(SY.conn&&SY.conn.open)) connectTo(chefId()); },2500); }
 function followerConnected(){
-  $("sessFState").textContent="Connecté au chef – séance "+SY.code;
-  banner("");
-  send({t:"hello",part:partName(),sid:S.src&&S.src.sid,lead:Math.round(leadSec()*1000)});
-  burstPing();
+  banner(""); SY.last=null;
+  send({t:"hello",part:partName(),sid:S.src&&S.src.sid,lead:Math.round(leadSec()*1000),dev:SY.id,avoid:SY.avoid});
+  SY.samples=[]; burstPing();
   clearInterval(SY.pingT); SY.pingT=setInterval(()=>{ if(SY.role==="f") send({t:"ping",c:performance.now()}); },2000);
   sessUI();
 }
 function partName(){ return S.model&&S.model.parts[S.myPart]?S.model.parts[S.myPart].name:"?"; }
 function burstPing(){ for(let i=0;i<8;i++) setTimeout(()=>{ if(SY.role==="f") send({t:"ping",c:performance.now()}); },i*120); }
 function onFollowerMsg(d){
+  if(d.t==="redirect"){ connectTo(d.to,d.avoid); return; }
+  if(d.t==="full"){ SY.full=true; $("sessFState").textContent="Séance complète ("+d.max+" musiciens au maximum)."; banner("Séance complète"); toast("Séance complète : "+d.max+" musiciens au maximum",5000); return; }
+  if(d.t==="handoff"){ broadcast(d); if(d.dev===SY.id) becomeChef(); return; }                  // c'est nous le nouveau chef ?
+  if(d.t==="welcome"){ SY.depth=d.depth||1; SY.everJoined=true; SY.joinFails=0; saveLastSession("f"); $("sessFState").textContent="Connecté à la séance "+SY.code; if(window.fxBurst) fxBurst({n:90}); sessUI(); return; }
   if(d.t==="pong"){
     const r=performance.now(), rtt=r-d.c; if(rtt<0||rtt>3000) return;
     SY.samples.push({rtt,off:d.m-(d.c+r)/2,at:r}); if(SY.samples.length>24) SY.samples.shift();
@@ -2630,6 +2896,7 @@ function onFollowerMsg(d){
     return;
   }
   if(d.t==="song"){
+    broadcast(d);                                         // hôte : on relaie tout de suite à nos invités
     if(S.src&&S.src.sid===d.sid) return;
     if(SY.wantSong===d.sid) return; SY.wantSong=d.sid;
     let buf=d.buf; if(buf&&!(buf instanceof ArrayBuffer)){ buf=buf.buffer?buf.buffer.slice(buf.byteOffset,buf.byteOffset+buf.byteLength):buf; }
@@ -2637,6 +2904,10 @@ function onFollowerMsg(d){
     return;
   }
   if(d.t==="state"){
+    if((d.ep||0)<(SY.epoch||0)) return;                  // ancien chef qui n'a pas compris qu'il a passé la main : ignoré
+    SY.epoch=d.ep||SY.epoch; SY.lastStateAt=performance.now();
+    broadcast(d); SY.lastRaw=d;                           // hôte : relais immédiat, avant de l'appliquer ici
+    if(SY.wantChef){ SY.wantChef=false; setTimeout(requestChef,300); }
     if(SY.last&&d.v<SY.last.v&&!d.beacon) return;
     if(d.sid!==(S.src&&S.src.sid)||SY.offset===null||!S.model){ SY.pending=d; if(d.sid!==(S.src&&S.src.sid)&&!SY.wantSong) send({t:"need",song:true,sid:S.src&&S.src.sid}); return; }
     applyState(d);
@@ -2683,11 +2954,11 @@ function applyState(st){
 function setLocalSound(on){ audio(); applyMaster(); }
 function banner(t){ const b=$("followBanner"); if(!b) return; b.textContent=t; b.style.display=t?"block":"none"; }
 function leaveSession(silent){
-  clearInterval(SY.beacon); clearInterval(SY.pingT); clearTimeout(SY.retry);
-  if(SY.bc){ try{ SY.bc.close(); }catch(e){} SY.bc=null; }
-  if(SY.conn){ try{ SY.conn.close(); }catch(e){} SY.conn=null; }
+  clearInterval(SY.beacon); clearInterval(SY.pingT); clearTimeout(SY.retry); clearTimeout(SY.openT);
+  if(SY.conn){ const c=SY.conn; SY.conn=null; try{ c.close(); }catch(e){} }
+  for(const c of SY.peers.values()){ try{ c.conn.close(); }catch(e){} }
   if(SY.peer){ try{ SY.peer.destroy(); }catch(e){} SY.peer=null; }
-  SY.peers.clear(); const was=SY.role; SY.role=null; SY.code="";
+  SY.peers.clear(); const was=SY.role; SY.role=null; SY.code=""; SY.wantChef=false; SY.opened=false; clearTimeout(SY.takeT);
   document.body.classList.remove("follower"); banner("");
   if(was==="f"){ setLocalSound(true); }
   if(!S.playing) keepAwake(false);
@@ -2697,17 +2968,21 @@ function leaveSession(silent){
 function sessUI(){
   const b=$("sessBtn"), r=SY.role;
   b.classList.toggle("m",r==="m"); b.classList.toggle("f",r==="f");
-  const fOk=r==="f"&&(SY.bc||(SY.conn&&SY.conn.open)), mOk=r==="m"&&(SY.bc||(SY.peer&&SY.peer.open));
+  const fOk=r==="f"&&SY.conn&&SY.conn.open&&SY.depth>0, mOk=r==="m"&&SY.peer&&SY.peer.open;
   b.classList.toggle("warn",(r==="f"&&!fOk)||(r==="m"&&!mOk));
-  $("sessLbl").textContent=r==="m"?("Chef · "+SY.code+" · "+SY.peers.size):r==="f"?("Séance "+SY.code):"Séance";
+  $("sessLbl").textContent=r==="m"?("Chef · "+SY.code+" · "+treeTotal()):r==="f"?("Séance "+SY.code):"Séance";
   $("sessIdle").style.display=r?"none":"block";
+  const ls=r?null:lastSession(); $("sessResume").style.display=ls?"block":"none";
+  if(ls){ const mn=Math.round((Date.now()-ls.date)/60000); $("sessResumeInfo").innerHTML="Séance <b>"+ls.code+"</b>"+(ls.role==="m"?" (vous étiez chef)":"")+" · il y a "+(mn<1?"moins d'une minute":mn<60?mn+" min":Math.round(mn/60)+" h"); }
+  $("sessTake").style.display=r==="f"&&(SY.everJoined||SY.conn)?"inline-block":"none";
   $("sessMaster").style.display=r==="m"?"block":"none";
   $("sessFollow").style.display=r==="f"?"block":"none";
   $("sessQuit").style.display=r?"inline-block":"none";
   if(r==="m"){
     $("sessCode").textContent=SY.code;
-    const n=SY.peers.size; $("sessCount").textContent=n+(n>1?" musiciens connectés":" musicien connecté");
-    const L=$("sessList"); L.innerHTML=""; for(const c of SY.peers.values()){ const s=document.createElement("span"); s.textContent=c.part||"?"; L.appendChild(s); }
+    $("sessCap").textContent="Jusqu'à "+ARBRE.MAX_HOTES*(1+ARBRE.MAX_INVITES_PAR_HOTE)+" musiciens : au-delà de "+ARBRE.MAX_HOTES+", les téléphones se relaient automatiquement la séance, sans rien à faire.";
+    const n=treeTotal(); $("sessCount").textContent=n+(n>1?" musiciens connectés":" musicien connecté")+(treeDepthUsed()>1?" ("+accepted().length+" en direct, les autres relayés)":"");
+    const L=$("sessList"); L.innerHTML=""; for(const p of treeParts()){ const s=document.createElement("span"); s.textContent=p; L.appendChild(s); }
     const q=$("sessQr");
     if(q.dataset.code!==SY.code){ q.dataset.code=SY.code; q.innerHTML="";
       if(/^https?:/.test(location.protocol) && window.qrcode){ try{ const url=location.origin+location.pathname+"?seance="+SY.code; const qr=qrcode(0,"M"); qr.addData(url); qr.make(); q.innerHTML=qr.createSvgTag({cellSize:4,margin:2,scalable:true}); }catch(e){} } }
@@ -2759,6 +3034,13 @@ async function buildSoundPack(){
 $("packBtn").onclick=buildSoundPack;
 LOCAL_SF.ready.then(()=>{ const el=$("packInfo"); if(el) el.textContent=LOCAL_SF.set.size?"Sons hébergés avec l'application : "+LOCAL_SF.set.size+" banques ✓":"Pas encore de sons hébergés : les sons viennent du site gratuit midi-js-soundfonts."; });
 
+/* ---------- reprise de la dernière séance, prise de direction ---------- */
+$("sessResumeF").onclick=()=>{ const ls=lastSession(); if(!ls) return; $("sessDlg").close(); startFollower(ls.code,{resume:true}); };
+$("sessResumeC").onclick=()=>{ const ls=lastSession(); if(!ls) return; $("sessDlg").close(); startFollower(ls.code,{resume:true,asChef:true});
+  // personne ne répond (chef parti) : on prend la direction sans confirmation
+  setTimeout(()=>{ if(SY.role==="f"&&SY.wantChef&&!chefPresent()){ SY.wantChef=false; becomeChef(); } },7000); };
+$("sessTake").onclick=()=>{ $("sessDlg").close(); requestChef(); };
+
 /* =====================================================================
    SORTIE AUDIO AUTOMATIQUE + RETARD DU SON (auto-latence)
    - le son suit la sortie choisie par le système (Bluetooth, AirPlay, casque…)
@@ -2796,7 +3078,7 @@ document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&OUT.el&&
 function autoLead(){ if(!AC) return 0; return Math.min(0.6,(AC.outputLatency||0)+(AC.baseLatency||0)); }
 function measuredLead(){ const v=store("banda.lead"); if(v===null||v==="") return null; const m=parseFloat(v); return isFinite(m)&&m>=0?m:null; }
 function leadSec(){ const m=measuredLead(); return m!==null?m/1000:autoLead(); }
-function peerLeadMax(){ let m=0; for(const c of SY.peers.values()) m=Math.max(m,(c.lead||0)/1000); return Math.min(m,3); }
+function peerLeadMax(){ let m=0; for(const c of SY.peers.values()) if(c.acc) m=Math.max(m,(c.lead||0)/1000,(c.leadMax||0)/1000); return Math.min(m,3); }   // tous les téléphones de l'arbre (les hôtes remontent le retard de leurs invités)
 function setLead(ms){
   if(ms===null){ try{ localStorage.removeItem("banda.lead"); }catch(e){} }
   else { store("banda.lead",String(Math.round(ms))); if(OUT.key){ const map=leadMap(); map[OUT.key]=Math.round(ms); store("banda.leadMap",JSON.stringify(map)); } }
@@ -3439,6 +3721,120 @@ function fxThemeChanged(t){
 addEventListener("resize",()=>{ const t=document.body.dataset.theme; if(t==="guinguette"||t==="fiesta"){ clearTimeout(fxThemeChanged.t); fxThemeChanged.t=setTimeout(()=>fxThemeChanged(t),300); } });
 fxThemeChanged(document.body.dataset.theme);
 decorateCards();
+/* =====================================================================
+   TEXTES DE L'AIDE — modifiables librement
+   - premiersPas : les écrans de la visite guidée (montrée à la première ouverture,
+     puis via « ? » › « Revoir les premiers pas »). Champ « action » facultatif :
+     "latence" ajoute le bouton « Mesurer maintenant ».
+   - rappelLatence : la ligne ajoutée à « Avant de jouer » (séance) tant que la
+     latence n'a pas été mesurée sur cet appareil.
+   - sections : l'aide complète (bouton « ? »). Le texte accepte <b>, <i>, <br>.
+   ===================================================================== */
+const AIDE = {
+  premiersPas: [
+    { icone: "🎺", titre: "Bienvenue dans la Banda !",
+      texte: "Cette application sert à répéter : votre partie s'affiche et suit la musique, et vous entendez toute la banda autour de vous. Quelques écrans pour démarrer, c'est rapide." },
+    { icone: "🎼", titre: "Un morceau, votre partie",
+      texte: "Touchez un morceau dans la liste. Votre partie apparaît en haut à gauche de la partition : touchez son nom pour en changer. L'application s'en souviendra." },
+    { icone: "▶️", titre: "Lire, ralentir, boucler",
+      texte: "▶ lance la lecture, ■ revient au début. <b>− / +</b> change la vitesse. <b>Boucle</b> : tapez « de » et « à » (ou touchez les mesures). <b>Mes. n°</b> va directement à une mesure. Deux doigts pour agrandir la partition." },
+    { icone: "🎧", titre: "Réglez la latence (important)", action: "latence",
+      texte: "Avec une enceinte ou un casque Bluetooth, le son arrive en retard sur la partition. Mesurez ce retard <b>une fois par appareil de sortie</b> : volume assez fort, téléphone près de l'enceinte, dans le calme. L'application émet quelques bips et s'ajuste toute seule." },
+    { icone: "📱", titre: "Téléphone en paysage",
+      texte: "Tournez le téléphone : la partition défile sur une ligne, environ 6 mesures à l'écran. La taille reste réglable (deux doigts). Le bouton ▤ repasse en affichage standard ; « Auto » dans Réglages › Affichage pour revenir." },
+    { icone: "📡", titre: "Jouer ensemble en séance",
+      texte: "Le chef touche <b>Séance</b> › « Je suis le chef » et montre le QR code. Les musiciens le scannent (ou tapent le code). Ensuite, c'est le chef qui lance, arrête et règle le tempo pour tout le monde." },
+    { icone: "🎉", titre: "C'est parti !",
+      texte: "Le bouton <b>?</b> (en haut, ou dans Paramètres) ouvre l'aide complète et permet de revoir ces premiers pas. Bonne répétition !" }
+  ],
+
+  rappelLatence: {
+    titre: "Pensez à régler la latence",
+    texte: "La latence n'a pas encore été mesurée sur cet appareil. Si vous jouez avec le son de ce téléphone (enceinte, casque), mesurez-la maintenant : c'est 10 secondes.",
+    bouton: "Mesurer maintenant"
+  },
+
+  sections: [
+    { titre: "Choisir un morceau et sa partie",
+      texte: "Touchez un morceau dans la liste (la recherche filtre par titre). Le nom de votre partie est affiché en haut à gauche de la partition : touchez-le pour en changer. Le bouton maison revient à la liste." },
+    { titre: "Lecture et navigation",
+      texte: "▶ / ⏸ lance ou met en pause, ■ revient au début. <b>− / +</b> : vitesse par pas de 5 %. <b>Mes. n°</b> : aller à une mesure. Toucher une mesure sur la partition y place la lecture. Les repères (A, B…) sous la partition permettent de sauter directement à une section." },
+    { titre: "Boucle",
+      texte: "Touchez <b>Boucle</b>, puis tapez la première et la dernière mesure (« de » / « à »), ou touchez la case puis la mesure sur la partition. La lecture repart au début de la boucle sans décompte." },
+    { titre: "Affichage, taille et paysage",
+      texte: "Réglages › Affichage : <b>Page</b>, <b>Comme imprimé</b> (mêmes lignes que la partie papier) ou <b>Défilement</b> (une ligne qui défile). La taille se règle avec le curseur ou avec deux doigts.<br>En <b>paysage</b>, un téléphone passe en défilement avec environ 6 mesures visibles ; la taille choisie en paysage est retenue à part. Le réglage « En paysage » propose <b>Auto</b> (téléphone : défilement, tablette : affichage standard), <b>Défilement</b> ou <b>Standard</b>. Sur téléphone, le bouton ▤ bascule rapidement." },
+    { titre: "Volumes : moins-un, solo, tutti",
+      texte: "<b>Moins-un</b> coupe votre partie pour jouer par-dessus. <b>Solo</b> n'écoute que votre partie. <b>Tutti</b> remet tout le monde. Chaque pupitre a son volume ; « Par défaut » remet les volumes, muets et solos d'origine." },
+    { titre: "Compteur de temps et métronome",
+      texte: "Réglages › Tempo : <b>Compteur de temps</b> affiche le numéro du temps et quatre barres qui s'allument à chaque double croche. <b>Métronome</b> ajoute un clic. <b>Décompte</b> joue une mesure vide avant de démarrer." },
+    { titre: "Latence (retard du son)",
+      texte: "Paramètres › <b>Mesurer</b>. Volume assez fort, téléphone près de l'enceinte, dans le calme : quelques bips sont émis et le retard est mesuré. La valeur est retenue pour chaque sortie audio (haut-parleur, casque, enceinte). <b>Auto</b> revient à la valeur annoncée par l'appareil. Si le curseur semble encore décalé, ajustez « Curseur » dans Réglages › Affichage." },
+    { titre: "Accordeur",
+      texte: "Bouton diapason : jouez une note tenue. La note s'affiche dans la notation de votre instrument, avec le son réel à côté. Le néon s'allume quand vous êtes juste. Le La de référence (440 Hz) se règle avec − / +." },
+    { titre: "Séance : le chef",
+      texte: "<b>Séance</b> › « Je suis le chef : créer la séance ». Montrez le QR code ou dictez le code à 4 caractères. Le chef choisit le morceau, lance, arrête, règle tempo et boucle pour tous. Son téléphone garde 4 liaisons directes ; les musiciens suivants sont relayés automatiquement par d'autres téléphones. Pour passer la main : « Prendre la direction » sur le téléphone d'un musicien." },
+    { titre: "Séance : le musicien",
+      texte: "Scannez le QR code du chef ou tapez le code puis <b>Rejoindre</b>. Vous gardez le choix de votre partie, de l'affichage et de la taille. « Entendre le son sur ce téléphone » active le son (au casque de préférence). Si la page a été fermée, <b>Reprendre la dernière séance</b> vous y remet." },
+    { titre: "Hors connexion et installation",
+      texte: "<b>Hors connexion</b> (dans la liste) télécharge tous les morceaux et les sons pour jouer sans réseau. <b>Installer l'application</b> l'ajoute à l'écran d'accueil (sur iPhone : bouton Partager › « Sur l'écran d'accueil »)." },
+    { titre: "En cas de souci",
+      texte: "<b>Pas de son</b> : vérifiez le volume, touchez ▶ une fois (le téléphone exige un geste). <b>Son décalé</b> : refaites la mesure de latence. <b>Connexion à la séance difficile</b> : passez sur le wifi de la banda, puis réessayez ; l'application réessaie aussi toute seule. <b>Affichage bizarre</b> : changez d'affichage ou de taille, ou rechargez la page." }
+  ]
+};
+/* =====================================================================
+   Aide « ? », premiers pas (première ouverture) et rappel de latence.
+   Les textes sont dans aide.js (objet AIDE).
+   ===================================================================== */
+(function(){
+  const qs=$("qsDlg"); let step=0;
+  function latStatus(){ const m=measuredLead(); return m!==null?"✔ Latence mesurée : "+Math.round(m)+" ms":"Latence pas encore mesurée sur cet appareil."; }
+  function drawQS(){
+    const L=AIDE.premiersPas, s=L[step];
+    $("qsIcon").textContent=s.icone||""; $("qsTitle").textContent=s.titre; $("qsText").innerHTML=s.texte;
+    const a=$("qsAct"); a.innerHTML="";
+    if(s.action==="latence"){
+      const b=document.createElement("button"); b.type="button"; b.className="primary"; b.textContent=AIDE.rappelLatence.bouton;
+      const st=document.createElement("div"); st.className="small qsst"; st.textContent=latStatus();
+      b.onclick=async()=>{ b.disabled=true; b.textContent="Écoute…"; try{ await runLatency(); } finally { b.disabled=false; b.textContent=AIDE.rappelLatence.bouton; st.textContent=latStatus(); } };
+      a.append(b,st);
+    }
+    $("qsDots").innerHTML=L.map((_,i)=>'<i class="'+(i===step?"on":"")+'"></i>').join("");
+    $("qsPrev").style.visibility=step?"visible":"hidden";
+    const last=step===L.length-1; $("qsNext").textContent=last?"C'est parti !":"Suivant"; $("qsSkip").style.visibility=last?"hidden":"visible";
+  }
+  function done(){ store("banda.qsDone","1"); if(qs.open) qs.close(); }
+  window.openQuickStart=()=>{ step=0; drawQS(); if(!qs.open) qs.showModal(); };
+  $("qsNext").onclick=()=>{ if(step<AIDE.premiersPas.length-1){ step++; drawQS(); } else { done(); if(window.fxBurst) fxBurst({n:80}); } };
+  $("qsPrev").onclick=()=>{ if(step>0){ step--; drawQS(); } };
+  $("qsSkip").onclick=done;
+  qs.addEventListener("cancel",()=>store("banda.qsDone","1"));
+  // balayage gauche / droite
+  let x0=null; qs.addEventListener("touchstart",e=>{ x0=e.touches[0].clientX; },{passive:true});
+  qs.addEventListener("touchend",e=>{ if(x0===null) return; const dx=e.changedTouches[0].clientX-x0; x0=null;
+    if(Math.abs(dx)>60){ if(dx<0) $("qsNext").click(); else $("qsPrev").click(); } },{passive:true});
+
+  // aide complète
+  const hd=$("helpDlg");
+  function drawHelp(){ $("helpList").innerHTML=AIDE.sections.map(s=>'<details class="hsec"><summary>'+s.titre+'</summary><div class="htxt">'+s.texte+'</div></details>').join(""); }
+  window.openHelp=()=>{ drawHelp(); $("helpVer").textContent="Version "+(window.BANDA_VERSION||""); hd.showModal(); };
+  // une seule section ouverte à la fois
+  $("helpList").addEventListener("toggle",e=>{ if(e.target.open) hd.querySelectorAll("details[open]").forEach(d=>{ if(d!==e.target) d.open=false; }); },true);
+  $("helpQS").onclick=()=>{ hd.close(); openQuickStart(); };
+  $("helpBtn").onclick=openHelp;
+  $("setHelp").onclick=()=>{ $("settings").close(); openHelp(); };
+
+  // rappel de latence dans « Avant de jouer » (séance), tant qu'elle n'est pas mesurée
+  const cd=$("checkDlg"), li=$("latCheck");
+  $("latCheckT").textContent=AIDE.rappelLatence.titre; $("latCheckX").textContent=AIDE.rappelLatence.texte;
+  const lb=$("latCheckB"); lb.textContent=AIDE.rappelLatence.bouton;
+  lb.onclick=async()=>{ lb.disabled=true; lb.textContent="Écoute…"; try{ await runLatency(); } finally { lb.disabled=false; lb.textContent=AIDE.rappelLatence.bouton;
+    if(measuredLead()!==null){ $("latCheckX").textContent=latStatus(); li.querySelector("input").checked=true; } } };
+  const show0=cd.showModal.bind(cd);
+  cd.showModal=()=>{ const need=measuredLead()===null; li.hidden=!need; if(need){ $("latCheckX").textContent=AIDE.rappelLatence.texte; li.querySelector("input").checked=false; } show0(); };
+
+  // première ouverture : premiers pas (pas si on arrive par un lien de séance : on rejoint d'abord)
+  if(store("banda.qsDone")!=="1" && !/[?&](seance|synctest)=/.test(location.search) && !(navigator.webdriver&&!/[?&]qs=1/.test(location.search))) setTimeout(()=>{ if(!document.querySelector("dialog[open]")) openQuickStart(); },900);
+})();
 
 </script>
 </body>

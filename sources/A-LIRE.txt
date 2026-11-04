@@ -1,0 +1,8 @@
+Sources de l'application (pour Claude ou pour modifier à la main)
+
+- aide.js : TOUS les textes de l'aide « ? », des premiers pas et du rappel de latence.
+  Vous pouvez les modifier directement (garder les guillemets et les virgules),
+  puis reconstruire avec build.py — ou me renvoyer le fichier.
+- app.js : constante MESURES_VISIBLES_PAYSAGE (6) = nombre de mesures visibles en paysage à 100 %.
+- Les autres fichiers : logique (app.js, sound.js…), apparence (style.css), page (body.html).
+Le site publié n'a besoin que de index.html et sw.js.
