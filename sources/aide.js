@@ -1,29 +1,21 @@
 /* =====================================================================
-   TEXTES DE L'AIDE — modifiables librement
-   - premiersPas : les écrans de la visite guidée (montrée à la première ouverture,
-     puis via « ? » › « Revoir les premiers pas »). Champ « action » facultatif :
-     "latence" ajoute le bouton « Mesurer maintenant ».
-   - rappelLatence : la ligne ajoutée à « Avant de jouer » (séance) tant que la
-     latence n'a pas été mesurée sur cet appareil.
-   - sections : l'aide complète (bouton « ? »). Le texte accepte <b>, <i>, <br>.
+   TEXTES DE L'AIDE — modifiables librement (garder guillemets et virgules)
+   - latence      : la fenêtre montrée une seule fois, à la toute première ouverture.
+   - rappelLatence: la ligne ajoutée à « Avant de jouer » (séance) tant que la
+                    latence n'a pas été mesurée sur cet appareil.
+   - etiquettes   : les étiquettes du bouton « ? ». Pour chacune :
+       cibles : l'élément de l'écran visé (le premier visible est utilisé),
+       nom    : le texte court de l'étiquette,
+       texte  : l'explication affichée quand on touche l'étiquette (<b>, <i>, <br> permis).
    ===================================================================== */
 const AIDE = {
-  premiersPas: [
-    { icone: "🎺", titre: "Bienvenue dans la Banda !",
-      texte: "Cette application sert à répéter : votre partie s'affiche et suit la musique, et vous entendez toute la banda autour de vous. Quelques écrans pour démarrer, c'est rapide." },
-    { icone: "🎼", titre: "Un morceau, votre partie",
-      texte: "Touchez un morceau dans la liste. Votre partie apparaît en haut à gauche de la partition : touchez son nom pour en changer. L'application s'en souviendra." },
-    { icone: "▶️", titre: "Lire, ralentir, boucler",
-      texte: "▶ lance la lecture, ■ revient au début. <b>− / +</b> change la vitesse. <b>Boucle</b> : tapez « de » et « à » (ou touchez les mesures). <b>Mes. n°</b> va directement à une mesure. Deux doigts pour agrandir la partition." },
-    { icone: "🎧", titre: "Réglez la latence (important)", action: "latence",
-      texte: "Avec une enceinte ou un casque Bluetooth, le son arrive en retard sur la partition. Mesurez ce retard <b>une fois par appareil de sortie</b> : volume assez fort, téléphone près de l'enceinte, dans le calme. L'application émet quelques bips et s'ajuste toute seule." },
-    { icone: "📱", titre: "Téléphone en paysage",
-      texte: "Tournez le téléphone : la partition défile sur une ligne, environ 6 mesures à l'écran. La taille reste réglable (deux doigts). Le bouton ▤ repasse en affichage standard ; « Auto » dans Réglages › Affichage pour revenir." },
-    { icone: "📡", titre: "Jouer ensemble en séance",
-      texte: "Le chef touche <b>Séance</b> › « Je suis le chef » et montre le QR code. Les musiciens le scannent (ou tapent le code). Ensuite, c'est le chef qui lance, arrête et règle le tempo pour tout le monde." },
-    { icone: "🎉", titre: "C'est parti !",
-      texte: "Le bouton <b>?</b> (en haut, ou dans Paramètres) ouvre l'aide complète et permet de revoir ces premiers pas. Bonne répétition !" }
-  ],
+  latence: {
+    titre: "Réglez la latence",
+    texte: "Avec une enceinte ou un casque Bluetooth, le son arrive en retard sur la partition. Mesurez ce retard <b>une fois par appareil de sortie</b> : volume assez fort, téléphone près de l'enceinte, dans le calme. L'application émet quelques bips et s'ajuste toute seule.",
+    plusTard: "Ce réglage reste accessible à tout moment dans <b>Paramètres</b> (roue dentée) › Son › <b>Mesurer</b>.",
+    bouton: "Mesurer maintenant",
+    fermer: "Plus tard"
+  },
 
   rappelLatence: {
     titre: "Pensez à régler la latence",
@@ -31,30 +23,55 @@ const AIDE = {
     bouton: "Mesurer maintenant"
   },
 
-  sections: [
-    { titre: "Choisir un morceau et sa partie",
-      texte: "Touchez un morceau dans la liste (la recherche filtre par titre). Le nom de votre partie est affiché en haut à gauche de la partition : touchez-le pour en changer. Le bouton maison revient à la liste." },
-    { titre: "Lecture et navigation",
-      texte: "▶ / ⏸ lance ou met en pause, ■ revient au début. <b>− / +</b> : vitesse par pas de 5 %. <b>Mes. n°</b> : aller à une mesure. Toucher une mesure sur la partition y place la lecture. Les repères (A, B…) sous la partition permettent de sauter directement à une section." },
-    { titre: "Boucle",
-      texte: "Touchez <b>Boucle</b>, puis tapez la première et la dernière mesure (« de » / « à »), ou touchez la case puis la mesure sur la partition. La lecture repart au début de la boucle sans décompte." },
-    { titre: "Affichage, taille et paysage",
-      texte: "Réglages › Affichage : <b>Page</b>, <b>Comme imprimé</b> (mêmes lignes que la partie papier) ou <b>Défilement</b> (une ligne qui défile). La taille se règle avec le curseur ou avec deux doigts.<br>En <b>paysage</b>, un téléphone passe en défilement avec environ 6 mesures visibles ; la taille choisie en paysage est retenue à part. Le réglage « En paysage » propose <b>Auto</b> (téléphone : défilement, tablette : affichage standard), <b>Défilement</b> ou <b>Standard</b>. Sur téléphone, le bouton ▤ bascule rapidement." },
-    { titre: "Volumes : moins-un, solo, tutti",
-      texte: "<b>Moins-un</b> coupe votre partie pour jouer par-dessus. <b>Solo</b> n'écoute que votre partie. <b>Tutti</b> remet tout le monde. Chaque pupitre a son volume ; « Par défaut » remet les volumes, muets et solos d'origine." },
-    { titre: "Compteur de temps et métronome",
-      texte: "Réglages › Tempo : <b>Compteur de temps</b> affiche le numéro du temps et quatre barres qui s'allument à chaque double croche. <b>Métronome</b> ajoute un clic. <b>Décompte</b> joue une mesure vide avant de démarrer." },
-    { titre: "Latence (retard du son)",
-      texte: "Paramètres › <b>Mesurer</b>. Volume assez fort, téléphone près de l'enceinte, dans le calme : quelques bips sont émis et le retard est mesuré. La valeur est retenue pour chaque sortie audio (haut-parleur, casque, enceinte). <b>Auto</b> revient à la valeur annoncée par l'appareil. Si le curseur semble encore décalé, ajustez « Curseur » dans Réglages › Affichage." },
-    { titre: "Accordeur",
-      texte: "Bouton diapason : jouez une note tenue. La note s'affiche dans la notation de votre instrument, avec le son réel à côté. Le néon s'allume quand vous êtes juste. Le La de référence (440 Hz) se règle avec − / +." },
-    { titre: "Séance : le chef",
-      texte: "<b>Séance</b> › « Je suis le chef : créer la séance ». Montrez le QR code ou dictez le code à 4 caractères. Le chef choisit le morceau, lance, arrête, règle tempo et boucle pour tous. Son téléphone garde 4 liaisons directes ; les musiciens suivants sont relayés automatiquement par d'autres téléphones. Pour passer la main : « Prendre la direction » sur le téléphone d'un musicien." },
-    { titre: "Séance : le musicien",
-      texte: "Scannez le QR code du chef ou tapez le code puis <b>Rejoindre</b>. Vous gardez le choix de votre partie, de l'affichage et de la taille. « Entendre le son sur ce téléphone » active le son (au casque de préférence). Si la page a été fermée, <b>Reprendre la dernière séance</b> vous y remet." },
-    { titre: "Hors connexion et installation",
-      texte: "<b>Hors connexion</b> (dans la liste) télécharge tous les morceaux et les sons pour jouer sans réseau. <b>Installer l'application</b> l'ajoute à l'écran d'accueil (sur iPhone : bouton Partager › « Sur l'écran d'accueil »)." },
-    { titre: "En cas de souci",
-      texte: "<b>Pas de son</b> : vérifiez le volume, touchez ▶ une fois (le téléphone exige un geste). <b>Son décalé</b> : refaites la mesure de latence. <b>Connexion à la séance difficile</b> : passez sur le wifi de la banda, puis réessayez ; l'application réessaie aussi toute seule. <b>Affichage bizarre</b> : changez d'affichage ou de taille, ou rechargez la page." }
+  etiquettes: [
+    /* ---- liste des morceaux ---- */
+    { cibles: ["#songSearch"], nom: "Rechercher",
+      texte: "Tapez quelques lettres du titre pour filtrer la liste." },
+    { cibles: ["#songs .song"], nom: "Ouvrir un morceau",
+      texte: "Touchez un morceau pour l'ouvrir. Votre partie est retenue d'une fois sur l'autre." },
+    { cibles: ["#localBtn"], nom: "Fichier",
+      texte: "Ouvre une partition MusicXML (.mxl, .musicxml) enregistrée sur l'appareil." },
+    { cibles: ["#offlineBtn"], nom: "Hors connexion",
+      texte: "Télécharge tous les morceaux et les sons pour jouer sans réseau (salle sans wifi, 4G faible)." },
+    { cibles: ["#installBtn"], nom: "Installer",
+      texte: "Ajoute l'application à l'écran d'accueil. Sur iPhone : bouton Partager › « Sur l'écran d'accueil »." },
+
+    /* ---- barre du haut / boutons de droite en paysage ---- */
+    { cibles: ["#sessBtn", "#lpSess"], nom: "Séance",
+      texte: "<b>Le chef</b> : « Je suis le chef » puis montrez le QR code ; il lance, arrête, règle tempo et boucle pour tous.<br><b>Le musicien</b> : scannez le QR code ou tapez le code. Vous gardez votre partie, l'affichage et la taille. « Reprendre la dernière séance » si la page a été fermée ; « Prendre la direction » pour devenir chef." },
+    { cibles: ["#sideToggle", "#lpSide"], nom: "Réglages",
+      texte: "Votre partie, l'affichage (Page, Comme imprimé, Défilement, « En paysage »), la taille, le tempo, le compteur de temps, le métronome et les volumes (Moins-un, Solo, Tutti)." },
+    { cibles: ["#tuneBtn", "#lpTune"], nom: "Accordeur",
+      texte: "Jouez une note tenue : elle s'affiche dans la notation de votre instrument, avec le son réel à côté. Le néon s'allume quand c'est juste. Le La (440 Hz) se règle avec − / +." },
+    { cibles: ["#settingsBtn", "#lpSet"], nom: "Paramètres",
+      texte: "Apparence (thèmes) et son : <b>Mesurer</b> la latence (retard d'une enceinte ou d'un casque Bluetooth), qualité des sons." },
+    { cibles: ["#fullBtn"], nom: "Plein écran",
+      texte: "Cache la barre du navigateur pour agrandir la partition." },
+    { cibles: ["#lpView"], nom: "Paysage",
+      texte: "Bascule entre le défilement (6 mesures au départ) et l'affichage standard. « Auto » dans Réglages › Affichage pour revenir au choix automatique." },
+
+    /* ---- lecteur ---- */
+    { cibles: ["#homeFab", "#backBtn"], nom: "Accueil",
+      texte: "Revient à la liste des morceaux." },
+    { cibles: ["#partTag"], nom: "Ma partie",
+      texte: "Touchez le nom pour changer de partie." },
+    { cibles: ["#scoreWrap"], nom: "Partition", position: "dedans",
+      texte: "Touchez une mesure pour y placer la lecture. Deux doigts pour agrandir ou réduire. En défilement, la clé et l'armure en cours restent affichées à gauche." },
+    { cibles: ["#bar"], nom: "Avancement",
+      texte: "Touchez la barre pour jeter un œil à un autre endroit du morceau, sans déplacer la lecture." },
+    { cibles: ["#playBtn"], nom: "Lecture",
+      texte: "Lance ou met en pause. Barre d'espace sur ordinateur." },
+    { cibles: ["#stopBtn"], nom: "Début",
+      texte: "Arrête et revient au début du morceau." },
+    { cibles: ["#posbox"], nom: "Position",
+      texte: "Mesure et temps en cours. Le point « Sons » indique si les sons d'instruments sont prêts." },
+    { cibles: [".tempo"], nom: "Vitesse",
+      texte: "− / + change la vitesse par pas de 5 %." },
+    { cibles: ["#gotoForm"], nom: "Aller à",
+      texte: "Tapez un numéro de mesure puis › pour y aller directement." },
+    { cibles: [".loopctl"], nom: "Boucle",
+      texte: "Tapez la première et la dernière mesure (« de » / « à »), ou touchez la case puis la mesure sur la partition. La boucle repart sans décompte." },
+    { cibles: ["#marks button"], nom: "Repères",
+      texte: "Saute directement à une section (A, B, Coda…)." }
   ]
 };

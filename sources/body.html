@@ -30,7 +30,7 @@
       <button id="sideToggle" class="ic" title="Afficher / masquer les réglages"><svg><use href="#i-sliders"/></svg></button>
       <button id="fullBtn" class="ic" title="Plein écran"><svg><use href="#i-full"/></svg></button>
       <button id="tuneBtn" class="ic" title="Accordeur"><svg><use href="#i-fork"/></svg></button>
-      <button id="helpBtn" class="ic" title="Aide"><svg><use href="#i-help"/></svg></button>
+      <button id="helpBtn" class="ic" title="Aide" aria-pressed="false"><svg><use href="#i-help"/></svg></button>
       <button id="settingsBtn" class="ic" title="Paramètres"><svg><use href="#i-gear"/></svg></button>
     </div>
   </header>
@@ -39,9 +39,7 @@
       <div class="hero">
         <div class="halo"><img id="heroImg" src="" alt="La Banda Familia"></div>
         <div class="herotxt">
-          <div class="eyebrow">AFC · La Banda Familia</div>
-          <h2>Nos morceaux</h2>
-          <p class="muted">Choisis un morceau, ta partie, et joue avec toute la banda.</p>
+          <h2>AFC La Banda Familia</h2>
         </div>
       </div>
       <div class="libbar">
@@ -102,6 +100,7 @@
       </aside>
       <div class="stage">
         <div id="scoreBox"><div id="scoreWrap"><div id="score"></div></div>
+          <div id="sigBox" aria-hidden="true"></div>
           <div id="playhead"></div>
           <div id="turn"><div id="turnPrev"><div id="turnInner"></div><div id="turnSkip"></div></div><div id="turnBlur"></div><div id="turnLbl"></div></div>
           <div id="followBanner"></div>
@@ -123,6 +122,7 @@
             <div class="loopctl lk" title="Boucle : choisir les mesures (ou glisser le doigt sur la barre de progression)"><button id="loopBtn"><svg class="sm"><use href="#i-loop"/></svg><span>Boucle</span></button><input type="text" id="loopA" placeholder="de" inputmode="numeric" autocomplete="off" title="Début : tapez le numéro, ou touchez la case puis la mesure sur la partition"><span class="arr">→</span><input type="text" id="loopB" placeholder="à" inputmode="numeric" autocomplete="off" title="Fin : tapez le numéro, ou touchez la case puis la mesure sur la partition"></div>
             <div class="marks lk" id="marks"></div>
             </div>
+            <button id="lpHelp" class="ic lp" title="Aide" aria-pressed="false"><svg><use href="#i-help"/></svg></button>
             <button id="lpView" class="ic lp" title="Passer en affichage standard"><svg><use href="#i-view"/></svg></button>
             <button id="lpSess" class="ic lp" title="Séance"><svg><use href="#i-cast"/></svg></button>
             <button id="lpSide" class="ic lp" title="Réglages"><svg><use href="#i-sliders"/></svg></button>
@@ -237,19 +237,13 @@
   </form>
 </dialog>
 
-<dialog id="qsDlg" class="qs" aria-label="Premiers pas">
-  <div class="qsIcon" id="qsIcon"></div>
+<dialog id="qsDlg" class="qs" aria-label="Réglage de la latence">
+  <div class="qsIcon">🎧</div>
   <div class="dtitle" id="qsTitle"></div>
   <div class="qsText" id="qsText"></div>
-  <div class="qsAct" id="qsAct"></div>
-  <div class="qsDots" id="qsDots"></div>
-  <div class="row qsNav"><button type="button" class="link" id="qsSkip">Passer</button><span style="flex:1"></span><button type="button" id="qsPrev">Précédent</button><button type="button" class="primary" id="qsNext" autofocus>Suivant</button></div>
+  <div class="qsAct"><button type="button" class="primary" id="qsMeasure"></button><div class="small qsst" id="qsSt"></div></div>
+  <p class="small muted qsLater" id="qsLater"></p>
+  <div class="row qsNav"><span style="flex:1"></span><button type="button" id="qsClose" autofocus></button></div>
 </dialog>
 
-<dialog id="helpDlg" class="help">
-  <form method="dialog">
-    <div class="dhead"><div class="dtitle">Aide</div><button class="ic" value="x" title="Fermer">✕</button></div>
-    <div id="helpList"></div>
-    <div class="row dfoot" style="justify-content:space-between;align-items:center"><span class="small muted" id="helpVer"></span><button type="button" class="primary" id="helpQS">Revoir les premiers pas</button></div>
-  </form>
-</dialog>
+<div id="tipLayer" hidden></div>

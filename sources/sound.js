@@ -195,17 +195,23 @@ function analyseLatency(chunks,h,t0,offs,sr,inLat){
   const rt=good.reduce((a,b)=>a+b,0)/good.length;
   return {ms:Math.max(0,(rt-inLat)*1000), rt:rt*1000, n:good.length};
 }
-async function runLatency(){
-  const btn=$("latBtn"), info=$("latInfo"); if(btn.disabled) return;
-  btn.disabled=true; const old=btn.textContent;
+/* mesure de la latence ; ui (facultatif) : {btn, out} = bouton qui affiche l'avancement et zone de texte du résultat
+   (utile dans une fenêtre, où le bandeau « toast » reste caché derrière) */
+async function runLatency(ui){
+  const btn=(ui&&ui.btn)||$("latBtn"), out=ui&&ui.out; if(btn.disabled) return null;
+  const say=(m,ms)=>{ if(out){ out.textContent=m; out.classList.toggle("err",/impossible|pas bien|instable|rien|micro/i.test(m)&&!/mesuré/.test(m)); } toast(m,ms); };
+  btn.disabled=true; const old=btn.textContent; let res=null;
   try{
+    if(out){ out.textContent="Mesure en cours : restez dans le calme…"; out.classList.remove("err"); }
     let r;
     try{ r=await measureLatency(x=>{ btn.textContent="Écoute… "+Math.round(x*100)+" %"; }); }
     catch(e){ if(e.message!=="faible"&&e.message!=="instable") throw e;   // un raté (bruit, à-coup du téléphone) : on refait une fois
+      if(out) out.textContent="Premier essai raté, deuxième essai…";
       r=await measureLatency(x=>{ btn.textContent="2e essai… "+Math.round(x*100)+" %"; }); }
-    setLead(r.ms); toast("Retard mesuré : "+Math.round(r.ms)+" ms",3500);
+    setLead(r.ms); res=r.ms; say("✔ Retard mesuré : "+Math.round(r.ms)+" ms",3500);
   }catch(e){
     const m={micro:micError(e.mic),faible:"Je n'ai pas bien entendu les bips : montez le volume, rapprochez le téléphone de l'enceinte, et recommencez dans le calme.",instable:"Mesure instable (bruit ?) : recommencez dans le calme.",rien:"Le micro n'a rien enregistré."}[e.message]||("Mesure impossible : "+e.message);
-    toast(m,5000);
+    say(m,5000);
   } finally { btn.disabled=false; btn.textContent=old; latInfo(); }
+  return res;
 }

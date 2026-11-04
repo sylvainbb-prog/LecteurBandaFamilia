@@ -35,9 +35,9 @@ function cleanTitle(n){ return n.replace(SCORE_EXT,"").replace(/^\s*\d+\s*[-–.
 function songNum(n){ const m=n.match(/^\s*(\d+)/); return m?m[1]:""; }
 function songCard(name,sub,onclick,i,title){
   const b=document.createElement("button"); b.className="song"; b.style.animationDelay=(i*0.03)+"s";
-  b.innerHTML=`<span class="num"></span><span class="t"><b></b><span class="sub"></span></span><svg class="go"><use href="#i-chev"/></svg>`;
+  b.innerHTML=`<span class="num"></span><span class="t"><b></b></span><svg class="go"><use href="#i-chev"/></svg>`;
   b.querySelector(".num").innerHTML=songNum(name)||'<svg class="sm"><use href="#i-note"/></svg>';
-  const t=title||cleanTitle(name); b.querySelector("b").textContent=t; b.querySelector(".sub").textContent=sub; b.dataset.q=(t+" "+name).toLowerCase();
+  const t=title||cleanTitle(name); b.querySelector("b").textContent=t; b.title=t+(sub?" · "+sub:""); b.dataset.q=(t+" "+name).toLowerCase();
   b.onclick=onclick; return b;
 }
 async function loadLibrary(){
@@ -957,7 +957,64 @@ async function renderScore(){
   if(line&&S.geo&&S.geo.sys[0]){ const w=$("scoreWrap"), sy=S.geo.sys[0], mid=24+(sy.top+sy.bottom)/2, sh=Math.round(w.clientHeight*0.45-mid);
     if(sh>10&&host.offsetHeight+sh<=w.clientHeight+4) host.style.marginTop=sh+"px"; }   // ligne trop basse pour l'écran : on la centre
   if(line && S.geo && S.geo.sys[0]){ const sy=S.geo.sys[0], w=$("scoreWrap"); w.scrollTop=Math.max(0,(sy.top+sy.bottom)/2-w.clientHeight/2+12); }   // portée centrée en hauteur
+  sigReset();
   S.pend=null; lastCur=""; { const w=$("scoreWrap"); S.wideScore=w.scrollWidth>w.clientWidth+4; } updateCursor(true);
+  if(line) sigPrepare();
+}
+/* ===== défilement : clé et armure de la mesure jouée, toujours visibles à gauche =====
+   Une petite portée fixe à gauche montre la clé et l'armure en cours ; ses lignes s'effacent en fondu
+   vers la droite et la partition qui défile réapparaît en fondu derrière elle. */
+const SIG={cache:new Map(),cur:"",on:false,gen:0,top:0,FADE:40};
+function sigReset(){ SIG.gen++; SIG.on=false; SIG.cur=""; S.sigAt=null; const b=$("sigBox"); if(b){ b.innerHTML=""; b.style.display="none"; } }
+function sigList(){
+  const o=S.osmd, ml=o.GraphicSheet.MeasureList, sm=o.Sheet.SourceMeasures; let fifths=0; const arr=[];
+  for(let i=0;i<sm.length;i++){
+    (sm[i].FirstInstructionsStaffEntries||[]).forEach(se=>{ if(se) (se.Instructions||[]).forEach(ins=>{ if(typeof ins.Key==="number") fifths=ins.Key; }); });
+    const g=ml[i]&&ml[i][0], c=g&&g.InitiallyActiveClef;
+    arr.push(c?[c.ClefType|0,c.Line|0,c.OctaveOffset|0,fifths].join("_"):(arr[i-1]||null));
+  }
+  return arr;
+}
+async function sigRender(sig,zoom){
+  const id=sig+"@"+zoom.toFixed(4); if(SIG.cache.has(id)) return SIG.cache.get(id);
+  const [ct,line,oct,fifths]=sig.split("_").map(Number), sign=["G","F","C","percussion","TAB"][ct]||"G";
+  const xml='<?xml version="1.0" encoding="UTF-8"?><score-partwise version="3.1"><part-list><score-part id="P1"><part-name print-object="no">x</part-name></score-part></part-list><part id="P1"><measure number="1"><attributes><divisions>1</divisions>'
+    +(sign==="percussion"?'':'<key><fifths>'+fifths+'</fifths></key>')+'<time print-object="no"><beats>4</beats><beat-type>4</beat-type></time><clef><sign>'+sign+'</sign>'+(sign==="percussion"?'':'<line>'+line+'</line>')+(oct?'<clef-octave-change>'+oct+'</clef-octave-change>':'')
+    +'</clef></attributes><note print-object="no"><rest/><duration>4</duration><type>whole</type></note></measure></part></score-partwise>';
+  const d=document.createElement("div"); d.style.cssText="position:fixed;left:-5000px;top:0;width:1600px;visibility:hidden"; document.body.appendChild(d);
+  let r=null;
+  try{
+    const o=new opensheetmusicdisplay.OpenSheetMusicDisplay(d,{autoResize:false,backend:"svg",drawTitle:false,drawComposer:false,drawCredits:false,drawPartNames:false,renderSingleHorizontalStaffline:true,drawingParameters:"compacttight"});
+    await o.load(xml); o.zoom=zoom; o.render();
+    const g=o.GraphicSheet.MeasureList[0][0], u=10*zoom, ap=g.PositionAndShape.AbsolutePosition;
+    const svg=d.querySelector("svg");
+    if(svg) r={svg:svg.cloneNode(true), sx:ap.x*u, w:(g.beginInstructionsWidth||3)*u, sy:g.ParentStaffLine.PositionAndShape.AbsolutePosition.y*u, h:svg.getBoundingClientRect().height};
+  }catch(e){ console.warn("armure",e); }
+  d.remove(); SIG.cache.set(id,r); return r;
+}
+async function sigPrepare(){
+  const gen=SIG.gen, o=S.osmd; if(!o||!isLine()) return;
+  let arr; try{ arr=sigList(); }catch(e){ console.warn(e); return; }
+  const zoom=o.zoom; for(const s of new Set(arr.filter(Boolean))){ await sigRender(s,zoom); if(gen!==SIG.gen) return; }
+  // position verticale : ligne du haut de la portée principale
+  try{ const g=o.GraphicSheet.MeasureList[0][0], svg=$("score").querySelector("svg"), box=$("scoreBox").getBoundingClientRect(), w=$("scoreWrap");
+    SIG.top=svg.getBoundingClientRect().top-box.top+w.scrollTop+g.ParentStaffLine.PositionAndShape.AbsolutePosition.y*10*zoom;
+    SIG.left=w.getBoundingClientRect().left-box.left; }catch(e){ return; }
+  S.sigAt=arr; SIG.zoom=zoom; SIG.on=true; SIG.cur="";
+  sigUpdate(curSeq);
+}
+$("scoreWrap").addEventListener("scroll",()=>{ if(SIG.on&&SIG.cur) $("sigBox").style.top=(SIG.top-$("scoreWrap").scrollTop-SIG.sy)+"px"; },{passive:true});
+function sigUpdate(k){
+  if(!SIG.on||!S.sigAt) return; const sig=S.sigAt[k]||S.sigAt[0]; if(!sig||sig===SIG.cur) return;
+  const r=SIG.cache.get(sig+"@"+SIG.zoom.toFixed(4)); if(!r) return;
+  SIG.cur=sig; SIG.sy=r.sy; const box=$("sigBox"), w0=Math.round(r.w+10);
+  const lay=document.createElement("div"); lay.className="sigLay";
+  const sv=r.svg.cloneNode(true); sv.style.cssText="position:absolute;left:"+(-(r.sx-4)).toFixed(1)+"px;top:0"; lay.appendChild(sv);
+  box.style.display="block"; box.style.left=SIG.left+"px"; box.style.width=(w0+SIG.FADE)+"px"; box.style.height=Math.ceil(r.h)+"px";
+  box.style.top=(SIG.top-$("scoreWrap").scrollTop-r.sy)+"px";
+  const m="linear-gradient(90deg,#000 "+w0+"px,transparent 100%)"; box.style.webkitMaskImage=box.style.maskImage=m;
+  const old=[...box.children]; box.appendChild(lay);
+  requestAnimationFrame(()=>{ lay.classList.add("on"); old.forEach(x=>{ x.classList.remove("on"); setTimeout(()=>x.remove(),300); }); });
 }
 /* paysage : zoom pour que MESURES_VISIBLES_PAYSAGE mesures (largeur fixe w, en interlignes) remplissent l'écran à 100 % */
 function landZoom(w,uz){ const W=$("scoreWrap").clientWidth||window.innerWidth; return Math.max(0.2,(W/MESURES_VISIBLES_PAYSAGE)/((w+LAND_GAP)*10))*uz; }
@@ -1130,6 +1187,7 @@ function updatePage(k,force){
   S.pend={T, sc:nx.top-y0};
 }
 function updateLineView(mi,off){
+  if(SIG.on) sigUpdate(mi);
   const wrap=$("scoreWrap"), x=xAt(mi,off), xi=Math.floor(x);
   wrap.scrollLeft=xi; $("score").style.transform="translateX("+(-(x-xi)).toFixed(2)+"px)";
 }
@@ -1456,8 +1514,8 @@ function resolveLoopInput(id,after){
    ===================================================================== */
 function setPlayIcon(on){ const b=$("playBtn"); b.classList.toggle("on",on); document.body.classList.toggle("playing",!!on); if(on&&window.fxClear) fxClear(); b.querySelector("use").setAttribute("href",on?"#i-pause":"#i-play"); }
 function syncLayoutSeg(){ document.querySelectorAll("#layoutSeg button").forEach(b=>b.classList.toggle("on",b.dataset.v===$("layoutSel").value)); }
-function showPlayer(){ const was=document.body.classList.contains("inplayer"); document.body.classList.add("inplayer"); $("library").style.display="none"; $("player").classList.add("show"); $("backBtn").style.display="inline-block"; if(!was&&window.fxEnterPlayer) fxEnterPlayer(); if(!was) setTimeout(landSuggest,2500); }
-function showLibrary(){ stop(); $("kick").textContent="La Banda Familia · répétitions"; closeSheet(); document.body.classList.remove("inplayer"); $("side").classList.remove("open"); $("player").classList.remove("show"); $("library").style.display="block"; $("backBtn").style.display="none"; $("title").textContent="Nos morceaux"; if(window.fxEnterLibrary) fxEnterLibrary(); }
+function showPlayer(){ const was=document.body.classList.contains("inplayer"); document.body.classList.add("inplayer"); $("library").style.display="none"; $("player").classList.add("show"); $("backBtn").style.display="inline-block"; if(!was&&window.fxEnterPlayer) fxEnterPlayer(); if(!was) setTimeout(landSuggest,2500); if(window.tipsRefresh) tipsRefresh(); }
+function showLibrary(){ stop(); $("kick").textContent="La Banda Familia · répétitions"; closeSheet(); document.body.classList.remove("inplayer"); $("side").classList.remove("open"); $("player").classList.remove("show"); $("library").style.display="block"; $("backBtn").style.display="none"; $("title").textContent="Nos morceaux"; if(window.fxEnterLibrary) fxEnterLibrary(); if(window.tipsRefresh) tipsRefresh(); }
 function showLoading(t){ if($("player").classList.contains("show")){ const l=$("loading"); l.textContent=t; l.style.display="flex"; } else $("libInfo").textContent=t; }
 function hideLoading(){ $("loading").style.display="none"; }
 

@@ -92,7 +92,7 @@ function cover(title){
 }
 function decorateCards(){
   document.querySelectorAll("#songs .song:not(.dec)").forEach(b=>{ b.classList.add("dec"); const n=b.querySelector(".num"); if(!n) return;
-    const num=n.textContent.trim(); n.innerHTML=cover(b.querySelector("b").textContent||"")+(num?`<span class="nb">${num}</span>`:""); });
+    const num=n.textContent.trim(); n.innerHTML=cover(b.querySelector("b").textContent||"")+(num?`<span class="nb">${num}</span>`:""); if(num) b.classList.add("numbered"); });
 }
 new MutationObserver(decorateCards).observe($("songs"),{childList:true});
 /* logo : un petit feu d'artifice quand on le touche */

@@ -125,7 +125,7 @@ $("tuneBtn").onclick=openTuner; $("lpTune").onclick=openTuner;
 $("tuClose").onclick=closeTuner; $("tunerDlg").addEventListener("close",()=>{ if(TU.on) closeTuner(); });
 $("a4m").onclick=()=>setA4(a4()-1); $("a4p").onclick=()=>setA4(a4()+1);
 $("a4sm").onclick=()=>setA4(a4()-1); $("a4sp").onclick=()=>setA4(a4()+1); $("a4set").textContent=a4();
-$("latBtn").onclick=runLatency; $("latReset").onclick=()=>{ setLead(null); toast("Retard du son : automatique"); };
+$("latBtn").onclick=()=>runLatency(); $("latReset").onclick=()=>{ setLead(null); toast("Retard du son : automatique"); };
 $("outSel").onchange=e=>chooseOutput(e.target.value);
 $("airBtn").onclick=()=>{ try{ OUT.el.webkitShowPlaybackTargetPicker(); }catch(e){} };
 { const sb=$("settingsBtn"), old=sb.onclick; sb.onclick=e=>{ old&&old(e); latInfo(); fillOutputs(); }; }
