@@ -921,7 +921,8 @@ async function renderScore(){
       osmd.render();
     }catch(e){ console.warn("fixed width",e); }
   }
-  if(line){ const pad=Math.round($("scoreWrap").clientWidth/3); host.style.paddingLeft=pad+"px"; host.style.paddingRight=Math.round($("scoreWrap").clientWidth*0.7)+"px"; host.style.paddingBottom="0px"; S.pad=pad; }
+  if(line){ const pad=Math.round($("scoreWrap").clientWidth/3); host.style.width="max-content";   // la marge de droite s'ajoute après la partition : on peut défiler jusqu'à la dernière note
+    host.style.paddingLeft=pad+"px"; host.style.paddingRight=Math.round($("scoreWrap").clientWidth*0.7)+"px"; host.style.paddingBottom="0px"; S.pad=pad; }
   else { S.pad=0; host.style.paddingBottom=$("scoreWrap").clientHeight+"px"; }
   // cursor map : every cursor position, with its x on the score
   S.steps=[];
@@ -1866,6 +1867,7 @@ function chefNowMs(){ return SY.role==="m"?performance.now():(SY.offset===null?n
 function ctxToMs(ctx){ smoothNow(); return (ctx-CLK.off)*1000; }          // temps audio local -> horloge locale (ms)
 function masterMsToCtx(ms){ smoothNow(); return (ms-SY.offset)/1000+CLK.off; } // horloge du chef -> temps audio local
 function treeTotal(){ let n=0; for(const c of accepted()) n+=1+(c.n||0); return n; }
+function treeWho(){ const out=[]; for(const c of accepted()){ out.push({dev:c.dev,part:c.part||"?"}); (c.who||[]).forEach(w=>out.push(w)); } return out; }
 function treeParts(){ const out=[]; for(const c of accepted()){ out.push(c.part||"?"); (c.parts||[]).forEach(p=>out.push(p)); } return out; }
 function treeDepthUsed(){ return accepted().some(c=>(c.n||0)>0)?2:1; }
 
@@ -1908,8 +1910,8 @@ function onChildMsg(d,from){
   if(!c.acc) return;
   if(d.t==="lead"){ c.lead=d.lead||0; reportUp(); return; }
   if(d.t==="part"){ c.part=d.part; sessUI(); reportUp(); return; }
-  if(d.t==="tree"){ c.n=d.n||0; c.parts=d.parts||[]; c.leadMax=d.lead||0; sessUI(); return; }   // un hôte décrit ses invités
-  if(d.t==="takeover"){ if(SY.role==="m") stepDown(d.dev); else send(d); return; }            // demande de direction : remonte jusqu'au chef
+  if(d.t==="tree"){ c.n=d.n||0; c.parts=d.parts||[]; c.who=d.who||[]; c.leadMax=d.lead||0; sessUI(); return; }   // un hôte décrit ses invités
+  if(d.t==="takeover"){ if(SY.role==="m") askHandoff(d); else send(d); return; }             // demande de direction : remonte jusqu'au chef, qui accepte ou refuse
   if(d.t==="need"){
     if(S.src&&(d.song||(d.sid&&d.sid!==S.src.sid))) sendSong(from);
     if(SY.role==="m") sendTo(from,stateMsg({})); else if(SY.lastRaw) sendTo(from,SY.lastRaw);
@@ -1919,7 +1921,7 @@ function onChildMsg(d,from){
 /* un hôte résume ses invités au chef : nombre, parties, plus grand retard d'enceinte */
 function reportUp(){
   if(SY.role!=="f") return;
-  const a=accepted(); send({t:"tree",n:a.length,parts:a.map(c=>c.part||"?"),lead:a.reduce((m,c)=>Math.max(m,c.lead||0),0)});
+  const a=accepted(); send({t:"tree",n:a.length,parts:a.map(c=>c.part||"?"),who:a.map(c=>({dev:c.dev,part:c.part||"?"})),lead:a.reduce((m,c)=>Math.max(m,c.lead||0),0)});
 }
 
 /* ---------- chef ---------- */
@@ -1970,16 +1972,44 @@ function stepDown(newDev){
 /* un musicien prend la direction : avec le chef présent → il demande la main (après confirmation) ;
    chef disparu → il la prend directement */
 function chefPresent(){ return SY.role==="f"&&SY.conn&&SY.conn.open&&SY.depth>0&&performance.now()-SY.lastStateAt<5000; }
+/* Direction de la séance :
+   - chef présent : le musicien DEMANDE, le chef accepte ou refuse (sans réponse en DEMANDE_DIRECTION_S secondes = refus) ;
+   - chef muet depuis plus de CHEF_ABSENT_S secondes (batterie, réseau) : n'importe quel musicien peut reprendre la direction. */
+const CHEF_ABSENT_S=20, DEMANDE_DIRECTION_S=30;
+function chefSilence(){ return (performance.now()-Math.max(SY.lastStateAt||0,SY.followSince||0))/1000; }
 function requestChef(){
   if(SY.role!=="f") return;
   if(chefPresent()){
-    if(!confirm("Prendre la direction de la séance "+SY.code+" ?\nLe chef actuel deviendra musicien, la lecture continue.")) return;
-    send({t:"takeover",dev:SY.id}); toast("Demande envoyée au chef…",2500);
-    clearTimeout(SY.takeT); SY.takeT=setTimeout(()=>{ if(SY.role==="f") toast("Le chef n'a pas répondu : réessayez",3500); },7000);
-  } else becomeChef();
+    if(SY.takePending){ toast("Demande déjà envoyée : le chef doit répondre",2500); return; }
+    send({t:"takeover",dev:SY.id,part:partName()}); SY.takePending=true; sessUI();
+    toast("Demande envoyée au chef : attendez sa réponse…",3000);
+    clearTimeout(SY.takeT); SY.takeT=setTimeout(()=>{ if(!SY.takePending) return; SY.takePending=false; sessUI(); if(SY.role==="f") toast("Le chef n'a pas répondu : demande annulée",3500); },(DEMANDE_DIRECTION_S+4)*1000);
+    return;
+  }
+  const sil=chefSilence();
+  if(sil<CHEF_ABSENT_S){ toast("Le chef ne répond plus depuis "+Math.round(sil)+" s. S'il ne revient pas, vous pourrez reprendre la direction dans "+Math.ceil(CHEF_ABSENT_S-sil)+" s.",4500); return; }
+  becomeChef();
 }
+/* chef : une demande de direction arrive */
+function askHandoff(d){
+  const box=$("takeAsk"); if(!box) return;
+  if(SY.ask&&SY.ask.dev!==d.dev) answerHandoff(false);           // une seule demande à la fois
+  SY.ask={dev:d.dev,part:d.part||"Un musicien",until:performance.now()+DEMANDE_DIRECTION_S*1000};
+  $("takeAskTxt").textContent=SY.ask.part+" demande la direction de la séance";
+  box.hidden=false; box.classList.remove("out");
+  clearInterval(SY.askT); const tick=()=>{ if(!SY.ask) return; const r=Math.ceil((SY.ask.until-performance.now())/1000); if(r<=0) return answerHandoff(false,true); $("takeAskNo").textContent="Refuser ("+r+")"; };
+  tick(); SY.askT=setInterval(tick,500);
+  if(window.fxBurst){} try{ navigator.vibrate&&navigator.vibrate(120); }catch(e){}
+}
+function answerHandoff(ok,timeout){
+  const a=SY.ask; SY.ask=null; clearInterval(SY.askT); const box=$("takeAsk"); if(box){ box.classList.add("out"); setTimeout(()=>{ if(!SY.ask) box.hidden=true; },200); }
+  if(!a||SY.role!=="m") return;
+  if(ok) stepDown(a.dev); else broadcast({t:"takeNo",dev:a.dev,timeout:!!timeout});
+}
+/* chef : confier de lui-même la direction à un musicien de la liste */
+function giveChef(w){ if(SY.role!=="m"||!w||!w.dev) return; if(!confirm("Confier la direction de la séance à « "+w.part+" » ?\nVous deviendrez musicien ; la lecture continue.")) return; $("sessDlg").close(); stepDown(w.dev); }
 function becomeChef(){
-  const code=SY.code; clearTimeout(SY.takeT);
+  const code=SY.code; clearTimeout(SY.takeT); SY.takePending=false;
   // on quitte la place de musicien sans arrêter le son ni la partition
   clearInterval(SY.pingT); clearTimeout(SY.retry); clearTimeout(SY.openT);
   if(SY.conn){ const c=SY.conn; SY.conn=null; try{ c.close(); }catch(e){} }
@@ -2017,10 +2047,12 @@ async function startFollower(code,opt){
   const ac=audio(); try{ await ac.resume(); }catch(e){}
   leaveSession(true);
   SY.role="f"; SY.code=code; SY.samples=[]; SY.offset=null; SY.pending=null; SY.last=null; SY.lastRaw=null; SY.depth=0; SY.full=false;
-  SY.epoch=0; if(opt.quiet) $("sessSound").checked=true;   // l'ancien chef garde son son
+  SY.epoch=0; SY.followSince=performance.now(); SY.takePending=false;
+  $("sessSound").checked=false;   // par défaut, seul le chef sort du son (l'ancien chef aussi devient muet)
+  if(opt.quiet) toast("Vous n'êtes plus chef : le son de ce téléphone est coupé (« Forcer le son » dans Séance)",4500);
   SY.joinFails=0; SY.everJoined=!!opt.quiet; SY.resume=!!opt.resume; SY.wantChef=!!opt.asChef; SY.opened=false;
   document.body.classList.add("follower");
-  setLocalSound($("sessSound").checked);
+  setLocalSound(false);
   if(!S.model){ showPlayer(); showLoading("En attente du morceau choisi par le chef…"); }
   if(!window.Peer){ toast("Module de synchronisation indisponible (pas de connexion ?)",4000); SY.role=null; return; }
   const pr=new Peer(peerOpts()); SY.peer=pr;
@@ -2074,7 +2106,8 @@ function burstPing(){ for(let i=0;i<8;i++) setTimeout(()=>{ if(SY.role==="f") se
 function onFollowerMsg(d){
   if(d.t==="redirect"){ connectTo(d.to,d.avoid); return; }
   if(d.t==="full"){ SY.full=true; $("sessFState").textContent="Séance complète ("+d.max+" musiciens au maximum)."; banner("Séance complète"); toast("Séance complète : "+d.max+" musiciens au maximum",5000); return; }
-  if(d.t==="handoff"){ broadcast(d); if(d.dev===SY.id) becomeChef(); return; }                  // c'est nous le nouveau chef ?
+  if(d.t==="handoff"){ broadcast(d); if(d.dev===SY.id) becomeChef(); return; }
+  if(d.t==="takeNo"){ broadcast(d); if(d.dev===SY.id&&SY.takePending){ SY.takePending=false; clearTimeout(SY.takeT); sessUI(); toast(d.timeout?"Le chef n'a pas répondu : demande annulée":"Le chef a refusé de vous confier la direction",3500); } return; }                  // c'est nous le nouveau chef ?
   if(d.t==="welcome"){ SY.depth=d.depth||1; SY.everJoined=true; SY.joinFails=0; saveLastSession("f"); $("sessFState").textContent="Connecté à la séance "+SY.code; if(window.fxBurst) fxBurst({n:90}); sessUI(); return; }
   if(d.t==="pong"){
     const r=performance.now(), rtt=r-d.c; if(rtt<0||rtt>3000) return;
@@ -2114,7 +2147,8 @@ function applyState(st){
   $("countIn").checked=!!st.countIn; $("clickOn").checked=!!st.click;
   const lk=JSON.stringify(S.loop||null), nk=JSON.stringify(st.loop||null);
   if(lk!==nk){ if(st.loop) setLoopK(st.loop.a,st.loop.b); else setLoopK(null); }
-  if(st.mix&&st.mix.length===S.parts.length){ let ch=false; st.mix.forEach((m,i)=>{ const p=S.parts[i]; const mu=!!m[0],so=!!m[1],vo=m[2]/100; if(p.mute!==mu||p.solo!==so||Math.abs(p.vol-vo)>0.005){ p.mute=mu;p.solo=so;p.vol=vo;ch=true; } }); if(ch){ drawMixer(); applyGains(); } }
+  SY.chefMix=st.mix;
+  if(!ownMix()&&st.mix&&st.mix.length===S.parts.length){ let ch=false; st.mix.forEach((m,i)=>{ const p=S.parts[i]; const mu=!!m[0],so=!!m[1],vo=m[2]/100; if(p.mute!==mu||p.solo!==so||Math.abs(p.vol-vo)>0.005){ p.mute=mu;p.solo=so;p.vol=vo;ch=true; } }); if(ch){ drawMixer(); applyGains(); } }
   // position
   if(!st.playing){
     if(S.playing) stopAudio();
@@ -2155,6 +2189,7 @@ function leaveSession(silent){
 }
 /* ---------- interface ---------- */
 function sessUI(){
+  mixUI();
   const b=$("sessBtn"), r=SY.role;
   b.classList.toggle("m",r==="m"); b.classList.toggle("f",r==="f");
   const fOk=r==="f"&&SY.conn&&SY.conn.open&&SY.depth>0, mOk=r==="m"&&SY.peer&&SY.peer.open;
@@ -2164,6 +2199,8 @@ function sessUI(){
   const ls=r?null:lastSession(); $("sessResume").style.display=ls?"block":"none";
   if(ls){ const mn=Math.round((Date.now()-ls.date)/60000); $("sessResumeInfo").innerHTML="Séance <b>"+ls.code+"</b>"+(ls.role==="m"?" (vous étiez chef)":"")+" · il y a "+(mn<1?"moins d'une minute":mn<60?mn+" min":Math.round(mn/60)+" h"); }
   $("sessTake").style.display=r==="f"&&(SY.everJoined||SY.conn)?"inline-block":"none";
+  if(r==="f"){ const pres=chefPresent(); $("sessTake").textContent=SY.takePending?"Demande envoyée…":pres?"Demander la direction":"Prendre la direction (chef absent)"; $("sessTake").disabled=!!SY.takePending;
+    $("sessTakeTxt").textContent=pres?"Vous voulez diriger ? Le chef doit accepter.":"Le chef ne répond plus ? Après "+CHEF_ABSENT_S+" s sans nouvelles, vous pouvez reprendre la direction."; }
   $("sessMaster").style.display=r==="m"?"block":"none";
   $("sessFollow").style.display=r==="f"?"block":"none";
   $("sessQuit").style.display=r?"inline-block":"none";
@@ -2171,7 +2208,7 @@ function sessUI(){
     $("sessCode").textContent=SY.code;
     $("sessCap").textContent="Jusqu'à "+ARBRE.MAX_HOTES*(1+ARBRE.MAX_INVITES_PAR_HOTE)+" musiciens : au-delà de "+ARBRE.MAX_HOTES+", les téléphones se relaient automatiquement la séance, sans rien à faire.";
     const n=treeTotal(); $("sessCount").textContent=n+(n>1?" musiciens connectés":" musicien connecté")+(treeDepthUsed()>1?" ("+accepted().length+" en direct, les autres relayés)":"");
-    const L=$("sessList"); L.innerHTML=""; for(const p of treeParts()){ const s=document.createElement("span"); s.textContent=p; L.appendChild(s); }
+    const L=$("sessList"); L.innerHTML=""; for(const w of treeWho()){ const s=document.createElement("button"); s.type="button"; s.textContent=w.part; s.title="Confier la direction à ce musicien"; s.onclick=()=>giveChef(w); L.appendChild(s); }
     const q=$("sessQr");
     if(q.dataset.code!==SY.code){ q.dataset.code=SY.code; q.innerHTML="";
       if(/^https?:/.test(location.protocol) && window.qrcode){ try{ const url=location.origin+location.pathname+"?seance="+SY.code; const qr=qrcode(0,"M"); qr.addData(url); qr.make(); q.innerHTML=qr.createSvgTag({cellSize:4,margin:2,scalable:true}); }catch(e){} } }
@@ -2183,10 +2220,17 @@ $("sessCreate").onclick=()=>{ $("sessDlg").close(); withChecklist(()=>startMaste
 $("sessJoin").onclick=()=>{ const c=$("sessCodeIn").value; $("sessDlg").close(); withChecklist(()=>startFollower(c)); };
 $("sessCodeIn").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); $("sessJoin").click(); } });
 $("sessQuit").onclick=()=>{ leaveSession(); $("sessDlg").close(); };
-$("sessSound").onchange=()=>{ if(SY.role==="f") setLocalSound($("sessSound").checked); };
+/* son forcé chez un musicien : il entend ce qu'il veut (ex. « Trombone seul » dans un ampli), sans toucher au son du chef ni des autres */
+function ownMix(){ return SY.role==="f"&&$("sessSound").checked; }
+function mixUI(){ const o=ownMix(); document.body.classList.toggle("ownmix",o);
+  const l=$("lockMix"); if(l) l.textContent=o?"🔊 Son forcé : vos pistes et volumes ne concernent que ce téléphone.":"🔒 Le son et les pistes sont choisis par le chef."; }
+$("sessSound").onchange=()=>{ if(SY.role!=="f") return; const on=$("sessSound").checked;
+  if(!on&&SY.chefMix&&SY.chefMix.length===S.parts.length){ SY.chefMix.forEach((m,i)=>{ const p=S.parts[i]; p.mute=!!m[0]; p.solo=!!m[1]; p.vol=m[2]/100; }); drawMixer(); applyGains(); }
+  setLocalSound(on); mixUI(); toast(on?"Son forcé sur ce téléphone : choisissez vos pistes dans Réglages › Volumes":"Son coupé sur ce téléphone",3000); };
 // musicien : les commandes du chef sont verrouillées
 ["click","pointerdown","input","change","submit"].forEach(ev=>document.addEventListener(ev,e=>{
-  if(SY.role!=="f") return; const t=e.target.closest&&e.target.closest(".lk"); if(!t) return;
+  if(SY.role!=="f") return; const t=e.target.closest&&e.target.closest(".lk,.lkm"); if(!t) return;
+  if(t.matches(".lkm")&&ownMix()) return;   // son forcé : le musicien règle ses propres pistes
   e.preventDefault(); e.stopPropagation(); if(ev==="click"||ev==="pointerdown") lockedToast();
 },true));
 $("partSel").addEventListener("change",()=>{ if(SY.role==="f") setTimeout(()=>send({t:"part",part:partName()}),50); });
@@ -2226,6 +2270,8 @@ LOCAL_SF.ready.then(()=>{ const el=$("packInfo"); if(el) el.textContent=LOCAL_SF
 /* ---------- reprise de la dernière séance, prise de direction ---------- */
 $("sessResumeF").onclick=()=>{ const ls=lastSession(); if(!ls) return; $("sessDlg").close(); startFollower(ls.code,{resume:true}); };
 $("sessResumeC").onclick=()=>{ const ls=lastSession(); if(!ls) return; $("sessDlg").close(); startFollower(ls.code,{resume:true,asChef:true});
-  // personne ne répond (chef parti) : on prend la direction sans confirmation
-  setTimeout(()=>{ if(SY.role==="f"&&SY.wantChef&&!chefPresent()){ SY.wantChef=false; becomeChef(); } },7000); };
+  // personne ne répond (chef parti) : on reprend la direction de sa séance
+  setTimeout(()=>{ if(SY.role==="f"&&SY.wantChef&&!chefPresent()&&!(SY.conn&&SY.conn.open)){ SY.wantChef=false; becomeChef(); } },7000); };
 $("sessTake").onclick=()=>{ $("sessDlg").close(); requestChef(); };
+$("takeAskYes").onclick=()=>answerHandoff(true);
+$("takeAskNo").onclick=()=>answerHandoff(false);

@@ -606,3 +606,16 @@ li.latcheck[hidden]{display:none!important}
 .song b{font-size:17px}
 .hero h2{overflow-wrap:anywhere}
 .song b{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.2}
+
+/* séance : liste du chef cliquable, demande de direction, son forcé */
+.sesslist button{font-size:12px;padding:3px 10px;min-height:0;border-radius:20px;background:var(--panel2);border:1px solid var(--line);cursor:pointer}
+.sesslist button:hover{border-color:var(--accent);color:var(--accent)}
+body.follower .lkm{opacity:.38;filter:grayscale(.6)}
+body.follower .lkm, body.follower .lkm *{cursor:not-allowed!important}
+body.follower.ownmix .lkm{opacity:1;filter:none}
+body.follower.ownmix .lkm, body.follower.ownmix .lkm *{cursor:auto!important}
+body.follower.ownmix #lockMix{color:var(--accent)}
+.takeask{position:fixed;left:50%;top:max(12px,env(safe-area-inset-top));transform:translateX(-50%);z-index:2147482000;width:min(440px,calc(100vw - 20px));
+  background:var(--bg2,#14141c);color:var(--ink,#fff);border:2px solid var(--accent);border-radius:16px;padding:12px 14px;box-shadow:0 16px 40px #000a;animation:tipIn .2s ease-out backwards;transition:opacity .2s}
+.takeask.out{opacity:0}
+.takeask b{font-size:16px}

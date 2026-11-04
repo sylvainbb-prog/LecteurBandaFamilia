@@ -38,7 +38,7 @@ const AIDE = {
 
     /* ---- barre du haut / boutons de droite en paysage ---- */
     { cibles: ["#sessBtn", "#lpSess"], nom: "Séance",
-      texte: "<b>Le chef</b> : « Je suis le chef » puis montrez le QR code ; il lance, arrête, règle tempo et boucle pour tous.<br><b>Le musicien</b> : scannez le QR code ou tapez le code. Vous gardez votre partie, l'affichage et la taille. « Reprendre la dernière séance » si la page a été fermée ; « Prendre la direction » pour devenir chef." },
+      texte: "<b>Le chef</b> : « Je suis le chef » puis montrez le QR code ; il lance, arrête, règle tempo et boucle pour tous. Toucher un musicien dans sa liste lui confie la direction.<br><b>Le musicien</b> : scannez le QR code ou tapez le code. Son téléphone reste muet, sauf s'il coche « Forcer le son » (ampli, casque) : il choisit alors ses propres pistes. « Demander la direction » : le chef accepte ou refuse ; si le chef ne répond plus depuis 20 s, on peut la reprendre directement." },
     { cibles: ["#sideToggle", "#lpSide"], nom: "Réglages",
       texte: "Votre partie, l'affichage (Page, Comme imprimé, Défilement, « En paysage »), la taille, le tempo, le compteur de temps, le métronome et les volumes (Moins-un, Solo, Tutti)." },
     { cibles: ["#tuneBtn", "#lpTune"], nom: "Accordeur",

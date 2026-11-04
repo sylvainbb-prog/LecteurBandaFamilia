@@ -62,11 +62,11 @@
           <h3>Ma partie</h3>
           <select id="partSel" class="full"></select>
           <div class="seg" style="margin-top:8px">
-            <button id="minusOne" class="lk" title="Coupe ma partie : je joue par-dessus">Moins-un</button>
-            <button id="soloMine" class="lk" title="N'écouter que ma partie">Solo</button>
-            <button id="allOn" class="lk" title="Tout le monde">Tutti</button>
+            <button id="minusOne" class="lkm" title="Coupe ma partie : je joue par-dessus">Moins-un</button>
+            <button id="soloMine" class="lkm" title="N'écouter que ma partie">Solo</button>
+            <button id="allOn" class="lkm" title="Tout le monde">Tutti</button>
           </div>
-          <div class="lockline">🔒 Le son et les pistes sont choisis par le chef.</div>
+          <div class="lockline" id="lockMix">🔒 Le son et les pistes sont choisis par le chef.</div>
         </div>
         <div class="card">
           <h3>Affichage</h3>
@@ -93,9 +93,9 @@
           <label class="chk"><input type="checkbox" id="beatOn"><span>Compteur de temps (chiffre + doubles croches)</span></label>
         </div>
         <div class="card">
-          <div class="mixhead"><h3>Volumes</h3><button id="mixReset" class="lk mini" title="Remettre tous les volumes, muets et solos par défaut"><svg class="sm"><use href="#i-reset"/></svg>Par défaut</button></div>
+          <div class="mixhead"><h3>Volumes</h3><button id="mixReset" class="lkm mini" title="Remettre tous les volumes, muets et solos par défaut"><svg class="sm"><use href="#i-reset"/></svg>Par défaut</button></div>
           <div class="vrow gv"><div class="vbar" id="gvol"><div class="vfill"></div><span class="vname">Volume général</span><span class="vval"></span></div></div>
-          <div class="mix lk" id="mix"></div>
+          <div class="mix lkm" id="mix"></div>
         </div>
       </aside>
       <div class="stage">
@@ -161,9 +161,9 @@
     </div>
     <div id="sessFollow" style="display:none">
       <p><b id="sessFState">Connexion…</b></p>
-      <label class="chk"><input type="checkbox" id="sessSound"><span>Entendre le son sur ce téléphone (casque)</span></label>
+      <label class="chk"><input type="checkbox" id="sessSound"><span><b>Forcer le son sur ce téléphone</b><br><span class="small muted">Par défaut, seul le chef sort du son. À cocher pour envoyer une partie dans un ampli (ex. trombone absent) ou travailler un passage au casque : vous choisissez alors vos pistes dans Réglages › Volumes, sans changer le son des autres.</span></span></label>
       <p class="small muted">Le chef commande la lecture. Vous gardez la main sur votre partie, l'affichage, la taille et le curseur.</p>
-      <p class="small muted" style="margin-top:8px">Le chef doit partir, ou son téléphone ne répond plus ? <button type="button" id="sessTake" style="display:none">Prendre la direction</button></p>
+      <p class="small muted" style="margin-top:8px"><span id="sessTakeTxt"></span> <button type="button" id="sessTake" style="display:none">Demander la direction</button></p>
     </div>
     <div class="row dfoot">
       <button type="button" id="sessQuit" style="display:none">Quitter la séance</button>
@@ -247,3 +247,9 @@
 </dialog>
 
 <div id="tipLayer" hidden></div>
+
+<div id="takeAsk" class="takeask" role="alertdialog" aria-live="assertive" hidden>
+  <div class="small" style="opacity:.8">Séance</div>
+  <b id="takeAskTxt"></b>
+  <div class="row" style="gap:8px;margin-top:10px;justify-content:flex-end"><button type="button" id="takeAskNo">Refuser</button><button type="button" class="primary" id="takeAskYes">Lui confier la direction</button></div>
+</div>
