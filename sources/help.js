@@ -21,17 +21,17 @@
   const layer=$("tipLayer"); let shown=false, hideT=0;
   function visible(el){
     if(!el||el.closest("[hidden]")||!el.getClientRects().length) return null;
-    const r=el.getBoundingClientRect(); if(r.width<4||r.height<4) return null;
+    const r=vrect(el); if(r.width<4||r.height<4) return null;
     const cs=getComputedStyle(el); if(cs.visibility==="hidden"||+cs.opacity===0) return null;
-    if(r.right<4||r.left>innerWidth-4||r.bottom<4||r.top>innerHeight-4) return null;
+    if(r.right<4||r.left>VW()-4||r.bottom<4||r.top>VH()-4) return null;
     // caché derrière une fenêtre ou un tiroir ?
-    const x=Math.min(innerWidth-2,Math.max(1,r.left+r.width/2)), y=Math.min(innerHeight-2,Math.max(1,r.top+r.height/2));
-    const top=document.elementFromPoint(x,y); if(top&&!el.contains(top)&&!top.contains(el)&&!layer.contains(top)) return null;
+    const c=vptInv(Math.min(VW()-2,Math.max(1,r.left+r.width/2)),Math.min(VH()-2,Math.max(1,r.top+r.height/2)));
+    const top=document.elementFromPoint(c.x,c.y); if(top&&!el.contains(top)&&!top.contains(el)&&!layer.contains(top)) return null;
     return r;
   }
   function place(){
     layer.querySelectorAll(".tip,.tipline,.tipring").forEach(x=>x.remove()); closeBubble();
-    const VW=innerWidth, VH=innerHeight, big=r=>r.width*r.height>VW*VH*0.2;
+    const vw=VW(), vh=VH(), big=r=>r.width*r.height>vw*vh*0.2;
     // 1. éléments visibles
     const items=[];
     AIDE.etiquettes.forEach(E=>{ let el=null, r=null;
@@ -42,7 +42,7 @@
     ["helpBtn","lpHelp"].forEach(id=>{ const r=visible($(id)); if(r) obst.push({l:r.left,r:r.right,t:r.top,b:r.bottom}); });
     const placed=[];
     const inter=(a,b,m)=>a.l<b.r+m&&a.r>b.l-m&&a.t<b.b+m&&a.b>b.t-m;
-    const free=(a,self)=>a.l>=4&&a.r<=VW-4&&a.t>=4&&a.b<=VH-4&&!placed.some(b=>inter(a,b,4))&&!obst.some(b=>b!==self&&inter(a,b,2));
+    const free=(a,self)=>a.l>=4&&a.r<=vw-4&&a.t>=4&&a.b<=vh-4&&!placed.some(b=>inter(a,b,4))&&!obst.some(b=>b!==self&&inter(a,b,2));
     let n=0;
     items.forEach(({E,el,r})=>{
       const t=document.createElement("button"); t.type="button"; t.className="tip"; t.textContent=E.nom; t.style.animationDelay=(n++*0.025)+"s";
@@ -51,16 +51,16 @@
       let best=null;
       if(E.position==="dedans"){ for(let k=0;k<8&&!best;k++){ const y=r.top+r.height*0.62+k*(h+6)*(k%2?-1:1)*Math.ceil(k/2); const x=cx-w/2; const a={l:x,r:x+w,t:y,b:y+h}; if(free(a,self)) best={x,y,dir:0}; } }
       else {
-        const pref=r.top+r.height/2>VH*0.55?-1:1;
+        const pref=r.top+r.height/2>vh*0.55?-1:1;
         const dirs=[pref,-pref];
         outer: for(let k=0;k<10;k++) for(const dir of dirs){ if(k>5&&dir!==pref) continue;
           for(const dx of [0,-0.6,0.6,-1.2,1.2]){
-            const x=Math.max(6,Math.min(VW-w-6,cx-w/2+dx*w)), y=dir<0?r.top-h-8-k*(h+6):r.bottom+8+k*(h+6);
+            const x=Math.max(6,Math.min(vw-w-6,cx-w/2+dx*w)), y=dir<0?r.top-h-8-k*(h+6):r.bottom+8+k*(h+6);
             const a={l:x,r:x+w,t:y,b:y+h}; if(free(a,self)){ best={x,y,dir}; break outer; } } }
-        if(!best){ const dir=pref, x=Math.max(6,Math.min(VW-w-6,cx-w/2)); best={x,y:dir<0?r.top-h-8:r.bottom+8,dir}; }
+        if(!best){ const dir=pref, x=Math.max(6,Math.min(vw-w-6,cx-w/2)); best={x,y:dir<0?r.top-h-8:r.bottom+8,dir}; }
       }
       if(!best) best={x:cx-w/2,y:r.top+r.height/2,dir:0};
-      const x=best.x, y=Math.max(4,Math.min(VH-h-4,best.y)), dir=best.dir;
+      const x=best.x, y=Math.max(4,Math.min(vh-h-4,best.y)), dir=best.dir;
       placed.push({l:x,r:x+w,t:y,b:y+h}); t.style.left=x+"px"; t.style.top=y+"px";
       if(E.position!=="dedans"){
         if(!big(r)){ const ring=document.createElement("div"); ring.className="tipring"; ring.style.cssText=`left:${r.left-3}px;top:${r.top-3}px;width:${r.width+6}px;height:${r.height+6}px`; layer.insertBefore(ring,layer.firstChild); }
@@ -78,9 +78,9 @@
     t.classList.add("sel");
     bub=document.createElement("div"); bub.className="tipbub"; bub._t=t;
     bub.innerHTML='<b>'+E.nom+'</b><div>'+E.texte+'</div>'; layer.appendChild(bub);
-    const tr=t.getBoundingClientRect(), w=bub.offsetWidth, h=bub.offsetHeight;
-    let x=Math.max(8,Math.min(innerWidth-w-8,tr.left+tr.width/2-w/2));
-    let y=tr.top+tr.height/2>innerHeight/2?tr.top-h-8:tr.bottom+8; y=Math.max(8,Math.min(innerHeight-h-8,y));
+    const tr=vrect(t), w=bub.offsetWidth, h=bub.offsetHeight;
+    let x=Math.max(8,Math.min(VW()-w-8,tr.left+tr.width/2-w/2));
+    let y=tr.top+tr.height/2>VH()/2?tr.top-h-8:tr.bottom+8; y=Math.max(8,Math.min(VH()-h-8,y));
     bub.style.left=x+"px"; bub.style.top=y+"px";
     bub.onclick=ev=>{ ev.stopPropagation(); closeBubble(); };
   }

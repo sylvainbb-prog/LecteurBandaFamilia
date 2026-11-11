@@ -18,6 +18,8 @@
   <symbol id="i-cast" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M8 8a5.6 5.6 0 0 0 0 8M16 8a5.6 5.6 0 0 1 0 8M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14"/></g></symbol>
   <symbol id="i-view" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M7 9h10M7 12h10M7 15h6"/></g></symbol>
   <symbol id="i-help" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.4 9.3a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2.4-2.6 4"/></g><circle cx="12" cy="17.2" r="1.25" fill="currentColor"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7"/></g><circle cx="12" cy="15.5" r="1.4" fill="currentColor"/></symbol>
+  <symbol id="i-unlock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.3-1.4"/><path d="M17.5 3.5l1.6 1.6M19.8 7.2h1.7"/></g></symbol>
   <symbol id="i-note" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.6" fill="currentColor"/><circle cx="16.5" cy="16" r="2.6" fill="currentColor"/></symbol>
 </svg>
 <div class="app">
@@ -30,6 +32,7 @@
       <button id="sideToggle" class="ic" title="Afficher / masquer les réglages"><svg><use href="#i-sliders"/></svg></button>
       <button id="fullBtn" class="ic" title="Plein écran"><svg><use href="#i-full"/></svg></button>
       <button id="tuneBtn" class="ic" title="Accordeur"><svg><use href="#i-fork"/></svg></button>
+      <button id="rotBtn" class="ic plonly" title="Verrouiller l'orientation" aria-pressed="false"><svg><use href="#i-unlock"/></svg></button>
       <button id="helpBtn" class="ic" title="Aide" aria-pressed="false"><svg><use href="#i-help"/></svg></button>
       <button id="settingsBtn" class="ic" title="Paramètres"><svg><use href="#i-gear"/></svg></button>
     </div>
@@ -122,6 +125,7 @@
             <div class="loopctl lk" title="Boucle : choisir les mesures (ou glisser le doigt sur la barre de progression)"><button id="loopBtn"><svg class="sm"><use href="#i-loop"/></svg><span>Boucle</span></button><input type="text" id="loopA" placeholder="de" inputmode="numeric" autocomplete="off" title="Début : tapez le numéro, ou touchez la case puis la mesure sur la partition"><span class="arr">→</span><input type="text" id="loopB" placeholder="à" inputmode="numeric" autocomplete="off" title="Fin : tapez le numéro, ou touchez la case puis la mesure sur la partition"></div>
             <div class="marks lk" id="marks"></div>
             </div>
+            <button id="lpRot" class="ic lp" title="Verrouiller l'orientation" aria-pressed="false"><svg><use href="#i-unlock"/></svg></button>
             <button id="lpHelp" class="ic lp" title="Aide" aria-pressed="false"><svg><use href="#i-help"/></svg></button>
             <button id="lpView" class="ic lp" title="Passer en affichage standard"><svg><use href="#i-view"/></svg></button>
             <button id="lpSess" class="ic lp" title="Séance"><svg><use href="#i-cast"/></svg></button>
@@ -165,6 +169,8 @@
       <p class="small muted">Le chef commande la lecture. Vous gardez la main sur votre partie, l'affichage, la taille et le curseur.</p>
       <p class="small muted" style="margin-top:8px"><span id="sessTakeTxt"></span> <button type="button" id="sessTake" style="display:none">Demander la direction</button></p>
     </div>
+    <details class="sessdiag" id="sessDiag"><summary>Diagnostic de connexion</summary><div id="sessDiagTxt"></div>
+      <div class="row" style="margin-top:8px;gap:8px"><button type="button" id="sessDiagCopy">Copier le diagnostic</button></div></details>
     <div class="row dfoot">
       <button type="button" id="sessQuit" style="display:none">Quitter la séance</button>
       <button value="cancel">Fermer</button>

@@ -619,3 +619,19 @@ body.follower.ownmix #lockMix{color:var(--accent)}
   background:var(--bg2,#14141c);color:var(--ink,#fff);border:2px solid var(--accent);border-radius:16px;padding:12px 14px;box-shadow:0 16px 40px #000a;animation:tipIn .2s ease-out backwards;transition:opacity .2s}
 .takeask.out{opacity:0}
 .takeask b{font-size:16px}
+
+/* verrou d'orientation */
+.plonly{display:none}
+body.inplayer .plonly{display:inline-flex}
+#rotBtn.on,#lpRot.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+body.rotc dialog[open]{animation:none}
+body.rotc[data-rot="90"] dialog[open]{transform:rotate(90deg)}
+body.rotc[data-rot="-90"] dialog[open]{transform:rotate(-90deg)}
+body.rotc[data-rot="180"] dialog[open]{transform:rotate(180deg)}
+
+/* diagnostic de connexion */
+.sessdiag{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:var(--panel)}
+.sessdiag summary{cursor:pointer;font-weight:700;font-size:13px}
+.dg{display:flex;gap:8px;font-size:12.5px;line-height:1.4;margin-top:6px}
+.dg i{font-style:normal;width:16px;text-align:center;flex-shrink:0;font-weight:800}
+.dg.ok i{color:#3ecf6e} .dg.err i,.dg.err b{color:#ff6b6b} .dg.wait i{color:var(--accent2)} .dg.todo{opacity:.45} .dg.info{opacity:.85}

@@ -47,6 +47,8 @@ const AIDE = {
       texte: "Apparence (thèmes) et son : <b>Mesurer</b> la latence (retard d'une enceinte ou d'un casque Bluetooth), qualité des sons." },
     { cibles: ["#fullBtn"], nom: "Plein écran",
       texte: "Cache la barre du navigateur pour agrandir la partition." },
+    { cibles: ["#rotBtn", "#lpRot"], nom: "Verrou",
+      texte: "Fige l'orientation : la partition ne tourne plus quand vous bougez. Sur iPhone, si l'écran pivote quand même, l'application se tourne à l'inverse pour garder le même sens de lecture. Touchez à nouveau pour libérer." },
     { cibles: ["#lpView"], nom: "Paysage",
       texte: "Bascule entre le défilement (6 mesures au départ) et l'affichage standard. « Auto » dans Réglages › Affichage pour revenir au choix automatique." },
 

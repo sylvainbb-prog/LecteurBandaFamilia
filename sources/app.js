@@ -822,7 +822,7 @@ function setupParts(){
 /* barre de volume : le nom de la piste est dans la barre, on glisse pour régler */
 function bindBar(bar,get,set){
   const upd=()=>{ const v=get(); bar.querySelector(".vfill").style.width=Math.round(v*100)+"%"; bar.querySelector(".vval").textContent=Math.round(v*100); };
-  let dn=false; const at=e=>{ const r=bar.getBoundingClientRect(); set(Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))); upd(); };
+  let dn=false; const at=e=>{ const r=vrect(bar), x=vpt(e.clientX,e.clientY).x; set(Math.max(0,Math.min(1,(x-r.left)/r.width))); upd(); };
   bar.addEventListener("pointerdown",e=>{ if(SY.role==="f"&&bar.closest(".lk")) return; dn=true; bar.setPointerCapture(e.pointerId); at(e); });
   bar.addEventListener("pointermove",e=>{ if(dn) at(e); });
   bar.addEventListener("pointerup",()=>{ dn=false; });
@@ -903,7 +903,7 @@ async function renderScore(){
     if(S.idemInfo&&!S.idemInfo.fromPart) toast("Ce fichier ne contient pas la mise en page de la partie séparée : lignes du conducteur utilisées",4000);
   } else {
     host.style.width="";
-    osmd.zoom=uz*(window.innerWidth<700?0.75:1)*(line?(window.innerHeight<500?1.2:1.35):1);
+    osmd.zoom=uz*(VW()<700?0.75:1)*(line?(VH()<500?1.2:1.35):1);
     const cw=line&&calibGet().w;
     if(cw&&landLine()) osmd.zoom=landZoom(cw,uz);
     if(cw){ try{ const R=osmd.EngravingRules; R.SheetMaximumWidth=Math.min(R.SheetMaximumWidth,(S.seq.length*(cw+2)+60)*10*osmd.zoom);
@@ -1018,7 +1018,7 @@ function sigUpdate(k){
   requestAnimationFrame(()=>{ lay.classList.add("on"); old.forEach(x=>{ x.classList.remove("on"); setTimeout(()=>x.remove(),300); }); });
 }
 /* paysage : zoom pour que MESURES_VISIBLES_PAYSAGE mesures (largeur fixe w, en interlignes) remplissent l'écran à 100 % */
-function landZoom(w,uz){ const W=$("scoreWrap").clientWidth||window.innerWidth; return Math.max(0.2,(W/MESURES_VISIBLES_PAYSAGE)/((w+LAND_GAP)*10))*uz; }
+function landZoom(w,uz){ const W=$("scoreWrap").clientWidth||VW(); return Math.max(0.2,(W/MESURES_VISIBLES_PAYSAGE)/((w+LAND_GAP)*10))*uz; }
 const LAND_GAP=2;
 function visibleMeasures(){ const G=S.geo; if(!G||!isLine()) return 0; const ms=G.meas.filter(Boolean); if(ms.length<3) return 0;
   const a=ms[1], b=ms[ms.length-1], per=(b.x-a.x)/(ms.length-2); return per>0?$("scoreWrap").clientWidth/per:0; }
@@ -1105,13 +1105,93 @@ function buildGeometry(){
   $("playhead").style.display=isLine()?"block":"none";
   if(isLine()) $("playhead").style.left=($("scoreWrap").offsetLeft+S.pad)+"px";
 }
+/* ===== Verrou d'orientation (bouton 🔒) =====
+   Fige l'affichage dans le sens où il était au moment du verrouillage. Android : vrai verrou système (plein écran).
+   iPhone (pas de verrou possible pour une page web) : si le téléphone pivote quand même, toute l'application est
+   tournée à l'inverse pour garder le même sens de lecture. On simule alors les dimensions de l'écran « virtuel »
+   (règles CSS d'orientation, unités vw/vh, coordonnées des touchers). */
+var ROT={locked:false,a0:0,r:0,swap:false,osLock:false,media:null,units:null,sz:""};
+function devAngle(){ let a=(screen.orientation&&typeof screen.orientation.angle==="number")?screen.orientation.angle:(typeof window.orientation==="number"?window.orientation:0); return ((a%360)+360)%360; }
+function VW(){ return ROT.swap?window.innerHeight:window.innerWidth; }
+function VH(){ return ROT.swap?window.innerWidth:window.innerHeight; }
+/* évalue une requête média sur l'écran virtuel */
+function vmm(q){
+  if(!ROT.swap) return window.matchMedia(q).matches;
+  return q.split(/,(?![^(]*\))/).some(part=>{
+    const fs=part.match(/\([^)]*\)/g)||[]; return fs.every(f=>{ const m=f.match(/\(\s*([a-z-]+)\s*(?::\s*([^)]+))?\)/i); if(!m) return true;
+      const k=m[1].toLowerCase(), v=(m[2]||"").trim(), px=parseFloat(v);
+      if(k==="orientation") return v==="landscape"?VW()>VH():VW()<=VH();
+      if(k==="max-width") return VW()<=px; if(k==="min-width") return VW()>=px;
+      if(k==="max-height") return VH()<=px; if(k==="min-height") return VH()>=px;
+      return window.matchMedia(f).matches; }); });
+}
+/* point de l'écran réel → coordonnées dans l'application (tournée) */
+function vpt(X,Y){ const r=ROT.r;
+  if(r===90) return {x:Y,y:window.innerWidth-X};
+  if(r===-90) return {x:window.innerHeight-Y,y:X};
+  if(r===180) return {x:window.innerWidth-X,y:window.innerHeight-Y};
+  return {x:X,y:Y}; }
+function vrect(el){ const R=el.getBoundingClientRect(); if(!ROT.r) return R;
+  const a=vpt(R.left,R.top), b=vpt(R.right,R.bottom), l=Math.min(a.x,b.x), t=Math.min(a.y,b.y), w=Math.abs(a.x-b.x), h=Math.abs(a.y-b.y);
+  return {left:l,top:t,right:l+w,bottom:t+h,width:w,height:h,x:l,y:t}; }
+/* inverse : coordonnées de l'application → point de l'écran réel (pour elementFromPoint) */
+function vptInv(x,y){ const r=ROT.r;
+  if(r===90) return {x:window.innerWidth-y,y:x};
+  if(r===-90) return {x:y,y:window.innerHeight-x};
+  if(r===180) return {x:window.innerWidth-x,y:window.innerHeight-y};
+  return {x,y}; }
+function rotCss(on){
+  // règles @media liées aux dimensions : évaluées sur l'écran virtuel ; unités vw/vh échangées
+  if(!ROT.media){ ROT.media=[]; ROT.units=[];
+    for(const sh of document.styleSheets){ let rules; try{ rules=sh.cssRules; }catch(e){ continue; }
+      const walk=list=>{ for(const r of list){
+        if(r.media&&r.cssRules){ if(/width|height|orientation/.test(r.media.mediaText)) ROT.media.push({r,o:r.media.mediaText}); walk(r.cssRules); }
+        else if(r.style){ for(let i=0;i<r.style.length;i++){ const p=r.style[i], v=r.style.getPropertyValue(p); if(/\d[dsl]?v[wh]\b/.test(v)) ROT.units.push({r,p,v,pr:r.style.getPropertyPriority(p)}); } } } };
+      walk(rules); } }
+  ROT.media.forEach(m=>{ try{ m.r.media.mediaText=on?(vmm(m.o)?"all":"not all"):m.o; }catch(e){} });
+  ROT.units.forEach(u=>{ u.r.style.setProperty(u.p,on?u.v.replace(/(\d[dsl]?)v([wh])\b/g,(x,a,b)=>a+"v"+(b==="w"?"h":"w")):u.v,u.pr); });
+}
+function rotApply(r){
+  const b=document.body, was=ROT.swap;
+  ROT.r=r; ROT.swap=Math.abs(r)===90;
+  b.classList.toggle("rotc",!!r); b.dataset.rot=r;
+  if(r){ const W=ROT.swap?innerHeight:innerWidth, H=ROT.swap?innerWidth:innerHeight;
+    b.style.position="fixed"; b.style.left=b.style.top="0"; b.style.width=W+"px"; b.style.height=H+"px"; b.style.overflow="hidden";
+    b.style.transformOrigin=r===180?"50% 50%":"0 0";
+    b.style.transform=r===90?"rotate(90deg) translateY(-100%)":r===-90?"rotate(-90deg) translateX(-100%)":"rotate(180deg)"; }
+  else ["position","left","top","width","height","overflow","transform","transformOrigin"].forEach(k=>b.style[k]="");
+  if(ROT.swap||was) rotCss(ROT.swap);
+}
+function rotSync(){ let r=0;
+  if(ROT.locked&&!ROT.osLock){ r=((ROT.a0-devAngle())%360+360)%360; if(r===270) r=-90; if(![0,90,-90,180].includes(r)) r=0; }
+  const sz=innerWidth+"x"+innerHeight;
+  if(r!==ROT.r||(r&&ROT.sz!==sz)){ ROT.sz=sz; rotApply(r); return true; } ROT.sz=sz; return false; }
+async function rotToggle(){
+  if(ROT.locked){ ROT.locked=false; ROT.osLock=false; try{ screen.orientation&&screen.orientation.unlock&&screen.orientation.unlock(); }catch(e){}
+    const ch=rotSync(); rotBtns(); toast("Orientation libre",1800); if(ch) window.dispatchEvent(new Event("resize")); return; }
+  ROT.locked=true; ROT.a0=devAngle(); ROT.osLock=false;
+  const land=VW()>VH();
+  // Android : verrou système (demande le plein écran)
+  if(screen.orientation&&screen.orientation.lock&&!/iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)&&matchMedia("(pointer: coarse)").matches){
+    try{ if(!document.fullscreenElement&&document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+      await screen.orientation.lock(screen.orientation.type||(land?"landscape":"portrait")); ROT.osLock=true; }catch(e){ ROT.osLock=false; } }
+  rotBtns(); toast("🔒 Affichage verrouillé "+(land?"en paysage":"en portrait")+" : la partition ne tourne plus",2800);
+}
+function rotBtns(){ ["rotBtn","lpRot"].forEach(id=>{ const b=$(id); if(!b) return; b.classList.toggle("on",ROT.locked); b.setAttribute("aria-pressed",ROT.locked?"true":"false");
+  b.title=ROT.locked?"Déverrouiller l'orientation":"Verrouiller l'orientation (la partition ne tourne plus quand on bouge)";
+  const u=b.querySelector("use"); if(u) u.setAttribute("href",ROT.locked?"#i-lock":"#i-unlock"); }); }
+window.addEventListener("resize",()=>rotSync());
+if(screen.orientation&&screen.orientation.addEventListener) screen.orientation.addEventListener("change",()=>{ if(rotSync()) window.dispatchEvent(new Event("resize")); });
+window.addEventListener("orientationchange",()=>{ setTimeout(()=>{ if(rotSync()) window.dispatchEvent(new Event("resize")); },60); });
+document.addEventListener("fullscreenchange",()=>{ if(!document.fullscreenElement&&ROT.osLock){ ROT.osLock=false; rotSync(); } });
+
 /* ===== Paysage (téléphone, tablette) =====
    Par défaut, un téléphone en paysage lit en défilement, avec MESURES_VISIBLES_PAYSAGE mesures dans l'écran ;
    le zoom (curseur « Taille » ou deux doigts) reste libre ensuite et est retenu à part pour le paysage.
    Réglage « En paysage » : auto (téléphone = défilement, tablette = affichage standard conseillé), défilement, standard. */
 const MESURES_VISIBLES_PAYSAGE=6;
-function phoneLandscape(){ return window.matchMedia("(orientation: landscape) and (max-height: 500px) and (pointer: coarse)").matches; }
-function touchLandscape(){ return window.matchMedia("(orientation: landscape) and (pointer: coarse)").matches; }
+function phoneLandscape(){ return vmm("(orientation: landscape) and (max-height: 500px) and (pointer: coarse)"); }
+function touchLandscape(){ return vmm("(orientation: landscape) and (pointer: coarse)"); }
 function isTablet(){ return window.matchMedia("(pointer: coarse)").matches && Math.min(screen.width,screen.height)>=600; }
 function landPref(){ const v=store("banda.landMode"); return v==="line"||v==="std"?v:"auto"; }
 function landLine(){ if(!touchLandscape()) return false; const p=landPref(); return p==="line"||(p==="auto"&&!isTablet()); }
@@ -1381,7 +1461,7 @@ function seekSeq(k, off=0){
 /* clic sur une mesure : place le curseur (et relance si la lecture est en cours) */
 function measureAtPoint(clientX,clientY){
   const G=S.geo, svg=$("score").querySelector("svg"); if(!G||!svg) return -1;
-  const r=svg.getBoundingClientRect(), x=clientX-r.left, y=clientY-r.top;
+  const r=vrect(svg), q=vpt(clientX,clientY), x=q.x-r.left, y=q.y-r.top;
   let best=-1, bd=1e9;
   G.meas.forEach((m,mi)=>{ if(!m) return; const sy=G.sys[m.sys]; if(y<sy.top||y>sy.bottom) return;
     if(x>=m.x-2 && x<=m.x2+2){ const d=Math.abs(x-(m.x+m.x2)/2); if(d<bd){ bd=d; best=mi; } } });
@@ -1413,7 +1493,8 @@ function choosePass(occ,x,y,act){
   occ.forEach(e=>{ const b=document.createElement("button"); b.textContent=passLabel(e); b.onclick=ev=>{ ev.stopPropagation(); closePass(); act(e.k); }; d.querySelector(".pp-b").appendChild(b); });
   document.body.appendChild(d);
   const w=d.offsetWidth, h=d.offsetHeight;
-  d.style.left=Math.max(8,Math.min(window.innerWidth-w-8,x-w/2))+"px"; d.style.top=Math.max(8,Math.min(window.innerHeight-h-8,y-h-14))+"px";
+  { const q=vpt(x,y); x=q.x; y=q.y; }
+  d.style.left=Math.max(8,Math.min(VW()-w-8,x-w/2))+"px"; d.style.top=Math.max(8,Math.min(VH()-h-8,y-h-14))+"px";
   clearTimeout(S.ppT); S.ppT=setTimeout(closePass,8000);
   setTimeout(()=>document.addEventListener("pointerdown",closePassOut,true),0);
 }
@@ -1457,7 +1538,7 @@ function layoutMarks(){
   }
 }
 if(window.ResizeObserver) new ResizeObserver(()=>layoutMarks()).observe($("bar"));
-function barSeq(x){ const r=$("bar").getBoundingClientRect(); const sec=Math.max(0,Math.min(1,(x-r.left)/r.width))*S.total; return seqAtTime(sec); }
+function barSeq(X,Y){ const r=vrect($("bar")), x=vpt(X,Y||0).x; const sec=Math.max(0,Math.min(1,(x-r.left)/r.width))*S.total; return seqAtTime(sec); }
 function updateLoopZone(){
   const z=$("loopz"); const lr=loopRange();
   if(!lr||!S.total){ z.style.display="none"; return; }
@@ -1539,12 +1620,12 @@ document.querySelectorAll("#themes .th").forEach(b=>b.onclick=()=>setTheme(b.dat
 setTheme(store("banda.theme")||"neon");
 $("playBtn").onclick=()=>{ S.playing?pause():play(); };
 $("stopBtn").onclick=stop;
-function narrow(){ return window.matchMedia("(max-width: 820px), (max-height: 500px) and (pointer: coarse)").matches; }
+function narrow(){ return vmm("(max-width: 820px), (max-height: 500px) and (pointer: coarse)"); }
 $("homeFab").onclick=()=>$("backBtn").click(); $("lpSide").onclick=()=>$("sideToggle").click();
 $("lpSet").onclick=()=>$("settingsBtn").click(); $("lpSess").onclick=()=>$("sessBtn").click();
 /* rotation du téléphone : on refait la mise en page (paysage = défilement) */
 { let lastLP=landLine(); const mq=window.matchMedia("(orientation: landscape)");
-  const onRot=()=>{ const lp=landLine(); landUI(); if(lp===lastLP) return; lastLP=lp; closeSheet(); syncZoom(); landSuggest(); };   // la mise en page est refaite par l'événement « resize »
+  const onRot=()=>{ rotSync(); const lp=landLine(); landUI(); if(lp===lastLP) return; lastLP=lp; closeSheet(); syncZoom(); landSuggest(); };   // la mise en page est refaite par l'événement « resize »
   mq.addEventListener?mq.addEventListener("change",onRot):mq.addListener(onRot); }
 /* réglage « En paysage » */
 function landUI(){ document.body.classList.toggle("landline",landLine());
@@ -1563,6 +1644,7 @@ if($("lpView")) $("lpView").onclick=()=>{ const toStd=landLine(); setLandPref(to
 function landSuggest(){ if(!touchLandscape()||!isTablet()||landPref()!=="auto"||store("banda.tabHint")==="1"||!document.body.classList.contains("inplayer")) return;
   store("banda.tabHint","1"); toast("Tablette : affichage standard en paysage. Pour le défilement : Réglages › Affichage › En paysage.",5000); }
 landUI();
+if($("rotBtn")) $("rotBtn").onclick=rotToggle; if($("lpRot")) $("lpRot").onclick=rotToggle; rotBtns();
 if(store("banda.sideHidden")==="1") document.body.classList.add("sideHidden");
 function closeSheet(){ $("side").classList.remove("open"); $("sheetBack").classList.remove("on"); }
 $("sheetBack").onclick=closeSheet;
@@ -1611,9 +1693,9 @@ syncZoom();
   const mid=t=>({x:(t[0].clientX+t[1].clientX)/2,y:(t[0].clientY+t[1].clientY)/2});
   function begin(cx,cy){
     if(!S.osmd) return null;
-    const r=w.getBoundingClientRect();
+    const r=vrect(w), q=vpt(cx,cy);
     const mi=isLine()?-1:measureAtPoint(cx,cy);
-    const g={z0:+zi.value,scale:1,cx,cy,ox:cx-r.left,oy:cy-r.top,mi};
+    const g={z0:+zi.value,scale:1,cx,cy,ox:q.x-r.left,oy:q.y-r.top,mi};
     box.classList.add("pinching"); w.style.transformOrigin=g.ox+"px "+g.oy+"px";
     return g;
   }
@@ -1702,8 +1784,8 @@ document.addEventListener("pointerdown",ev=>{ if(!S.pick) return; if(ev.target.c
 // La lecture ne bouge que si l'on touche ensuite une mesure.
 (function(){
   const bar=$("bar"); let down=false;
-  bar.addEventListener("pointerdown",e=>{ if(!S.model) return; down=true; bar.setPointerCapture(e.pointerId); peekAt(barSeq(e.clientX)); });
-  bar.addEventListener("pointermove",e=>{ if(down) peekAt(barSeq(e.clientX)); });
+  bar.addEventListener("pointerdown",e=>{ if(!S.model) return; down=true; bar.setPointerCapture(e.pointerId); peekAt(barSeq(e.clientX,e.clientY)); });
+  bar.addEventListener("pointermove",e=>{ if(down) peekAt(barSeq(e.clientX,e.clientY)); });
   bar.addEventListener("pointerup",()=>{ down=false; if(S.peek&&S.playing) S.peek.until=performance.now()+4000; });
   bar.addEventListener("pointercancel",()=>{ down=false; });
 })();
@@ -1848,7 +1930,54 @@ const ARBRE={MAX_HOTES:4, MAX_INVITES_PAR_HOTE:4, PROFONDEUR_MAX:2};
 (function(){ const m=location.search.match(/[?&]arbre=(\d+)x(\d+)/); if(m){ ARBRE.MAX_HOTES=+m[1]; ARBRE.MAX_INVITES_PAR_HOTE=+m[2]; } })();
 /* Serveurs relais facultatifs pour les réseaux 4G/5G qui bloquent les liaisons directes (TURN).
    Laisser null pour le fonctionnement actuel. Exemple : [{urls:"stun:stun.l.google.com:19302"},{urls:"turn:…",username:"…",credential:"…"}] */
-const ICE_SERVERS=null;
+const ICE_SERVERS=[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]},{urls:"stun:stun.cloudflare.com:3478"},
+  {urls:["turn:eu-0.turn.peerjs.com:3478","turn:us-0.turn.peerjs.com:3478","turn:eu-0.turn.peerjs.com:3478?transport=tcp"],username:"peerjs",credential:"peerjsp"}];
+/* ===== Diagnostic de connexion (fenêtre Séance) =====
+   Chaque étape de la mise en relation est notée ; « Copier le diagnostic » donne un texte à envoyer pour analyse. */
+var DIAG={st:{},cand:{host:0,srflx:0,relay:0},pair:"",ice:"",chef:{tries:0,ok:0,fail:0,last:[]},t0:0};
+const DIAG_STEPS=[["srv","Serveur de mise en relation"],["chef","Séance trouvée"],["ice","Liaison avec le chef"],["acc","Accueil dans la séance"],["song","Morceau reçu"],["clock","Horloge synchronisée"]];
+function diagReset(){ DIAG.st={}; DIAG.cand={host:0,srflx:0,relay:0}; DIAG.pair=""; DIAG.ice=""; DIAG.t0=performance.now(); diagDraw(); }
+function diag(k,state,txt){ DIAG.st[k]={state,txt:txt||"",at:Math.round((performance.now()-DIAG.t0)/100)/10}; diagDraw(); }
+function netType(){ const c=navigator.connection; if(!c) return "inconnu"; return (c.type&&c.type!=="unknown"?c.type:"")+(c.effectiveType?" ("+c.effectiveType+")":""); }
+function candName(){ const c=DIAG.cand; return ["wifi local "+(c.host?"✓":"✗"),"internet "+(c.srflx?"✓":"✗"),"relais TURN "+(c.relay?"✓":"✗")].join(" · "); }
+/* suit la liaison WebRTC (ICE) d'une connexion PeerJS */
+function watchIce(conn,cb){
+  let tries=0; const hook=()=>{ const pc=conn.peerConnection; if(!pc){ if(tries++<30) setTimeout(hook,100); return; }
+    if(pc.__diag) return; pc.__diag=1;
+    pc.addEventListener("icecandidate",e=>{ const c=e.candidate; if(!c||!c.candidate) return; const t=(c.type)||((c.candidate.match(/ typ (\w+)/)||[])[1]); if(t==="prflx") return; if(t&&DIAG.cand[t]!==undefined&&cb.local) { DIAG.cand[t]++; diagDraw(); } });
+    pc.addEventListener("iceconnectionstatechange",()=>{ const s=pc.iceConnectionState; cb.state&&cb.state(s,pc);
+      if(s==="connected"||s==="completed") icePair(pc).then(p=>cb.pair&&cb.pair(p)); });
+  }; hook();
+}
+async function icePair(pc){
+  try{ const st=await pc.getStats(); let pair=null; const byId={}; st.forEach(r=>{ byId[r.id]=r; });
+    st.forEach(r=>{ if(r.type==="transport"&&r.selectedCandidatePairId) pair=byId[r.selectedCandidatePairId]; });
+    if(!pair) st.forEach(r=>{ if(r.type==="candidate-pair"&&r.state==="succeeded"&&(r.nominated||r.selected)) pair=r; });
+    if(!pair) return "";
+    const l=byId[pair.localCandidateId], r=byId[pair.remoteCandidateId], t=x=>x?(x.candidateType==="host"?"wifi local":x.candidateType==="relay"?"relais TURN":"internet"):"?";
+    return t(l)+" ↔ "+t(r)+(pair.currentRoundTripTime?" · "+Math.round(pair.currentRoundTripTime*1000)+" ms":"");
+  }catch(e){ return ""; }
+}
+function diagText(){
+  const L=["Banda "+(window.BANDA_VERSION||"")+" · "+(SY.role==="m"?"chef":SY.role==="f"?"musicien":"hors séance")+" · séance "+(SY.code||"-"),
+    "Appareil : "+navigator.userAgent.replace(/\s*\(KHTML[^)]*\)/,""),"Réseau : "+netType()+" · en ligne : "+(navigator.onLine?"oui":"non")];
+  if(SY.role==="f"){ DIAG_STEPS.forEach(([k,n])=>{ const s=DIAG.st[k]; L.push((s?(s.state==="ok"?"✔":s.state==="err"?"✖":"…"):"·")+" "+n+(s?" — "+s.txt+" ("+s.at+" s)":"")); });
+    L.push("Candidats : "+candName()); if(DIAG.pair) L.push("Liaison retenue : "+DIAG.pair); if(DIAG.ice) L.push("État ICE : "+DIAG.ice); }
+  if(SY.role==="m"){ const c=DIAG.chef; L.push("Connexions entrantes : "+c.tries+" · réussies "+c.ok+" · échouées "+c.fail); c.last.slice(-8).forEach(x=>L.push("  "+x)); L.push("Candidats du chef : "+candName()); }
+  return L.join("\n");
+}
+function diagDraw(){ const el=$("sessDiagTxt"); if(!el) return;
+  if(SY.role==="f"){ el.innerHTML=DIAG_STEPS.map(([k,n])=>{ const s=DIAG.st[k], cls=s?s.state:"todo", ic=s?(s.state==="ok"?"✔":s.state==="err"?"✖":"…"):"·";
+      return '<div class="dg '+cls+'"><i>'+ic+'</i><span><b>'+n+'</b>'+(s&&s.txt?' — '+s.txt:'')+'</span></div>'; }).join("")
+      +'<div class="dg info"><i>⌁</i><span>Réseau : '+netType()+' · '+candName()+(DIAG.pair?'<br>Liaison : '+DIAG.pair:'')+'</span></div>'; }
+  else if(SY.role==="m"){ const c=DIAG.chef; el.innerHTML='<div class="dg info"><i>⌁</i><span>Connexions entrantes : '+c.tries+' · réussies '+c.ok+' · échouées '+c.fail+'<br>'+candName()+'</span></div>'+c.last.slice(-6).map(x=>'<div class="dg small"><i>·</i><span>'+x+'</span></div>').join(""); }
+  else el.innerHTML="";
+}
+function diagCopy(){ const t=diagText();
+  const done=()=>toast("Diagnostic copié : collez-le dans un message",2500);
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done,()=>fallback()); else fallback();
+  function fallback(){ const ta=document.createElement("textarea"); ta.value=t; ta.style.cssText="position:fixed;opacity:0"; $("sessDlg").appendChild(ta); ta.select(); try{ document.execCommand("copy"); done(); }catch(e){ toast("Copie impossible",2000); } ta.remove(); } }
+
 function peerOpts(){ const o={debug:1}; if(ICE_SERVERS) o.config={iceServers:ICE_SERVERS}; return o; }
 const chefId=()=>PEER_PREFIX+SY.code;
 
@@ -1874,6 +2003,14 @@ function treeDepthUsed(){ return accepted().some(c=>(c.n||0)>0)?2:1; }
 /* -- liens enfants (chef et hôtes) -- */
 function setupChildConn(conn){
   const c={conn,acc:false,part:"?",lead:0,n:0}; SY.peers.set(conn.peer,c);
+  if(SY.role==="m"){ const C=DIAG.chef, hh=()=>new Date().toTimeString().slice(0,8), tag=()=>c.part&&c.part!=="?"?c.part:"téléphone "+conn.peer.slice(-4);
+    C.tries++; C.last.push(hh()+" … connexion de "+tag()); diagDraw(); let done=false;
+    watchIce(conn,{local:true,state:s=>{ if(done) return; if(s==="connected"||s==="completed"){ done=true; C.ok++; C.last.push(hh()+" ✔ "+tag()+" relié"); diagDraw(); }
+      else if(s==="failed"){ done=true; C.fail++; C.last.push(hh()+" ✖ "+tag()+" : liaison impossible (réseau)"); diagDraw(); } },
+      pair:p=>{ C.last.push("    "+tag()+" : "+p); diagDraw(); }});
+    const okOpen=()=>{ if(done) return; done=true; C.ok++; C.last.push(hh()+" ✔ "+tag()+" relié"); diagDraw(); };
+    conn.on("open",()=>setTimeout(okOpen,300)); setTimeout(()=>{ if(conn.open) okOpen(); },1500);
+    setTimeout(()=>{ if(!done&&!conn.open){ done=true; C.fail++; C.last.push(hh()+" ✖ "+tag()+" : pas de liaison en 15 s"); diagDraw(); } },15000); }
   conn.on("data",d=>onChildMsg(d,conn.peer));
   const gone=()=>{ if(SY.peers.get(conn.peer)!==c) return; SY.peers.delete(conn.peer); sessUI(); reportUp(); };
   conn.on("close",gone); conn.on("error",gone);
@@ -1928,7 +2065,7 @@ function reportUp(){
 async function startMaster(){
   const ac=audio(); try{ await ac.resume(); }catch(e){}
   leaveSession(true);
-  SY.code=newCode(); SY.epoch=1; claimChef(0,true);
+  SY.code=newCode(); SY.epoch=1; DIAG.chef={tries:0,ok:0,fail:0,last:[]}; DIAG.cand={host:0,srflx:0,relay:0}; claimChef(0,true);
 }
 /* devenir chef de la séance SY.code : prendre l'identifiant de la séance auprès du serveur de mise en relation.
    Cet identifiant est unique : deux téléphones ne peuvent jamais être chefs en même temps. */
@@ -2019,8 +2156,24 @@ function becomeChef(){
   setTimeout(()=>claimChef(0,false),300);
 }
 function sessOpened(){ sessUI(); toast("Séance "+SY.code+" ouverte",2500); }
-function sendSong(to){ if(!S.src) return; sendTo(to,{t:"song",sid:S.src.sid,name:S.src.name,title:S.src.title,buf:S.src.buf}); }
-function syncSong(){ if(!S.src) return; broadcast({t:"song",sid:S.src.sid,name:S.src.name,title:S.src.title,buf:S.src.buf}); syncPush(); }
+const SONG_CHUNK=12000;
+function songMsgs(){ const src=S.src; if(!src||!src.buf) return [];
+  if(src._msgs&&src._msgs.sid===src.sid) return src._msgs.list;
+  const u=new Uint8Array(src.buf), n=Math.max(1,Math.ceil(u.length/SONG_CHUNK)), list=[];
+  for(let i=0;i<n;i++) list.push({t:"songp",sid:src.sid,name:src.name,title:src.title,i,n,len:u.length,b:u.slice(i*SONG_CHUNK,(i+1)*SONG_CHUNK).buffer});
+  src._msgs={sid:src.sid,list}; return list; }
+function sendSong(to){ songMsgs().forEach(m=>sendTo(to,m)); }
+function syncSong(){ if(!S.src) return; songMsgs().forEach(m=>broadcast(m)); syncPush(); }
+function toAB(b){ if(!b) return null; if(b instanceof ArrayBuffer) return b; if(b.buffer) return b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength); return b; }
+function gotSong(d,buf){
+  if(S.src&&S.src.sid===d.sid) return;
+  if(SY.wantSong===d.sid) return; SY.wantSong=d.sid;
+  diag("song","wait","ouverture ("+Math.round((buf.byteLength||0)/1024)+" Ko)…");
+  showPlayer(); Promise.resolve().then(()=>openBuffer(buf,d.name,d.title))
+    .then(()=>diag("song","ok",(d.title||d.name||"")+" · "+Math.round((buf.byteLength||0)/1024)+" Ko"))
+    .catch(e=>{ console.warn(e); diag("song","err","illisible, nouvelle demande"); })
+    .finally(()=>{ SY.wantSong=null; });
+}
 function stateMsg(extra){
   const st={t:"state",ep:SY.epoch||1,v:++SY.ver,sid:S.src&&S.src.sid,speed:S.speed,loop:S.loop,countIn:$("countIn").checked,click:$("clickOn").checked,
     mix:S.parts.map(p=>[p.mute?1:0,p.solo?1:0,Math.round(p.vol*100)]),playing:S.playing,k:curSeq,off:curOff,at:masterNowMs()};
@@ -2055,23 +2208,29 @@ async function startFollower(code,opt){
   setLocalSound(false);
   if(!S.model){ showPlayer(); showLoading("En attente du morceau choisi par le chef…"); }
   if(!window.Peer){ toast("Module de synchronisation indisponible (pas de connexion ?)",4000); SY.role=null; return; }
-  const pr=new Peer(peerOpts()); SY.peer=pr;
-  pr.on("open",()=>connectTo(chefId()));
+  diagReset(); followerPeer(); sessUI(); keepAwake(true);
+}
+function followerPeer(){
+  const pr=new Peer(peerOpts()); SY.peer=pr; diag("srv","wait","connexion…");
+  // serveur de mise en relation injoignable (wifi qui filtre, réseau lent) : on recrée la liaison au serveur
+  clearTimeout(SY.srvT); SY.srvT=setTimeout(()=>{ if(SY.role==="f"&&SY.peer===pr&&!pr.open){ diag("srv","err","pas de réponse en 10 s, nouvel essai");
+    $("sessFState").textContent="Le serveur de mise en relation ne répond pas… nouvel essai (vérifiez internet sur ce téléphone)"; banner("⚠ Pas d'accès au serveur – nouvel essai…");
+    try{ pr.destroy(); }catch(e){} followerPeer(); } },10000);
+  pr.on("open",()=>{ clearTimeout(SY.srvT); diag("srv","ok","connecté"); connectTo(chefId()); });
   pr.on("connection",conn=>setupChildConn(conn));          // nos propres invités, si le chef fait de nous un hôte
   pr.on("disconnected",()=>{ if(SY.role==="f") setTimeout(()=>{ try{ pr.reconnect(); }catch(e){} },1500); });
   pr.on("error",e=>{ console.warn("peer",e);
     if(e.type==="peer-unavailable"){
       if(SY.target===chefId()){
-        SY.joinFails++;
+        SY.joinFails++; diag("chef","err","code "+SY.code+" introuvable ("+SY.joinFails+")");
         if(!SY.everJoined&&SY.joinFails>=3){ const msg=SY.resume?"Cette séance n'existe plus (le chef l'a fermée). Demandez le nouveau code au chef ou scannez son QR code.":"Séance "+SY.code+" introuvable : vérifiez le code auprès du chef.";
           $("sessFState").textContent=msg; banner(""); toast(msg,6000); const was=SY.resume; leaveSession(true); if(was){ sessUI(); $("sessDlg").open||$("sessDlg").showModal(); } return; }
         $("sessFState").textContent=SY.everJoined?"Chef injoignable… nouvel essai (vous pouvez « Prendre la direction »)":"Recherche de la séance…";
         if(SY.everJoined) banner("⚠ Chef injoignable – nouvel essai…");
       } else $("sessFState").textContent="Relais indisponible… on repasse par le chef";
       scheduleRetry(); }
-    else if(SY.role==="f"){ $("sessFState").textContent="Réseau indisponible… nouvel essai"; scheduleRetry(); }
+    else if(SY.role==="f"){ $("sessFState").textContent="Réseau indisponible… nouvel essai"; diag(pr.open?"ice":"srv","err",e.type||"réseau"); scheduleRetry(); }
     sessUI(); });
-  sessUI(); keepAwake(true);
 }
 /* se relier à un parent (le chef, ou l'hôte vers lequel le chef nous a envoyés) */
 function connectTo(target,avoid){
@@ -2079,11 +2238,18 @@ function connectTo(target,avoid){
   if(SY.conn){ const old=SY.conn; SY.conn=null; try{ old.close(); }catch(e){} }
   SY.target=target; SY.avoid=avoid||[]; SY.depth=0;
   const conn=SY.peer.connect(target,{reliable:true}); SY.conn=conn;
+  diag("chef","wait",target===chefId()?"recherche du chef…":"envoi vers un relais…"); diag("ice","wait","…");
+  watchIce(conn,{local:true,state:s=>{ if(SY.conn!==conn) return; DIAG.ice=s;
+      if(s==="checking"){ diag("chef","ok",target===chefId()?"chef trouvé":"relais trouvé"); diag("ice","wait","négociation de la liaison…"); }
+      else if(s==="failed") diag("ice","err","liaison impossible sur ce réseau ("+candName()+")");
+      else if(s==="disconnected") diag("ice","wait","liaison interrompue…"); },
+    pair:p=>{ if(SY.conn!==conn) return; DIAG.pair=p; diag("ice","ok",p||"établie"); }});
   clearTimeout(SY.openT);
   SY.openT=setTimeout(()=>{ if(SY.conn===conn&&!conn.open){   // liaison qui ne s'établit pas : réseau qui bloque les connexions directes
     $("sessFState").textContent="La liaison ne s'établit pas (téléphone du chef ou relais occupé, ou réseau qui bloque). Nouvel essai… Si cela dure, passez sur le wifi de la banda.";
+    diag("ice","err","pas de liaison en 12 s ("+(DIAG.ice||"pas de réponse")+" · "+candName()+")");
     banner("⚠ Liaison difficile – nouvel essai…"); try{ conn.close(); }catch(e){} SY.conn=null; scheduleRetry(); } },12000);
-  conn.on("open",()=>{ if(SY.conn!==conn) return; clearTimeout(SY.openT); followerConnected(); });
+  conn.on("open",()=>{ if(SY.conn!==conn) return; clearTimeout(SY.openT); if(!(DIAG.st.chef&&DIAG.st.chef.state==="ok")) diag("chef","ok",SY.target===chefId()?"chef trouvé":"relais trouvé"); if(!(DIAG.st.ice&&DIAG.st.ice.state==="ok")) diag("ice","ok","établie"); followerConnected(); });
   conn.on("data",d=>{ if(SY.conn===conn) onFollowerMsg(d); });
   conn.on("close",()=>{ if(SY.role!=="f"||SY.conn!==conn) return; SY.conn=null; parentLost(); });
 }
@@ -2108,21 +2274,22 @@ function onFollowerMsg(d){
   if(d.t==="full"){ SY.full=true; $("sessFState").textContent="Séance complète ("+d.max+" musiciens au maximum)."; banner("Séance complète"); toast("Séance complète : "+d.max+" musiciens au maximum",5000); return; }
   if(d.t==="handoff"){ broadcast(d); if(d.dev===SY.id) becomeChef(); return; }
   if(d.t==="takeNo"){ broadcast(d); if(d.dev===SY.id&&SY.takePending){ SY.takePending=false; clearTimeout(SY.takeT); sessUI(); toast(d.timeout?"Le chef n'a pas répondu : demande annulée":"Le chef a refusé de vous confier la direction",3500); } return; }                  // c'est nous le nouveau chef ?
-  if(d.t==="welcome"){ SY.depth=d.depth||1; SY.everJoined=true; SY.joinFails=0; saveLastSession("f"); $("sessFState").textContent="Connecté à la séance "+SY.code; if(window.fxBurst) fxBurst({n:90}); sessUI(); return; }
+  if(d.t==="welcome"){ diag("acc","ok",(d.depth||1)>1?"via le téléphone d'un musicien (relais)":"directement chez le chef"); if(!(S.src&&DIAG.st.song&&DIAG.st.song.state==="ok")) diag("song",S.src?"ok":"wait",S.src?"déjà ouvert":"en attente du chef…"); SY.depth=d.depth||1; SY.everJoined=true; SY.joinFails=0; saveLastSession("f"); $("sessFState").textContent="Connecté à la séance "+SY.code; if(window.fxBurst) fxBurst({n:90}); sessUI(); return; }
   if(d.t==="pong"){
     const r=performance.now(), rtt=r-d.c; if(rtt<0||rtt>3000) return;
     SY.samples.push({rtt,off:d.m-(d.c+r)/2,at:r}); if(SY.samples.length>24) SY.samples.shift();
     const best=SY.samples.reduce((a,b)=>b.rtt<a.rtt?b:a);
-    SY.offset=best.off; SY.rtt=best.rtt;
+    SY.offset=best.off; SY.rtt=best.rtt; if(!(DIAG.st.clock&&DIAG.st.clock.state==="ok")||SY.samples.length%6===0) diag("clock","ok","aller-retour "+Math.round(best.rtt)+" ms");
     if(SY.pending&&SY.pending.sid===(S.src&&S.src.sid)){ const p=SY.pending; SY.pending=null; applyState(p); }
     return;
   }
-  if(d.t==="song"){
+  if(d.t==="song"){ broadcast(d); gotSong(d,toAB(d.buf)); return; }   // ancien format (téléphone pas à jour)
+  if(d.t==="songp"){
     broadcast(d);                                         // hôte : on relaie tout de suite à nos invités
     if(S.src&&S.src.sid===d.sid) return;
-    if(SY.wantSong===d.sid) return; SY.wantSong=d.sid;
-    let buf=d.buf; if(buf&&!(buf instanceof ArrayBuffer)){ buf=buf.buffer?buf.buffer.slice(buf.byteOffset,buf.byteOffset+buf.byteLength):buf; }
-    showPlayer(); openBuffer(buf,d.name,d.title).then(()=>{ SY.wantSong=null; });
+    let rx=SY.rx; if(!rx||rx.sid!==d.sid){ rx=SY.rx={sid:d.sid,n:d.n,parts:new Array(d.n),got:0,at:performance.now()}; }
+    if(!rx.parts[d.i]){ rx.parts[d.i]=new Uint8Array(toAB(d.b)); rx.got++; rx.at=performance.now(); diag("song","wait","réception "+rx.got+"/"+rx.n); }
+    if(rx.got===rx.n){ const u=new Uint8Array(d.len); let o=0; rx.parts.forEach(p=>{ u.set(p,o); o+=p.length; }); SY.rx=null; gotSong(d,u.buffer); }
     return;
   }
   if(d.t==="state"){
@@ -2131,7 +2298,8 @@ function onFollowerMsg(d){
     broadcast(d); SY.lastRaw=d;                           // hôte : relais immédiat, avant de l'appliquer ici
     if(SY.wantChef){ SY.wantChef=false; setTimeout(requestChef,300); }
     if(SY.last&&d.v<SY.last.v&&!d.beacon) return;
-    if(d.sid!==(S.src&&S.src.sid)||SY.offset===null||!S.model){ SY.pending=d; if(d.sid!==(S.src&&S.src.sid)&&!SY.wantSong) send({t:"need",song:true,sid:S.src&&S.src.sid}); return; }
+    if(d.sid!==(S.src&&S.src.sid)||SY.offset===null||!S.model){ SY.pending=d; if(SY.rx&&performance.now()-SY.rx.at>8000) SY.rx=null;
+      if(d.sid!==(S.src&&S.src.sid)&&!SY.wantSong&&!SY.rx){ send({t:"need",song:true,sid:S.src&&S.src.sid}); diag("song","wait","demandé au chef…"); } return; }
     applyState(d);
   }
 }
@@ -2189,7 +2357,7 @@ function leaveSession(silent){
 }
 /* ---------- interface ---------- */
 function sessUI(){
-  mixUI();
+  mixUI(); diagDraw(); { const dg=$("sessDiag"); if(dg) dg.style.display=SY.role?"block":"none"; }
   const b=$("sessBtn"), r=SY.role;
   b.classList.toggle("m",r==="m"); b.classList.toggle("f",r==="f");
   const fOk=r==="f"&&SY.conn&&SY.conn.open&&SY.depth>0, mOk=r==="m"&&SY.peer&&SY.peer.open;
@@ -2275,3 +2443,4 @@ $("sessResumeC").onclick=()=>{ const ls=lastSession(); if(!ls) return; $("sessDl
 $("sessTake").onclick=()=>{ $("sessDlg").close(); requestChef(); };
 $("takeAskYes").onclick=()=>answerHandoff(true);
 $("takeAskNo").onclick=()=>answerHandoff(false);
+$("sessDiagCopy").onclick=diagCopy;

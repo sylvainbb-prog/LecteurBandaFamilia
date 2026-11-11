@@ -4,7 +4,7 @@
    confettis, feux d'artifice, transitions, pochettes de morceaux, décors de thème
    Tout s'arrête net dès qu'on lance la lecture (fxClear), et rien ne tourne en mode allégé.
    ===================================================================== */
-const FX={cv:null,ctx:null,p:[],raf:0,last:0,dpr:1,lastClick:{x:innerWidth/2,y:innerHeight/2}};
+const FX={cv:null,ctx:null,p:[],raf:0,last:0,dpr:1,lastClick:{x:300,y:300}};
 function fxAllowed(){ return !S.playing && !document.body.classList.contains("light") && !matchMedia("(prefers-reduced-motion: reduce)").matches; }
 function fxColors(){ const cs=getComputedStyle(document.body); const v=n=>(cs.getPropertyValue(n)||"").trim();
   const c=[v("--accent"),v("--accent2"),v("--accent3"),"#ffffff","#ffd84d"].filter(Boolean); return c.length?c:["#ff2d95","#c6ff3d","#3b6bff","#fff"]; }
@@ -13,7 +13,7 @@ function fxCanvas(){
   const c=document.createElement("canvas"); c.id="fxLayer"; document.body.appendChild(c); FX.cv=c; FX.ctx=c.getContext("2d"); fxSize();
   addEventListener("resize",fxSize);
 }
-function fxSize(){ if(!FX.cv) return; FX.dpr=Math.min(2,devicePixelRatio||1); FX.cv.width=innerWidth*FX.dpr; FX.cv.height=innerHeight*FX.dpr; }
+function fxSize(){ if(!FX.cv) return; FX.dpr=Math.min(2,devicePixelRatio||1); FX.cv.width=VW()*FX.dpr; FX.cv.height=VH()*FX.dpr; }
 function fxClear(){ FX.p=[]; cancelAnimationFrame(FX.raf); FX.raf=0; if(FX.ctx) FX.ctx.clearRect(0,0,FX.cv.width,FX.cv.height); const b=$("bravo"); if(b) b.remove(); }
 function fxRun(){ if(!FX.raf){ FX.last=performance.now(); FX.raf=requestAnimationFrame(fxFrame); } }
 function fxFrame(now){
@@ -40,7 +40,7 @@ function fxPush(q){ (FX.add=FX.add||[]).push(q); }
 /* pluie de confettis */
 function fxBurst(o={}){
   if(!fxAllowed()) return; fxCanvas();
-  const cols=o.colors||fxColors(), n=o.n||120, x=o.x??innerWidth/2, y=o.y??innerHeight*.35, sp=o.spread||1;
+  const cols=o.colors||fxColors(), n=o.n||120, x=o.x??VW()/2, y=o.y??VH()*.35, sp=o.spread||1;
   for(let i=0;i<n;i++){ const a=-Math.PI/2+(Math.random()-.5)*Math.PI*1.1*sp, v=260+Math.random()*420;
     FX.p.push({k:Math.random()<.18?"star":"conf",x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,g:520,drag:.985,rot:Math.random()*6,vr:(Math.random()-.5)*10,flip:6+Math.random()*8,
       s:6+Math.random()*7,c:cols[i%cols.length],t:0,life:2.6+Math.random()*1.4}); }
@@ -50,9 +50,9 @@ function fxBurst(o={}){
 function fxFireworks(nb=6){
   if(!fxAllowed()) return; fxCanvas(); const cols=fxColors();
   for(let i=0;i<nb;i++) setTimeout(()=>{ if(!fxAllowed()) return;
-    const x=innerWidth*(.15+Math.random()*.7), ty=innerHeight*(.15+Math.random()*.3), c=cols[i%cols.length];
-    const g=900, v=Math.sqrt(2*g*(innerHeight+10-ty));
-    FX.p.push({k:"rocket",x,y:innerHeight+10,vx:(Math.random()-.5)*60,vy:-v,g,drag:1,rot:0,vr:0,s:2,c,t:0,life:v/g,
+    const x=VW()*(.15+Math.random()*.7), ty=VH()*(.15+Math.random()*.3), c=cols[i%cols.length];
+    const g=900, v=Math.sqrt(2*g*(VH()+10-ty));
+    FX.p.push({k:"rocket",x,y:VH()+10,vx:(Math.random()-.5)*60,vy:-v,g,drag:1,rot:0,vr:0,s:2,c,t:0,life:v/g,
       onEnd:q=>{ const m=70; for(let j=0;j<m;j++){ const a=j/m*Math.PI*2, v=140+Math.random()*170;
         fxPush({k:j%5?"dot":"star",x:q.x,y:q.y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,g:110,drag:.975,rot:0,vr:0,s:j%5?2.2:3,c:Math.random()<.25?"#ffffff":c,t:0,life:1.4+Math.random()*.6,fade:true}); } }});
     fxRun(); }, i*380+Math.random()*200);
@@ -60,16 +60,16 @@ function fxFireworks(nb=6){
 /* fin de morceau : bravo ! */
 function fxSongEnd(){
   setTimeout(()=>{ if(!fxAllowed()) return;
-    fxFireworks(7); setTimeout(()=>fxBurst({n:140,y:innerHeight*.3}),500);
+    fxFireworks(7); setTimeout(()=>fxBurst({n:140,y:VH()*.3}),500);
     const b=document.createElement("div"); b.id="bravo"; b.innerHTML="<b>Bravo la banda !</b><span>Fin du morceau</span>"; document.body.appendChild(b);
     setTimeout(()=>{ b.classList.add("out"); setTimeout(()=>b.remove(),600); },3200);
   },250);
 }
 /* transitions entre l'accueil et un morceau */
-document.addEventListener("pointerdown",e=>{ FX.lastClick={x:e.clientX,y:e.clientY}; },true);
+document.addEventListener("pointerdown",e=>{ FX.lastClick=vpt(e.clientX,e.clientY); },true);
 function fxEnterPlayer(){
   if(!fxAllowed()||!document.body.animate) return;
-  const p=$("player"), {x,y}=FX.lastClick, r=Math.hypot(Math.max(x,innerWidth-x),Math.max(y,innerHeight-y));
+  const p=$("player"), {x,y}=FX.lastClick, r=Math.hypot(Math.max(x,VW()-x),Math.max(y,VH()-y));
   p.animate([{clipPath:`circle(0px at ${x}px ${y}px)`},{clipPath:`circle(${r}px at ${x}px ${y}px)`}],{duration:620,easing:"cubic-bezier(.7,0,.2,1)"});
   const fl=document.createElement("div"); fl.className="fxwipe"; fl.style.setProperty("--x",x+"px"); fl.style.setProperty("--y",y+"px"); document.body.appendChild(fl); setTimeout(()=>fl.remove(),900);
 }
@@ -103,14 +103,14 @@ function fxThemeChanged(t){
   document.querySelectorAll("body > .deco").forEach(x=>x.remove());   // seulement les guirlandes du thème (les symboles § ⊕ de la partition ont aussi une classe « deco »)
   if(t==="guinguette"){
     const g=document.createElement("div"); g.className="deco lights"; let h="";
-    const n=Math.max(10,Math.round(innerWidth/70));
+    const n=Math.max(10,Math.round(VW()/70));
     for(let i=0;i<n;i++){ const y=10+Math.sin(i/(n-1)*Math.PI)*16; h+=`<i style="left:${(i+.5)/n*100}%;top:${y}px;--d:${(i*0.37)%2.4}s;--c:${["#ffcf6b","#ff7a59","#ffe9a8","#7fd4c1","#ffb547"][i%5]}"></i>`; }
     g.innerHTML=`<svg preserveAspectRatio="none" viewBox="0 0 100 30"><path d="M0 8 Q50 40 100 8" fill="none" stroke="#3a2a1e" stroke-width=".6"/></svg>`+h;
     document.body.appendChild(g);
   }
   if(t==="fiesta"){
     const g=document.createElement("div"); g.className="deco papel"; let h="";
-    const n=Math.max(8,Math.round(innerWidth/60)), cols=["#ff3d7f","#ffb800","#00b3a6","#7b4dff","#ff7a1a","#2fb34a"];
+    const n=Math.max(8,Math.round(VW()/60)), cols=["#ff3d7f","#ffb800","#00b3a6","#7b4dff","#ff7a1a","#2fb34a"];
     for(let i=0;i<n;i++) h+=`<i style="left:${i/n*100}%;width:${100/n}%;--c:${cols[i%cols.length]};--d:${(i%4)*.25}s"></i>`;
     g.innerHTML=h; document.body.appendChild(g);
   }
