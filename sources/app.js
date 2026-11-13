@@ -1291,7 +1291,8 @@ async function play(noCount){
   // en séance, le chef laisse un peu d'avance pour que les musiciens reçoivent l'ordre à temps
   outputPlay();
   // en séance, on laisse aux musiciens le temps de recevoir l'ordre (un peu plus quand il passe par un relais)
-  const LD=leadSec(), hop=SY.role==="m"&&accepted().length?treeDepthUsed():0, lead0=hop?Math.max(0.3+0.15*hop,peerLeadMax()+0.08+0.06*hop):0.12;
+  const LD=leadSec(), hop=SY.role==="m"&&accepted().length?treeDepthUsed():0, viaMq=SY.role==="m"&&accepted().some(c=>c.conn.mq),
+    lead0=hop?Math.max(viaMq?0.7:0.3+0.15*hop,peerLeadMax()+0.08+0.06*hop+(viaMq?0.35:0)):0.12;
   let start=ac.currentTime+Math.max(lead0,LD+0.08);
   let ci=null;
   if($("countIn").checked && !noCount){
@@ -1932,6 +1933,90 @@ const ARBRE={MAX_HOTES:4, MAX_INVITES_PAR_HOTE:4, PROFONDEUR_MAX:2};
    Laisser null pour le fonctionnement actuel. Exemple : [{urls:"stun:stun.l.google.com:19302"},{urls:"turn:…",username:"…",credential:"…"}] */
 const ICE_SERVERS=[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]},{urls:"stun:stun.cloudflare.com:3478"},
   {urls:["turn:eu-0.turn.peerjs.com:3478","turn:us-0.turn.peerjs.com:3478","turn:eu-0.turn.peerjs.com:3478?transport=tcp"],username:"peerjs",credential:"peerjsp"}];
+/* ===== Relais internet (secours) =====
+   Quand la liaison directe entre téléphones (WebRTC) n'aboutit pas — 4G, wifi qui isole les appareils, pare-feu —
+   le musicien passe automatiquement par un serveur public gratuit (MQTT sur WebSocket sécurisé), sans compte.
+   Le chef écoute en permanence sur ces serveurs. Les messages sont les mêmes ; seul le chemin change. */
+const MQ_BROKERS=[{id:"hivemq",url:"wss://broker.hivemq.com:8884/mqtt"},{id:"emqx",url:"wss://broker.emqx.io:8084/mqtt"},{id:"shiftr",url:"wss://public.cloud.shiftr.io",user:"public",pass:"public"}];
+const MQ_SECOURS_S=10;   // délai avant d'essayer le relais si la liaison directe ne s'est pas faite
+var MQ={clients:{},conns:new Map(),chefT:0};
+function mqBrokers(){ const m=location.search.match(/[?&]mqtt=([^&]+)/); return m?[{id:"test",url:decodeURIComponent(m[1])}]:MQ_BROKERS; }
+function mqBase(code){ return "afc-banda-familia/v1/"+(code||SY.code); }
+function ab2b64(ab){ const u=new Uint8Array(ab); let s=""; for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000)); return btoa(s); }
+function b642ab(b){ const s=atob(b), u=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return u.buffer; }
+function mqEnc(o){ return JSON.stringify(o,function(k,v){ const raw=this[k]; if(raw instanceof ArrayBuffer) return {__b64:ab2b64(raw)}; if(ArrayBuffer.isView(raw)) return {__b64:ab2b64(raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength))}; return v; }); }
+function mqDec(s){ return JSON.parse(s,(k,v)=>v&&typeof v==="object"&&typeof v.__b64==="string"?b642ab(v.__b64):v); }
+function mqClient(b){
+  if(MQ.clients[b.id]) return MQ.clients[b.id]; if(!window.mqtt) return null;
+  let c; try{ c=mqtt.connect(b.url,{clientId:"banda-"+SY.id+"-"+Math.random().toString(36).slice(2,7),username:b.user,password:b.pass,keepalive:20,reconnectPeriod:3000,connectTimeout:8000,clean:true}); }catch(e){ return null; }
+  c.__b=b; c.__subs=new Set(); MQ.clients[b.id]=c;
+  c.on("connect",()=>{ c.__subs.forEach(t=>c.subscribe(t,{qos:1})); diagDraw(); });
+  c.on("message",(topic,payload)=>{ let d; try{ d=mqDec(payload.toString()); }catch(e){ return; } mqOnMsg(c,topic,d); });
+  c.on("error",e=>console.warn("mqtt",b.id,e&&e.message));
+  return c;
+}
+function mqSub(c,t){ c.__subs.add(t); if(c.connected) c.subscribe(t,{qos:1}); }
+function mqStop(){ clearInterval(MQ.chefT); MQ.conns.forEach(x=>x._close()); MQ.conns.clear();
+  for(const c of Object.values(MQ.clients)){ try{ c.end(true); }catch(e){} } MQ.clients={}; }
+function mqConnected(){ return Object.values(MQ.clients).filter(c=>c.connected).map(c=>c.__b.id); }
+/* une « connexion » par le relais, avec les mêmes fonctions qu'une connexion PeerJS */
+class MqConn{
+  constructor(client,peer,topicOut,me){ this.client=client; this.peer=peer; this.topicOut=topicOut; this.me=me; this.open=false; this.mq=true; this.h={}; this.last=performance.now(); }
+  on(ev,fn){ (this.h[ev]=this.h[ev]||[]).push(fn); return this; }
+  emit(ev,a){ (this.h[ev]||[]).slice().forEach(f=>{ try{ f(a); }catch(e){ console.warn(e); } }); }
+  send(m){ if(!this.open||!this.client) return; const q=(m&&(m.t==="ping"||m.t==="pong"||m.beacon))?0:1;
+    try{ this.client.publish(this.topicOut,mqEnc({k:"d",from:this.me,m}),{qos:q}); }catch(e){} }
+  close(){ if(this._closed) return; try{ this.client.publish(this.topicOut,mqEnc({k:"close",from:this.me}),{qos:0}); }catch(e){} this._close(); }
+  _close(){ if(this._closed) return; this._closed=true; this.open=false; clearInterval(this.watch); MQ.conns.delete(this.peer); this.emit("close"); }
+}
+function mqOnMsg(c,topic,d){
+  if(!d||!d.from) return;
+  if(SY.role==="m"&&topic===mqBase()+"/c"){
+    let x=MQ.conns.get(d.from);
+    if(d.k==="open"){
+      if(x&&!x._closed&&x.client!==c&&performance.now()-x.last<5000) return;   // même musicien vu sur un 2e relais : on garde le premier
+      if(!x||x._closed||x.client!==c){ if(x) x._close(); x=new MqConn(c,d.from,mqBase()+"/f/"+d.from,"chef"); MQ.conns.set(d.from,x); x.open=true; setupChildConn(x); setTimeout(()=>x.emit("open"),0); }
+      x.last=performance.now(); try{ c.publish(x.topicOut,mqEnc({k:"ack",from:"chef",ep:SY.epoch||1}),{qos:1}); }catch(e){}
+      return; }
+    if(!x) { if(d.k==="d") try{ c.publish(mqBase()+"/f/"+d.from,mqEnc({k:"close",from:"chef"}),{qos:0}); }catch(e){} return; }   // inconnu : on lui dit de se reconnecter
+    x.last=performance.now();
+    if(d.k==="d") x.emit("data",d.m); else if(d.k==="close") x._close();
+    return;
+  }
+  if(SY.role==="f"&&SY.mqConn&&topic===mqBase()+"/f/"+SY.mqConn.me){
+    const x=SY.mqConn; x.last=performance.now();
+    if(d.k==="ack"&&!x.open){ x.open=true; x.client=c; x.emit("open"); }
+    else if(d.k==="d"&&x.open) x.emit("data",d.m);
+    else if(d.k==="close") x._close();
+  }
+}
+/* chef : écoute sur tous les relais (le musicien utilise celui qu'il arrive à joindre) */
+function mqChef(){
+  if(!window.mqtt) return;
+  mqBrokers().forEach(b=>{ const c=mqClient(b); if(c) mqSub(c,mqBase()+"/c"); });
+  clearInterval(MQ.chefT); MQ.chefT=setInterval(()=>{ const now=performance.now(); MQ.conns.forEach(x=>{ if(now-x.last>9000) x._close(); }); },2000);
+}
+/* musicien : se relier au chef par le relais ; résout la connexion ouverte, ou null */
+function mqFollow(){
+  return new Promise(res=>{
+    if(!window.mqtt){ res(null); return; }
+    const me="mq"+SY.id+Math.random().toString(36).slice(2,6);
+    const bs=mqBrokers(); let done=false, tries=0, pick=null;
+    const x=new MqConn(null,"chef",mqBase()+"/c",me); SY.mqConn=x;
+    const finish=v=>{ if(done) return; done=true; clearInterval(iv); clearTimeout(to);
+      Object.values(MQ.clients).forEach(c=>{ if(!v||c!==v.client){ try{ c.end(true); }catch(e){} delete MQ.clients[c.__b.id]; } });
+      if(!v&&SY.mqConn===x) SY.mqConn=null; res(v); };
+    x.on("open",()=>{ x.watch=setInterval(()=>{ if(performance.now()-x.last>8000) x._close(); },2000); finish(x); });
+    bs.forEach(b=>{ const c=mqClient(b); if(c){ mqSub(c,mqBase()+"/f/"+me); c.on("connect",()=>{ if(!pick) pick=c; }); } });
+    // on frappe à la porte du chef sur chaque relais joint, toutes les 2 s
+    const iv=setInterval(()=>{ if(SY.role!=="f"){ finish(null); return; } tries++;
+      Object.values(MQ.clients).forEach(c=>{ if(c.connected){ x.client=x.client||c; try{ c.publish(mqBase()+"/c",mqEnc({k:"open",from:me}),{qos:1}); }catch(e){} } });
+      diag("ice","wait","relais internet : "+(mqConnected().join(", ")||"connexion…")+(tries>2?" · le chef ne répond pas encore":""));
+    },2000);
+    const to=setTimeout(()=>finish(null),20000);
+  });
+}
+
 /* ===== Diagnostic de connexion (fenêtre Séance) =====
    Chaque étape de la mise en relation est notée ; « Copier le diagnostic » donne un texte à envoyer pour analyse. */
 var DIAG={st:{},cand:{host:0,srflx:0,relay:0},pair:"",ice:"",chef:{tries:0,ok:0,fail:0,last:[]},t0:0};
@@ -1963,6 +2048,7 @@ function diagText(){
     "Appareil : "+navigator.userAgent.replace(/\s*\(KHTML[^)]*\)/,""),"Réseau : "+netType()+" · en ligne : "+(navigator.onLine?"oui":"non")];
   if(SY.role==="f"){ DIAG_STEPS.forEach(([k,n])=>{ const s=DIAG.st[k]; L.push((s?(s.state==="ok"?"✔":s.state==="err"?"✖":"…"):"·")+" "+n+(s?" — "+s.txt+" ("+s.at+" s)":"")); });
     L.push("Candidats : "+candName()); if(DIAG.pair) L.push("Liaison retenue : "+DIAG.pair); if(DIAG.ice) L.push("État ICE : "+DIAG.ice); }
+  L.push("Relais internet joints : "+(mqConnected().join(", ")||"aucun"));
   if(SY.role==="m"){ const c=DIAG.chef; L.push("Connexions entrantes : "+c.tries+" · réussies "+c.ok+" · échouées "+c.fail); c.last.slice(-8).forEach(x=>L.push("  "+x)); L.push("Candidats du chef : "+candName()); }
   return L.join("\n");
 }
@@ -1970,7 +2056,7 @@ function diagDraw(){ const el=$("sessDiagTxt"); if(!el) return;
   if(SY.role==="f"){ el.innerHTML=DIAG_STEPS.map(([k,n])=>{ const s=DIAG.st[k], cls=s?s.state:"todo", ic=s?(s.state==="ok"?"✔":s.state==="err"?"✖":"…"):"·";
       return '<div class="dg '+cls+'"><i>'+ic+'</i><span><b>'+n+'</b>'+(s&&s.txt?' — '+s.txt:'')+'</span></div>'; }).join("")
       +'<div class="dg info"><i>⌁</i><span>Réseau : '+netType()+' · '+candName()+(DIAG.pair?'<br>Liaison : '+DIAG.pair:'')+'</span></div>'; }
-  else if(SY.role==="m"){ const c=DIAG.chef; el.innerHTML='<div class="dg info"><i>⌁</i><span>Connexions entrantes : '+c.tries+' · réussies '+c.ok+' · échouées '+c.fail+'<br>'+candName()+'</span></div>'+c.last.slice(-6).map(x=>'<div class="dg small"><i>·</i><span>'+x+'</span></div>').join(""); }
+  else if(SY.role==="m"){ const c=DIAG.chef, mq=mqConnected(); el.innerHTML='<div class="dg info"><i>⌁</i><span>Connexions entrantes : '+c.tries+' · réussies '+c.ok+' · échouées '+c.fail+'<br>'+candName()+'<br>Relais internet de secours : '+(mq.length?mq.join(", ")+' ✓':'non joint ✗')+'</span></div>'+c.last.slice(-6).map(x=>'<div class="dg small"><i>·</i><span>'+x+'</span></div>').join(""); }
   else el.innerHTML="";
 }
 function diagCopy(){ const t=diagText();
@@ -1978,7 +2064,10 @@ function diagCopy(){ const t=diagText();
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done,()=>fallback()); else fallback();
   function fallback(){ const ta=document.createElement("textarea"); ta.value=t; ta.style.cssText="position:fixed;opacity:0"; $("sessDlg").appendChild(ta); ta.select(); try{ document.execCommand("copy"); done(); }catch(e){ toast("Copie impossible",2000); } ta.remove(); } }
 
-function peerOpts(){ const o={debug:1}; if(ICE_SERVERS) o.config={iceServers:ICE_SERVERS}; return o; }
+function peerOpts(){ const o={debug:1}; if(ICE_SERVERS) o.config={iceServers:ICE_SERVERS};
+  if(/[?&]icefail=1/.test(location.search)) o.config={iceServers:[],iceTransportPolicy:"relay"};   // tests : liaison directe impossible
+  const m=location.search.match(/[?&]peersrv=([\w.-]+):(\d+)/); if(m){ o.host=m[1]; o.port=+m[2]; o.path="/"; o.secure=false; if(/[?&]nostun=1/.test(location.search)&&!/[?&]icefail=1/.test(location.search)) o.config={iceServers:[]}; }   // tests : serveur local
+  return o; }
 const chefId=()=>PEER_PREFIX+SY.code;
 
 /* -- transport : PeerJS (WebRTC). En test (?synctest=1) un faux PeerJS local (BroadcastChannel) prend sa place. --
@@ -1996,7 +2085,7 @@ function chefNowMs(){ return SY.role==="m"?performance.now():(SY.offset===null?n
 function ctxToMs(ctx){ smoothNow(); return (ctx-CLK.off)*1000; }          // temps audio local -> horloge locale (ms)
 function masterMsToCtx(ms){ smoothNow(); return (ms-SY.offset)/1000+CLK.off; } // horloge du chef -> temps audio local
 function treeTotal(){ let n=0; for(const c of accepted()) n+=1+(c.n||0); return n; }
-function treeWho(){ const out=[]; for(const c of accepted()){ out.push({dev:c.dev,part:c.part||"?"}); (c.who||[]).forEach(w=>out.push(w)); } return out; }
+function treeWho(){ const out=[]; for(const c of accepted()){ out.push({dev:c.dev,part:c.part||"?",mq:!!c.conn.mq}); (c.who||[]).forEach(w=>out.push(w)); } return out; }
 function treeParts(){ const out=[]; for(const c of accepted()){ out.push(c.part||"?"); (c.parts||[]).forEach(p=>out.push(p)); } return out; }
 function treeDepthUsed(){ return accepted().some(c=>(c.n||0)>0)?2:1; }
 
@@ -2004,11 +2093,11 @@ function treeDepthUsed(){ return accepted().some(c=>(c.n||0)>0)?2:1; }
 function setupChildConn(conn){
   const c={conn,acc:false,part:"?",lead:0,n:0}; SY.peers.set(conn.peer,c);
   if(SY.role==="m"){ const C=DIAG.chef, hh=()=>new Date().toTimeString().slice(0,8), tag=()=>c.part&&c.part!=="?"?c.part:"téléphone "+conn.peer.slice(-4);
-    C.tries++; C.last.push(hh()+" … connexion de "+tag()); diagDraw(); let done=false;
+    C.tries++; C.last.push(hh()+" … connexion de "+tag()+(conn.mq?" (relais internet)":"")); diagDraw(); let done=false;
     watchIce(conn,{local:true,state:s=>{ if(done) return; if(s==="connected"||s==="completed"){ done=true; C.ok++; C.last.push(hh()+" ✔ "+tag()+" relié"); diagDraw(); }
       else if(s==="failed"){ done=true; C.fail++; C.last.push(hh()+" ✖ "+tag()+" : liaison impossible (réseau)"); diagDraw(); } },
       pair:p=>{ C.last.push("    "+tag()+" : "+p); diagDraw(); }});
-    const okOpen=()=>{ if(done) return; done=true; C.ok++; C.last.push(hh()+" ✔ "+tag()+" relié"); diagDraw(); };
+    const okOpen=()=>{ if(done) return; done=true; C.ok++; C.last.push(hh()+" ✔ "+tag()+(conn.mq?" relié par le relais internet ("+conn.client.__b.id+")":" relié en direct")); diagDraw(); };
     conn.on("open",()=>setTimeout(okOpen,300)); setTimeout(()=>{ if(conn.open) okOpen(); },1500);
     setTimeout(()=>{ if(!done&&!conn.open){ done=true; C.fail++; C.last.push(hh()+" ✖ "+tag()+" : pas de liaison en 15 s"); diagDraw(); } },15000); }
   conn.on("data",d=>onChildMsg(d,conn.peer));
@@ -2020,9 +2109,10 @@ function admit(from,d){
   Object.assign(c,{part:d.part||"?",lead:d.lead||0,dev:d.dev||null});
   const avoid=d.avoid||[];
   if(SY.role==="m"){
-    if(accepted().length<ARBRE.MAX_HOTES) return acceptChild(from,d);
+    if(c.conn.mq) return accepted().length<40?acceptChild(from,d):sendTo(from,{t:"full",max:40});
+    if(accepted().filter(x=>!x.conn.mq).length<ARBRE.MAX_HOTES) return acceptChild(from,d);
     // chef plein : on envoie chez l'hôte le moins chargé
-    const hosts=[...SY.peers.entries()].filter(([id,h])=>h.acc&&(h.n||0)<ARBRE.MAX_INVITES_PAR_HOTE&&!avoid.includes(id)).sort((a,b)=>(a[1].n||0)-(b[1].n||0));
+    const hosts=[...SY.peers.entries()].filter(([id,h])=>h.acc&&!h.conn.mq&&!h.mqF&&(h.n||0)<ARBRE.MAX_INVITES_PAR_HOTE&&!avoid.includes(id)).sort((a,b)=>(a[1].n||0)-(b[1].n||0));
     if(hosts.length){ const [hid,h]=hosts[0]; h.n=(h.n||0)+1; sendTo(from,{t:"redirect",to:hid}); }
     else sendTo(from,{t:"full",max:ARBRE.MAX_HOTES*(1+ARBRE.MAX_INVITES_PAR_HOTE)});
     setTimeout(()=>{ const x=SY.peers.get(from); if(x&&!x.acc){ try{ x.conn.close(); }catch(e){} SY.peers.delete(from); } },1500);
@@ -2073,6 +2163,7 @@ function claimChef(attempt,fresh){
   SY.role="m"; SY.depth=0; SY.opened=false; document.body.classList.remove("follower"); applyMaster();
   if(!window.Peer){ toast("Module de synchronisation indisponible (pas de connexion ?)",4000); SY.role=null; return; }
   const pr=new Peer(chefId(),peerOpts()); SY.peer=pr;
+  mqChef();
   pr.on("open",()=>{ SY.opened=true; saveLastSession("m"); if(fresh) sessOpened(); else { toast("Vous dirigez maintenant la séance "+SY.code,3500); if(window.fxBurst) fxBurst({n:80}); } sessUI(); syncPush(S.playing?{start:true}:{}); });
   pr.on("close",()=>sessUI());
   pr.on("connection",conn=>setupChildConn(conn));
@@ -2102,6 +2193,7 @@ function stepDown(newDev){
     clearInterval(SY.beacon);
     for(const c of SY.peers.values()){ try{ c.conn.close(); }catch(e){} } SY.peers.clear();
     if(SY.peer){ try{ SY.peer.destroy(); }catch(e){} SY.peer=null; }
+    mqStop();
     SY.role=null; SY.opened=false;
     setTimeout(()=>startFollower(code,{quiet:true}),1200);
   },400);
@@ -2148,10 +2240,11 @@ function giveChef(w){ if(SY.role!=="m"||!w||!w.dev) return; if(!confirm("Confier
 function becomeChef(){
   const code=SY.code; clearTimeout(SY.takeT); SY.takePending=false;
   // on quitte la place de musicien sans arrêter le son ni la partition
-  clearInterval(SY.pingT); clearTimeout(SY.retry); clearTimeout(SY.openT);
+  clearInterval(SY.pingT); clearTimeout(SY.retry); clearTimeout(SY.openT); clearTimeout(SY.mqT); clearTimeout(SY.slowT);
   if(SY.conn){ const c=SY.conn; SY.conn=null; try{ c.close(); }catch(e){} }
   for(const c of SY.peers.values()){ try{ c.conn.close(); }catch(e){} } SY.peers.clear();
   if(SY.peer){ try{ SY.peer.destroy(); }catch(e){} SY.peer=null; }
+  mqStop(); SY.mqConn=null; SY.mqTrying=false;
   SY.code=code; SY.epoch=Math.max(SY.epoch||0,(SY.last&&SY.last.ep)||0)+1; banner("");
   setTimeout(()=>claimChef(0,false),300);
 }
@@ -2215,51 +2308,79 @@ function followerPeer(){
   // serveur de mise en relation injoignable (wifi qui filtre, réseau lent) : on recrée la liaison au serveur
   clearTimeout(SY.srvT); SY.srvT=setTimeout(()=>{ if(SY.role==="f"&&SY.peer===pr&&!pr.open){ diag("srv","err","pas de réponse en 10 s, nouvel essai");
     $("sessFState").textContent="Le serveur de mise en relation ne répond pas… nouvel essai (vérifiez internet sur ce téléphone)"; banner("⚠ Pas d'accès au serveur – nouvel essai…");
-    try{ pr.destroy(); }catch(e){} followerPeer(); } },10000);
+    try{ pr.destroy(); }catch(e){} followerPeer(); tryMq(); } },10000);
   pr.on("open",()=>{ clearTimeout(SY.srvT); diag("srv","ok","connecté"); connectTo(chefId()); });
   pr.on("connection",conn=>setupChildConn(conn));          // nos propres invités, si le chef fait de nous un hôte
   pr.on("disconnected",()=>{ if(SY.role==="f") setTimeout(()=>{ try{ pr.reconnect(); }catch(e){} },1500); });
   pr.on("error",e=>{ console.warn("peer",e);
     if(e.type==="peer-unavailable"){
       if(SY.target===chefId()){
-        SY.joinFails++; diag("chef","err","code "+SY.code+" introuvable ("+SY.joinFails+")");
+        SY.joinFails++; diag("chef","err","code "+SY.code+" introuvable ("+SY.joinFails+")"); if(SY.joinFails>=2) tryMq();
         if(!SY.everJoined&&SY.joinFails>=3){ const msg=SY.resume?"Cette séance n'existe plus (le chef l'a fermée). Demandez le nouveau code au chef ou scannez son QR code.":"Séance "+SY.code+" introuvable : vérifiez le code auprès du chef.";
           $("sessFState").textContent=msg; banner(""); toast(msg,6000); const was=SY.resume; leaveSession(true); if(was){ sessUI(); $("sessDlg").open||$("sessDlg").showModal(); } return; }
         $("sessFState").textContent=SY.everJoined?"Chef injoignable… nouvel essai (vous pouvez « Prendre la direction »)":"Recherche de la séance…";
         if(SY.everJoined) banner("⚠ Chef injoignable – nouvel essai…");
       } else $("sessFState").textContent="Relais indisponible… on repasse par le chef";
       scheduleRetry(); }
-    else if(SY.role==="f"){ $("sessFState").textContent="Réseau indisponible… nouvel essai"; diag(pr.open?"ice":"srv","err",e.type||"réseau"); scheduleRetry(); }
+    else if(SY.role==="f"){ $("sessFState").textContent="Réseau indisponible… nouvel essai"; diag(pr.open?"ice":"srv","err",e.type||"réseau"); if(!pr.open) tryMq(); scheduleRetry(); }
     sessUI(); });
 }
 /* se relier à un parent (le chef, ou l'hôte vers lequel le chef nous a envoyés) */
 function connectTo(target,avoid){
-  if(SY.role!=="f"||!SY.peer||SY.peer.destroyed||SY.full) return;
+  if(SY.role!=="f"||SY.full) return;
+  if(SY.conn&&SY.conn.open&&(SY.conn.mq||target===SY.target)) return;
   if(SY.conn){ const old=SY.conn; SY.conn=null; try{ old.close(); }catch(e){} }
   SY.target=target; SY.avoid=avoid||[]; SY.depth=0;
+  const toChef=target===chefId();
+  clearTimeout(SY.openT); clearTimeout(SY.mqT); clearTimeout(SY.slowT);
+  // relais internet : tout de suite si la liaison directe a déjà échoué dans cette séance, sinon après MQ_SECOURS_S
+  if(toChef) SY.mqT=setTimeout(tryMq,SY.preferMq?0:MQ_SECOURS_S*1000);
+  if(!SY.peer||SY.peer.destroyed||!SY.peer.open){ diag("chef","wait","serveur de mise en relation indisponible…"); return; }
   const conn=SY.peer.connect(target,{reliable:true}); SY.conn=conn;
-  diag("chef","wait",target===chefId()?"recherche du chef…":"envoi vers un relais…"); diag("ice","wait","…");
+  diag("chef","wait",toChef?"recherche du chef…":"envoi vers un relais…"); diag("ice","wait","…");
   watchIce(conn,{local:true,state:s=>{ if(SY.conn!==conn) return; DIAG.ice=s;
-      if(s==="checking"){ diag("chef","ok",target===chefId()?"chef trouvé":"relais trouvé"); diag("ice","wait","négociation de la liaison…"); }
-      else if(s==="failed") diag("ice","err","liaison impossible sur ce réseau ("+candName()+")");
+      if(s==="checking"){ diag("chef","ok",toChef?"chef trouvé":"relais trouvé"); diag("ice","wait","négociation de la liaison directe…"); }
+      else if(s==="failed"){ diag("ice","err","liaison directe impossible sur ce réseau ("+candName()+")"); SY.preferMq=true;
+        if(toChef) tryMq(); else { try{ conn.close(); }catch(e){} SY.conn=null; connectTo(chefId(),SY.avoid.concat([target])); } }
       else if(s==="disconnected") diag("ice","wait","liaison interrompue…"); },
     pair:p=>{ if(SY.conn!==conn) return; DIAG.pair=p; diag("ice","ok",p||"établie"); }});
-  clearTimeout(SY.openT);
-  SY.openT=setTimeout(()=>{ if(SY.conn===conn&&!conn.open){   // liaison qui ne s'établit pas : réseau qui bloque les connexions directes
-    $("sessFState").textContent="La liaison ne s'établit pas (téléphone du chef ou relais occupé, ou réseau qui bloque). Nouvel essai… Si cela dure, passez sur le wifi de la banda.";
-    diag("ice","err","pas de liaison en 12 s ("+(DIAG.ice||"pas de réponse")+" · "+candName()+")");
-    banner("⚠ Liaison difficile – nouvel essai…"); try{ conn.close(); }catch(e){} SY.conn=null; scheduleRetry(); } },12000);
-  conn.on("open",()=>{ if(SY.conn!==conn) return; clearTimeout(SY.openT); if(!(DIAG.st.chef&&DIAG.st.chef.state==="ok")) diag("chef","ok",SY.target===chefId()?"chef trouvé":"relais trouvé"); if(!(DIAG.st.ice&&DIAG.st.ice.state==="ok")) diag("ice","ok","établie"); followerConnected(); });
+  // liaison lente : on prévient, mais on NE coupE PAS (sur 4G ou via un relais, il faut parfois 15 à 30 s)
+  SY.slowT=setTimeout(()=>{ if(SY.conn===conn&&!conn.open){ $("sessFState").textContent="Liaison en cours… (réseau lent ou filtré"+(toChef?", essai par le relais internet en parallèle":"")+")"; banner("⏳ Liaison en cours…"); } },12000);
+  SY.openT=setTimeout(()=>{ if(SY.conn===conn&&!conn.open){ diag("ice","err","pas de liaison directe en 45 s ("+(DIAG.ice||"pas de réponse")+")"); SY.preferMq=true;
+    try{ conn.close(); }catch(e){} SY.conn=null; if(toChef) tryMq(); else connectTo(chefId(),SY.avoid.concat([target])); } },45000);
+  conn.on("open",()=>{ if(SY.conn!==conn){ try{ conn.close(); }catch(e){} return; }
+    clearTimeout(SY.openT); clearTimeout(SY.slowT); clearTimeout(SY.mqT); mqDrop();
+    if(!(DIAG.st.chef&&DIAG.st.chef.state==="ok")) diag("chef","ok",toChef?"chef trouvé":"relais trouvé"); if(!(DIAG.st.ice&&DIAG.st.ice.state==="ok")) diag("ice","ok","établie");
+    followerConnected(); });
   conn.on("data",d=>{ if(SY.conn===conn) onFollowerMsg(d); });
   conn.on("close",()=>{ if(SY.role!=="f"||SY.conn!==conn) return; SY.conn=null; parentLost(); });
 }
+/* secours : liaison au chef par le relais internet */
+function tryMq(){
+  if(SY.role!=="f"||SY.mqTrying||(SY.conn&&SY.conn.open)) return;
+  if(!window.mqtt){ diag("ice","err","relais internet indisponible (bibliothèque non chargée)"); return; }
+  SY.mqTrying=true; diag("ice","wait","essai par le relais internet…");
+  mqFollow().then(conn=>{ SY.mqTrying=false;
+    if(SY.role!=="f"){ if(conn) conn.close(); return; }
+    if(!conn&&SY.conn&&SY.conn.open) return;
+    if(!conn){ diag("ice","err","relais internet : le chef ne répond pas"); scheduleRetry(); return; }
+    if(SY.conn&&SY.conn.open&&!SY.conn.mq){ conn.close(); return; }      // la liaison directe a gagné entre-temps
+    const old=SY.conn; SY.conn=conn; if(old){ try{ old.close(); }catch(e){} }
+    clearTimeout(SY.openT); clearTimeout(SY.slowT); SY.preferMq=true;
+    conn.on("data",d=>{ if(SY.conn===conn) onFollowerMsg(d); });
+    conn.on("close",()=>{ if(SY.role!=="f"||SY.conn!==conn) return; SY.conn=null; parentLost(); });
+    diag("chef","ok","chef trouvé"); diag("ice","ok","relais internet ("+conn.client.__b.id+")");
+    followerConnected();
+  });
+}
+function mqDrop(){ if(SY.mqConn&&!SY.mqConn.open){ SY.mqConn=null; } if(!(SY.conn&&SY.conn.mq)&&SY.role==="f"){ for(const c of Object.values(MQ.clients)){ try{ c.end(true); }catch(e){} } MQ.clients={}; } }
 /* parent perdu : nos éventuels invités repartent vers le chef, et nous aussi */
 function parentLost(){
   for(const c of SY.peers.values()){ try{ c.conn.close(); }catch(e){} } SY.peers.clear();
   SY.depth=0; $("sessFState").textContent="Liaison perdue… reconnexion"; banner("⚠ Liaison perdue – reconnexion…"); sessUI();
   clearTimeout(SY.retry); SY.retry=setTimeout(()=>connectTo(chefId()),400+Math.random()*900);   // petit délai aléatoire : tout le monde n'arrive pas en même temps
 }
-function scheduleRetry(){ clearTimeout(SY.retry); SY.retry=setTimeout(()=>{ if(SY.role==="f"&&!(SY.conn&&SY.conn.open)) connectTo(chefId()); },2500); }
+function scheduleRetry(){ clearTimeout(SY.retry); SY.retry=setTimeout(()=>{ if(SY.role==="f"&&!(SY.conn&&SY.conn.open)&&!SY.mqTrying) connectTo(chefId()); },2500); }
 function followerConnected(){
   banner(""); SY.last=null;
   send({t:"hello",part:partName(),sid:S.src&&S.src.sid,lead:Math.round(leadSec()*1000),dev:SY.id,avoid:SY.avoid});
@@ -2345,7 +2466,8 @@ function applyState(st){
 function setLocalSound(on){ audio(); applyMaster(); }
 function banner(t){ const b=$("followBanner"); if(!b) return; b.textContent=t; b.style.display=t?"block":"none"; }
 function leaveSession(silent){
-  clearInterval(SY.beacon); clearInterval(SY.pingT); clearTimeout(SY.retry); clearTimeout(SY.openT);
+  clearInterval(SY.beacon); clearInterval(SY.pingT); clearTimeout(SY.retry); clearTimeout(SY.openT); clearTimeout(SY.mqT); clearTimeout(SY.slowT);
+  mqStop(); SY.mqConn=null; SY.mqTrying=false; SY.preferMq=false;
   if(SY.conn){ const c=SY.conn; SY.conn=null; try{ c.close(); }catch(e){} }
   for(const c of SY.peers.values()){ try{ c.conn.close(); }catch(e){} }
   if(SY.peer){ try{ SY.peer.destroy(); }catch(e){} SY.peer=null; }
@@ -2376,7 +2498,7 @@ function sessUI(){
     $("sessCode").textContent=SY.code;
     $("sessCap").textContent="Jusqu'à "+ARBRE.MAX_HOTES*(1+ARBRE.MAX_INVITES_PAR_HOTE)+" musiciens : au-delà de "+ARBRE.MAX_HOTES+", les téléphones se relaient automatiquement la séance, sans rien à faire.";
     const n=treeTotal(); $("sessCount").textContent=n+(n>1?" musiciens connectés":" musicien connecté")+(treeDepthUsed()>1?" ("+accepted().length+" en direct, les autres relayés)":"");
-    const L=$("sessList"); L.innerHTML=""; for(const w of treeWho()){ const s=document.createElement("button"); s.type="button"; s.textContent=w.part; s.title="Confier la direction à ce musicien"; s.onclick=()=>giveChef(w); L.appendChild(s); }
+    const L=$("sessList"); L.innerHTML=""; for(const w of treeWho()){ const s=document.createElement("button"); s.type="button"; s.textContent=w.part+(w.mq?" ☁":""); s.title="Confier la direction à ce musicien"+(w.mq?" (relié par le relais internet)":""); s.onclick=()=>giveChef(w); L.appendChild(s); }
     const q=$("sessQr");
     if(q.dataset.code!==SY.code){ q.dataset.code=SY.code; q.innerHTML="";
       if(/^https?:/.test(location.protocol) && window.qrcode){ try{ const url=location.origin+location.pathname+"?seance="+SY.code; const qr=qrcode(0,"M"); qr.addData(url); qr.make(); q.innerHTML=qr.createSvgTag({cellSize:4,margin:2,scalable:true}); }catch(e){} } }
