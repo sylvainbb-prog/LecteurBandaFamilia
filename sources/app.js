@@ -792,7 +792,7 @@ const S={model:null,order:[],seq:[],parts:[],myPart:0,playing:false,speed:1,loop
   sched:null,instances:[],nextSeq:0,nextCtx:0,rafId:0,startedAt:0,countIn:true,clickOn:false,loadingSf:false,title:""};
 
 async function openBuffer(buf, name, title){
-  stop();
+  S.playFrom=null; stop(true);
   showLoading("Lecture de la partition…");
   let xml;
   try{ xml=await bufferToXml(buf,name); }catch(e){ hideLoading(); toast(e.message,5000); return; }
@@ -1723,7 +1723,7 @@ function resolveLoopInput(id,after){
 function setPlayIcon(on){ const b=$("playBtn"); b.classList.toggle("on",on); document.body.classList.toggle("playing",!!on); if(on&&window.fxClear) fxClear(); b.querySelector("use").setAttribute("href",on?"#i-pause":"#i-play"); }
 function syncLayoutSeg(){ document.querySelectorAll("#layoutSeg button").forEach(b=>b.classList.toggle("on",b.dataset.v===$("layoutSel").value)); }
 function showPlayer(){ const was=document.body.classList.contains("inplayer"); document.body.classList.add("inplayer"); $("library").style.display="none"; $("player").classList.add("show"); $("backBtn").style.display="inline-block"; if(!was&&window.fxEnterPlayer) fxEnterPlayer(); if(!was) setTimeout(landSuggest,2500); if(window.tipsRefresh) tipsRefresh(); }
-function showLibrary(){ stop(); $("kick").textContent="La Banda Familia · répétitions"; closeSheet(); document.body.classList.remove("inplayer"); $("side").classList.remove("open"); $("player").classList.remove("show"); $("library").style.display="block"; $("backBtn").style.display="none"; $("title").textContent="Nos morceaux"; if(window.fxEnterLibrary) fxEnterLibrary(); if(window.tipsRefresh) tipsRefresh(); }
+function showLibrary(){ stop(true); $("kick").textContent="La Banda Familia · répétitions"; closeSheet(); document.body.classList.remove("inplayer"); $("side").classList.remove("open"); $("player").classList.remove("show"); $("library").style.display="block"; $("backBtn").style.display="none"; $("title").textContent="Nos morceaux"; if(window.fxEnterLibrary) fxEnterLibrary(); if(window.tipsRefresh) tipsRefresh(); }
 function showLoading(t){ if($("player").classList.contains("show")){ const l=$("loading"); l.textContent=t; l.style.display="flex"; } else $("libInfo").textContent=t; }
 function hideLoading(){ $("loading").style.display="none"; }
 
@@ -1745,7 +1745,7 @@ function setTheme(t){
 document.querySelectorAll("#themes .th").forEach(b=>b.onclick=()=>setTheme(b.dataset.t));
 setTheme(store("banda.theme")||"neon");
 $("playBtn").onclick=()=>{ S.playing?pause():play(); };
-$("stopBtn").onclick=stop;
+$("stopBtn").onclick=()=>stop();
 function narrow(){ return vmm("(max-width: 820px), (max-height: 500px) and (pointer: coarse)"); }
 $("homeFab").onclick=()=>$("backBtn").click(); $("lpSide").onclick=()=>$("sideToggle").click();
 $("lpSet").onclick=()=>$("settingsBtn").click(); $("lpSess").onclick=()=>$("sessBtn").click();
@@ -1946,7 +1946,7 @@ document.addEventListener("keydown",e=>{
     case " ": e.preventDefault(); S.playing?pause():play(); break;
     case "ArrowRight": e.preventDefault(); seekSeq(Math.min(S.seq.length-1,cur()+1)); break;
     case "ArrowLeft": e.preventDefault(); seekSeq(Math.max(0,cur()-1)); break;
-    case "Home": e.preventDefault(); stop(); break;
+    case "Home": e.preventDefault(); stop(true); break;
     case "+": case "=": nudgeTempo(5); break;
     case "-": nudgeTempo(-5); break;
     case "b": case "B": $("loopBtn").click(); break;
