@@ -14,6 +14,8 @@ const AIDE = {
     texte: "Avec une enceinte ou un casque Bluetooth, le son arrive en retard sur la partition. Mesurez ce retard <b>une fois par appareil de sortie</b> : volume assez fort, téléphone près de l'enceinte, dans le calme. L'application émet quelques bips et s'ajuste toute seule.",
     plusTard: "Ce réglage reste accessible à tout moment dans <b>Paramètres</b> (roue dentée) › Son › <b>Mesurer</b>.",
     bouton: "Mesurer maintenant",
+    oreille: "À l'oreille (enceinte Bluetooth)",
+    oreilleTexte: "Sur iPhone avec une enceinte Bluetooth, le micro ne peut pas servir : les bips sortent du téléphone. Réglez alors le retard à l'oreille, avec un métronome.",
     fermer: "Plus tard"
   },
 
@@ -44,7 +46,7 @@ const AIDE = {
     { cibles: ["#tuneBtn", "#lpTune"], nom: "Accordeur",
       texte: "Jouez une note tenue : elle s'affiche dans la notation de votre instrument, avec le son réel à côté. Le néon s'allume quand c'est juste. Le La (440 Hz) se règle avec − / +." },
     { cibles: ["#settingsBtn", "#lpSet"], nom: "Paramètres",
-      texte: "Apparence (thèmes) et son : <b>Mesurer</b> la latence (retard d'une enceinte ou d'un casque Bluetooth), qualité des sons." },
+      texte: "Apparence (thèmes) et son : <b>Mesurer</b> la latence au micro, ou la régler <b>À l'oreille</b> (enceinte Bluetooth sur iPhone), qualité des sons." },
     { cibles: ["#fullBtn"], nom: "Plein écran",
       texte: "Cache la barre du navigateur pour agrandir la partition." },
     { cibles: ["#rotBtn", "#lpRot"], nom: "Verrou",
@@ -63,8 +65,8 @@ const AIDE = {
       texte: "Touchez la barre pour jeter un œil à un autre endroit du morceau, sans déplacer la lecture." },
     { cibles: ["#playBtn"], nom: "Lecture",
       texte: "Lance ou met en pause. Barre d'espace sur ordinateur." },
-    { cibles: ["#stopBtn"], nom: "Début",
-      texte: "Arrête et revient au début du morceau." },
+    { cibles: ["#stopBtn"], nom: "Stop",
+      texte: "1er appui : retour à l'endroit d'où la lecture est partie. 2e appui : retour au début du morceau." },
     { cibles: ["#posbox"], nom: "Position",
       texte: "Mesure et temps en cours. Le point « Sons » indique si les sons d'instruments sont prêts." },
     { cibles: [".tempo"], nom: "Vitesse",
@@ -72,7 +74,7 @@ const AIDE = {
     { cibles: ["#gotoForm"], nom: "Aller à",
       texte: "Tapez un numéro de mesure puis › pour y aller directement." },
     { cibles: [".loopctl"], nom: "Boucle",
-      texte: "Tapez la première et la dernière mesure (« de » / « à »), ou touchez la case puis la mesure sur la partition. La boucle repart sans décompte." },
+      texte: "Tapez la première et la dernière mesure (« de » / « à »), ou touchez la case puis la mesure sur la partition. La boucle est marquée de crochets turquoise. <b>Pendant la lecture</b>, une nouvelle boucle prend effet à la fin de la boucle en cours (en pointillés en attendant) ; hors boucle, on joue jusqu'à l'atteindre." },
     { cibles: ["#marks button"], nom: "Repères",
       texte: "Saute directement à une section (A, B, Coda…)." }
   ]

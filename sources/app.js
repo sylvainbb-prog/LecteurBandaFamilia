@@ -511,6 +511,22 @@ function displayXml(model, partIndex){
       const bl=me.querySelector(":scope > barline[location=right]"); if(bl) bl.before(n); else me.appendChild(n);
       S.repMeas[mi]=len;
     }); }
+  // sauts (To Coda, D.S., D.C., Fine) : retirés du dessin d'OSMD, redessinés par nous calés sur la barre de fin de leur mesure
+  S.jumps={}; const marked=new Set();
+  { const JTXT={tocoda:"To Coda",ds:"D.S.",dc:"D.C.",fine:"Fine"};
+    [...root.querySelectorAll("score-partwise > part > measure")].forEach((me,mi)=>{
+      me.querySelectorAll(":scope > direction").forEach(d=>{
+        if(d.querySelector("direction-type > segno,direction-type > coda,direction-type > rehearsal")||d.querySelector("sound[segno],sound[coda]")){ marked.add(mi); return; }
+        const w=[...d.querySelectorAll("words")].map(x=>x.textContent).join(" ").replace(/<[^>]+>/g,"").replace(/\s+/g," ").trim();
+        let kind=null;
+        if(d.querySelector("sound[tocoda]")||/^(to ?coda|vers la coda)\b/i.test(w)) kind="tocoda";
+        else if(d.querySelector("sound[dalsegno]")||/^(d\.?\s?s\.?|dal ?segno)/i.test(w)) kind="ds";
+        else if(d.querySelector("sound[dacapo]")||/^(d\.?\s?c\.?|da ?capo)/i.test(w)) kind="dc";
+        else if(d.querySelector("sound[fine]")||/^fine\b/i.test(w)) kind="fine";
+        if(!kind) return;
+        const L=(S.jumps[mi]=S.jumps[mi]||[]); if(!L.some(j=>j.kind===kind)) L.push({kind,text:w||JTXT[kind]});
+        marked.add(mi); d.remove(); });
+    }); }
   // mise en page « idem partition imprimée » : mêmes fins de ligne et mêmes silences multiples que la partie imprimée
   const idemSys=[];
   if(layoutMode()==="idem"){
@@ -525,6 +541,15 @@ function displayXml(model, partIndex){
       const ms=doc.createElement("measure-style"), mr=doc.createElement("multiple-rest"); mr.textContent=n; ms.appendChild(mr); at.appendChild(ms); });
   } else
   root.querySelectorAll("print").forEach(p=>{ p.removeAttribute("new-page"); p.removeAttribute("new-system"); });
+  { const allMs=[...root.querySelectorAll("score-partwise > part > measure")];
+    allMs.forEach((m,i)=>{ const mr=m.querySelector(":scope > attributes > measure-style > multiple-rest"); if(!mr) return;
+      const n=parseInt(mr.textContent)||1; let hit=false; for(let j=i;j<i+n;j++) if(marked.has(j)) hit=true; if(!hit) return;
+      const ms=mr.parentNode; mr.remove(); if(!ms.children.length) ms.remove();
+      // on recrée des groupes sans les mesures à repère
+      let a=i; const put=(st,len)=>{ if(len<2) return; const mm=allMs[st]; let at=mm.querySelector(":scope > attributes");
+        if(!at){ at=doc.createElement("attributes"); const p=mm.querySelector(":scope > print"); if(p) p.after(at); else mm.insertBefore(at,mm.firstChild); }
+        const s2=doc.createElement("measure-style"), r2=doc.createElement("multiple-rest"); r2.textContent=len; s2.appendChild(r2); at.appendChild(s2); };
+      for(let j=i;j<i+n;j++){ if(marked.has(j)){ put(a,j-a); a=j+1; } } put(a,i+n-a); }); }
   // textes au-dessus de la portée : tout en « words » pour qu'OSMD les empile sans chevauchement
   const NOTE_SYM={whole:"𝅝",half:"𝅗𝅥",quarter:"♩",eighth:"♪"};
   const SYM_TXT={coda:"⊕",segno:"§",codaSquare:"⊕"};
@@ -941,6 +966,7 @@ async function renderScore(){
   }catch(e){ console.warn("cursor",e); }
   decorateSvg(host);
   buildGeometry();
+  try{ drawStructure(host); drawLoopMarks(); }catch(e){ console.warn("structure",e); }
   // défilement : numéro de chaque mesure, et passage (1re / 2e fois) en bleu pour les reprises
   if(line && S.geo) S.geo.meas.forEach((m,k)=>{ const e=S.seq[k]; if(!m||!e||k===0) return;
     const d=document.createElement("div"); d.className="mnum"+(e.passes>1?" rep":"");
@@ -1023,16 +1049,43 @@ const LAND_GAP=2;
 function visibleMeasures(){ const G=S.geo; if(!G||!isLine()) return 0; const ms=G.meas.filter(Boolean); if(ms.length<3) return 0;
   const a=ms[1], b=ms[ms.length-1], per=(b.x-a.x)/(ms.length-2); return per>0?$("scoreWrap").clientWidth/per:0; }
 /* symboles de structure bien visibles : segno et coda dessinés, repères encadrés, D.S./Coda en gras */
+/* code couleur de l'architecture du morceau (départ et arrivée de chaque saut de la même couleur) */
+const JCOL={coda:"#8a3ffc",segno:"#f07800",dc:"#16a34a",rep:"#2563eb",loop:"#0bb3b8"};
+const JKCOL={tocoda:JCOL.coda,ds:JCOL.segno,dc:JCOL.dc,fine:JCOL.dc};
+/* sauts calés sur la barre de fin de leur mesure, reprises et cases 1re/2e fois en bleu */
+function drawStructure(host){
+  const G=S.geo; if(!G) return; const line=isLine(), ox=6+(line?S.pad:0), oy=line?24:0;
+  const add=(cls,css,html)=>{ const d=document.createElement("div"); d.className=cls; d.style.cssText=css; if(html) d.innerHTML=html; host.appendChild(d); return d; };
+  Object.entries(S.jumps||{}).forEach(([mi,L])=>{ const m=G.meas[+mi]; if(!m||(m.mr&&m.mr.n>1)) return;
+    const u=m.u, X=m.x2+ox, Y=m.y+oy, fs=Math.max(12,Math.min(22,u*1.55));
+    L.forEach((j,i)=>{ const c=JKCOL[j.kind]||"#000";
+      const t=j.text.replace(/\u200B/g,"")+(j.kind==="tocoda"?" ⊕":"");
+      const top0=Math.min(Y-u*1.2,(isFinite(m.top)?m.top+oy:Y)-u*0.5)-(line?fs*1.3:0);
+      const lab=add("jmp",`right:calc(100% - ${X+2}px);top:${top0-(i+1)*fs*1.25}px;color:${c};font-size:${fs}px`,"");
+      lab.textContent=t+" "; const ar=document.createElement("b"); ar.textContent="⟶"; lab.appendChild(ar); lab.style.right=""; lab.style.left=(X-2)+"px"; lab.style.transform="translateX(-100%)"; });
+    add("jbar",`left:${X-2.5}px;top:${Y-u*0.6}px;height:${u*5.2}px;background:${(JKCOL[L[0].kind]||"#000")}`);
+  });
+  if(line||!S.model) return;
+  // reprises et cases : on teinte en bleu ce qui est noir à cet endroit (barres, points, crochets)
+  let inEnd=false;
+  S.model.meas.forEach((M,mi)=>{ const endHere=!!M.ending||inEnd; if(M.ending) inEnd=true; if(M.endingStop||M.repEnd) inEnd=false;
+    const m=G.meas[mi]; if(!m||m.mr&&m.mr.j>0&&!M.repEnd) return; const u=m.u, Y=m.y+oy;
+    if(M.repEnd) add("jtint",`left:${m.x2+ox-u*1.6}px;top:${Y-u*0.2}px;width:${u*1.9}px;height:${u*4.4}px;background:${JCOL.rep}`);
+    if(M.repStart){ const x0=(G.sysFirst[m.sys]===mi?m.xs:m.x)+ox; add("jtint",`left:${x0-u*0.3}px;top:${Y-u*0.2}px;width:${u*1.9}px;height:${u*4.4}px;background:${JCOL.rep}`); }
+    if(endHere) add("jtint",`left:${m.x+ox}px;top:${Y-u*3.6}px;width:${m.x2-m.x}px;height:${u*2.8}px;background:${JCOL.rep}`);
+  });
+}
 function decorateSvg(host){
   const NS="http://www.w3.org/2000/svg";
   const el=(tag,at,par)=>{ const e=document.createElementNS(NS,tag); for(const k in at) e.setAttribute(k,at[k]); if(par) par.appendChild(e); return e; };
-  function coda(g,x,y,z){ const cx=x+z*0.5, cy=y-z*0.36, r=z*0.27, w=Math.max(1.6,z*0.075);
-    el("circle",{cx,cy,r,fill:"none",stroke:"#000","stroke-width":w},g);
-    el("line",{x1:cx,y1:cy-r*1.6,x2:cx,y2:cy+r*1.6,stroke:"#000","stroke-width":w},g);
-    el("line",{x1:cx-r*1.6,y1:cy,x2:cx+r*1.6,y2:cy,stroke:"#000","stroke-width":w},g); return z*1.05; }
-  function segno(g,x,y,z){ const t=el("text",{x:x+z*0.2,y:y,"font-family":"'Times New Roman',Times,serif","font-size":z*1.05,"font-style":"italic","font-weight":"bold",fill:"#000"},g); t.textContent="S";
-    el("line",{x1:x+z*0.12,y1:y+z*0.02,x2:x+z*0.9,y2:y-z*0.86,stroke:"#000","stroke-width":Math.max(1.6,z*0.07)},g);
-    el("circle",{cx:x+z*0.2,cy:y-z*0.52,r:z*0.075,fill:"#000"},g); el("circle",{cx:x+z*0.86,cy:y-z*0.3,r:z*0.075,fill:"#000"},g); return z*1.05; }
+  const CV=JCOL.coda, CS=JCOL.segno;
+  function coda(g,x,y,z){ const cx=x+z*0.5, cy=y-z*0.36, r=z*0.27, w=Math.max(1.8,z*0.085);
+    el("circle",{cx,cy,r,fill:"none",stroke:CV,"stroke-width":w},g);
+    el("line",{x1:cx,y1:cy-r*1.6,x2:cx,y2:cy+r*1.6,stroke:CV,"stroke-width":w},g);
+    el("line",{x1:cx-r*1.6,y1:cy,x2:cx+r*1.6,y2:cy,stroke:CV,"stroke-width":w},g); return z*1.05; }
+  function segno(g,x,y,z){ const t=el("text",{x:x+z*0.2,y:y,"font-family":"'Times New Roman',Times,serif","font-size":z*1.05,"font-style":"italic","font-weight":"bold",fill:CS},g); t.textContent="S";
+    el("line",{x1:x+z*0.12,y1:y+z*0.02,x2:x+z*0.9,y2:y-z*0.86,stroke:CS,"stroke-width":Math.max(1.6,z*0.07)},g);
+    el("circle",{cx:x+z*0.2,cy:y-z*0.52,r:z*0.075,fill:CS},g); el("circle",{cx:x+z*0.86,cy:y-z*0.3,r:z*0.075,fill:CS},g); return z*1.05; }
   host.querySelectorAll("svg text").forEach(t=>{
     const s=t.textContent; if(!/[§⊕【]/.test(s)) return;
     const x0=parseFloat(t.getAttribute("x"))||0, y=parseFloat(t.getAttribute("y"))||0;
@@ -1226,9 +1279,27 @@ function moveCursorTo(idx){
 /* mode page : l'écran suit la structure du morceau (reprises, voltas, D.S., coda, boucle).
    Sur la ligne d'où l'on part ailleurs, la ligne d'arrivée est montrée : encadrée si elle est visible,
    sinon en aperçu en haut (le reste flouté), et l'écran s'y place ensuite sans saut. */
-function nextK(k){ const lr=loopRange(); if(lr && k>=lr[1] && k>=lr[0]) return lr[0]; return k+1<S.seq.length?k+1:-1; }
+function nextK(k){ return lpNext(k,loopState()); }
 const TOP_PAD=40;   // place réservée en haut pour l'étiquette de la partie : rien ne passe dessous
-function updatePage(k,force){
+function updatePage(k,force){ updatePage0(k,force); pageMask(); }
+/* mode page : une portée qui ne tient pas entièrement à l'écran n'est pas montrée (on ne lit pas une ligne coupée) */
+function pageMask(){
+  let pm=$("pageMask"); if(!pm){ pm=document.createElement("div"); pm.id="pageMask"; pm.innerHTML="<span>▼ suite page suivante</span>"; $("scoreBox").appendChild(pm); }
+  const G=S.geo, wrap=$("scoreWrap");
+  if(!G||isLine()||!G.sys.length||S.maskOff){ pm.style.display="none"; return; }
+  const sc=wrap.scrollTop, H=wrap.clientHeight;
+  let cut=-1; G.sys.forEach((sy,i)=>{ if(sy.top<sc+H-6 && sy.bottom>sc+H+2) cut=i; });
+  if(cut<0){ pm.style.display="none"; return; }
+  let last=-1; G.sys.forEach((sy,i)=>{ if(sy.bottom<=sc+H+2&&sy.bottom>sc) last=i; });
+  const y=Math.max(0,(last>=0?G.sys[last].bottom-sc:G.sys[cut].top-sc)+2);
+  if(y>=H-2){ pm.style.display="none"; return; }
+  pm.style.top=(wrap.offsetTop+y)+"px"; pm.style.height=(H-y)+"px"; pm.style.left=wrap.offsetLeft+"px"; pm.style.width=wrap.clientWidth+"px";
+  pm.classList.toggle("short",H-y<26); pm.style.display="block";
+}
+{ let t=0; $("scoreWrap").addEventListener("scroll",()=>{ if(isLine()) return;
+    if(performance.now()-(S.progScroll||0)<120){ pageMask(); return; }   // défilement par l'application : on recalcule tout de suite
+    const pm=$("pageMask"); if(pm) pm.style.display="none"; clearTimeout(t); t=setTimeout(pageMask,220); },{passive:true}); }
+function updatePage0(k,force){
   const G=S.geo, e=S.seq[k]; if(!G||!e||!G.meas[e.mi]) return;
   const s=G.meas[e.mi].sys, wrap=$("scoreWrap"), turn=$("turn"), jm=$("jumpMark"), H=wrap.clientHeight;
   const vis=(i,sc)=>G.sys[i].top>=sc+TOP_PAD-2 && G.sys[i].bottom<=sc+H+2;
@@ -1236,7 +1307,7 @@ function updatePage(k,force){
   if(!vis(s,sc)){
     if(S.pend && S.pend.T===s) sc=S.pend.sc;          // on arrive là où l'aperçu montrait la ligne : pas de saut
     else sc=s===0?0:G.sys[s].top-TOP_PAD;
-    sc=Math.max(0,sc); wrap.scrollTop=sc; sc=wrap.scrollTop;
+    sc=Math.max(0,sc); S.progScroll=performance.now(); wrap.scrollTop=sc; sc=wrap.scrollTop;
   }
   S.pend=null;
   // prochaine ligne jouée
@@ -1277,6 +1348,31 @@ function updateLineView(mi,off){
    ===================================================================== */
 let curSeq=0, curOff=0;
 function seqAtTime(sec){ let lo=0,hi=S.seq.length-1; while(lo<hi){ const m=(lo+hi+1)>>1; if(S.seq[m].t<=sec) lo=m; else hi=m-1; } return lo; }
+/* Boucles en cours de lecture :
+   - dans une boucle, une nouvelle boucle attend la fin de la boucle en cours, puis on enchaîne (mesure suivante si elle en fait
+     partie, sinon début de la nouvelle boucle) ;
+   - hors de la boucle (avant, ou après), on joue normalement ; la boucle s'active quand la lecture y entre (y compris par une reprise / D.S.). */
+function loopState(){ return {loop:S.loop?{a:S.loop.a,b:S.loop.b}:null,next:S.loopNext||null,armed:!!S.loopArmed}; }
+function lpNext(k,L){
+  const len=S.seq.length; let n=k+1;
+  if(L.loop&&L.armed&&k>=L.loop.b){
+    if(L.next){ const nx=L.next; L.next=null;
+      if(nx==="off"){ L.loop=null; L.armed=false; return n<len?n:-1; }
+      L.loop={a:nx.a,b:nx.b}; L.armed=true; return (n>=nx.a&&n<=nx.b)?n:nx.a; }
+    return L.loop.a;
+  }
+  if(n>=len) return -1;
+  if(L.loop&&!L.armed){
+    if(n>=L.loop.a&&n<=L.loop.b) L.armed=true;
+    else if(S.seq[n].mi===S.seq[L.loop.a].mi){   // la boucle repasse (reprise, D.S.) : on la reprend à ce passage
+      const bmi=S.seq[L.loop.b].mi, span=L.loop.b-L.loop.a; let b2=-1;
+      for(let j=n;j<len&&j<=n+span+40;j++){ if(S.seq[j].mi===bmi){ b2=j; break; } }
+      if(b2>=n){ L.loop={a:n,b:b2}; L.armed=true; } }
+  }
+  return n;
+}
+function lpCommit(L){ const ch=JSON.stringify(S.loop)!==JSON.stringify(L.loop)||S.loopNext!==L.next;
+  S.loop=L.loop; S.loopNext=L.next; S.loopArmed=L.armed; if(ch) setTimeout(loopUI,0); }
 function loopRange(){
   if(!S.loop||!S.seq||!S.seq.length) return null;
   const a=Math.max(0,Math.min(S.seq.length-1,S.loop.a)), b=Math.max(a,Math.min(S.seq.length-1,S.loop.b));
@@ -1287,7 +1383,8 @@ async function play(noCount){
   endPeek();
   const ac=audio(); if(ac.state!=="running") await ac.resume();
   const lr=loopRange();
-  if(lr && (curSeq<lr[0]||curSeq>lr[1])){ curSeq=lr[0]; curOff=0; }
+  S.loopArmed=!!lr&&curSeq>=lr[0]&&curSeq<=lr[1];
+  if(!S.resume||!S.playFrom) S.playFrom={k:curSeq,off:curOff}; S.resume=false;
   // en séance, le chef laisse un peu d'avance pour que les musiciens reçoivent l'ordre à temps
   outputPlay();
   // en séance, on laisse aux musiciens le temps de recevoir l'ordre (un peu plus quand il passe par un relais)
@@ -1317,20 +1414,21 @@ function playAt(k,off,startCtx){
 }
 /* position atteinte dt secondes après (k,off), en suivant boucle et tempo ; null si fin du morceau */
 function advancePos(k,off,dt){
-  const lr=loopRange(); let guard=0;
+  const L=loopState(); let guard=0;
+  if(L.loop&&k>=L.loop.a&&k<=L.loop.b) L.armed=true;
   if(dt<0) return {k,off,early:-dt};
   while(guard++<100000){
     const e=S.seq[k]; if(!e) return null;
     const qs=60/e.M.tempo/S.speed, rem=(e.M.len-off)*qs;
     if(dt<rem) return {k,off:off+dt/qs};
-    dt-=rem; k++; off=0;
-    if(k>=S.seq.length || (lr && k>lr[1])){ if(lr) k=lr[0]; else return null; }
+    dt-=rem; k=lpNext(k,L); off=0;
+    if(k<0) return null;
   }
   return null;
 }
 function seqSec(k,off){ const e=S.seq[k]; return e?(e.t+off*60/e.M.tempo)/S.speed:0; }
 function pause(){
-  if(!S.playing) return;
+  if(!S.playing) return; S.resume=true;
   const p=currentPos(); if(p){ curSeq=p.k; curOff=p.off; }
   stopAudio();
   if(S.model&&p){ updateUI(curSeq,curOff); updateCursor(true); }   // affichage exactement à l'endroit de l'arrêt
@@ -1349,7 +1447,13 @@ function stopAudio(){
   S.playing=false; stopTicker(); cancelAnimationFrame(S.rafId); setPlayIcon(false);
   if(AC) newSession();
 }
-function stop(){ endPeek(); if(S.playing) stopAudio(); curSeq=0; curOff=0; if(S.model){ updateUI(0,0); updateCursor(true);} if(SY.role==="m") syncPush(); }
+function stop(toStart){ endPeek(); const was=S.playing; if(S.playing) stopAudio();
+  const pf=S.playFrom; let k=0, off=0;
+  if(!toStart&&pf&&(was||!(curSeq===pf.k&&Math.abs(curOff-pf.off)<1e-3))&&!(pf.k===0&&pf.off===0)){ k=pf.k; off=pf.off; }
+  else S.playFrom=null;
+  S.resume=false; curSeq=k; curOff=off;
+  const lr=loopRange(); S.loopArmed=false; if(S.loopNext&&S.loopNext!=="off"){ S.loop=S.loopNext; } S.loopNext=null; loopUI();
+  if(S.model){ updateUI(k,off); updateCursor(true);} if(SY.role==="m") syncPush(); }
 /* minuterie dans un « worker » : elle n'est pas freinée quand la page ou l'onglet est occupé */
 let TICKER=null;
 function startTicker(){ stopTicker();
@@ -1364,11 +1468,9 @@ function schedule(){
   const ac=AC, now=ac.currentTime, horizon=now+(S.boostUntil>now?4:0.6);   // 0,6 s d'avance (4 s pendant un redessin : rotation)
   const LD=leadSec();   // retard de la sortie (Bluetooth, AirPlay…) : le son est envoyé d'autant plus tôt
   const late=now-0.03;   // notes déjà passées (page bloquée) : on les saute plutôt que de les jouer en retard
-  const lr=loopRange();
   while(S.nextCtx-LD<horizon){
-    if(S.nextSeq>=S.seq.length || (lr && S.nextSeq>lr[1])){
-      if(lr){ S.nextSeq=lr[0]; S.firstOff=0; }   /* boucle : pas de décompte, la musique s'enchaîne */
-      else { if(S.instances.length && ac.currentTime>S.nextCtx+0.3){ if(SY.role==="f"){ stopAudio(); } else stop(); if(window.fxSongEnd) fxSongEnd(); } return; }
+    if(S.nextSeq<0||S.nextSeq>=S.seq.length){
+      if(S.instances.length && ac.currentTime>S.nextCtx+0.3){ if(SY.role==="f"){ stopAudio(); } else { stopAudio(); stop(true); } if(window.fxSongEnd) fxSongEnd(); } return;
     }
     const e=S.seq[S.nextSeq], M=e.M, qs=60/M.tempo/S.speed;   // seconds per quarter
     const from=S.firstOff||0; S.firstOff=0;
@@ -1389,7 +1491,8 @@ function schedule(){
       synthNote(ps.gain,ev.midi,when,dur,ev.vel,S.model.parts[ev.p].program);
     }
     if(S.clickOn){ const beat=qs*(4/M.beatType); for(let b=0;b*beat<M.len*qs-1e-6;b++){ const w=t0+b*beat-LD; if(w>=S.nextCtx-LD-1e-6&&w>=late) click(w,b===0); } }
-    S.nextCtx=t0+M.len*qs; S.nextSeq++;
+    S.nextCtx=t0+M.len*qs;
+    { const L=loopState(); S.nextSeq=lpNext(S.nextSeq,L); lpCommit(L); }   /* boucle : pas de décompte, la musique s'enchaîne */
   }
 }
 /* horloge lissée : l'horloge audio avance par paquets, on la recale en douceur sur performance.now() */
@@ -1454,7 +1557,7 @@ function updateUI(k,off){
   if(window.drawBeat) drawBeat(k,off);
 }
 function seekSeq(k, off=0){
-  const was=S.playing; if(was) stopAudio();
+  const was=S.playing; if(was) stopAudio(); S.resume=false;
   curSeq=Math.max(0,Math.min(S.seq.length-1,k)); curOff=off;
   updateUI(curSeq,curOff); updateCursor(true);
   if(was) play(true); else if(SY.role==="m") syncPush();
@@ -1481,7 +1584,6 @@ function gotoMeasure(txt){
 $("gotoForm").addEventListener("submit",e=>{ e.preventDefault(); const i=$("gotoIn"); gotoMeasure(i.value); i.value=""; i.blur(); });
 function passLabel(e){ return e.pass===1?"1re fois":e.pass===e.passes?"dernière fois":e.pass+"e fois"; }
 function jumpTo(k){
-  const lr=loopRange(); if(lr && (k<lr[0]||k>lr[1])) setLoop(null);
   seekSeq(k,0); closePass();
   const e=S.seq[k]; toast("Mesure "+e.M.number+(e.passes>1?" · "+passLabel(e):"")+(S.playing?"":" – appuie sur ▶"),1500);
 }
@@ -1552,12 +1654,35 @@ function kLabel(k){ const e=S.seq[k]; return e?e.M.number+(e.passes>1?" ("+passL
 /* boucle définie par deux positions de la séquence jouée : le passage (1re / dernière fois) est donc précis */
 function setLoop(a,b){ if(a==null||b==null){ setLoopK(null); return; } setLoopK(a,b); }
 function setLoopK(a,b){
-  if(a==null||b==null){ S.loop=null; $("loopBtn").classList.remove("on"); updateLoopZone(); if(SY.role==="m") syncLoopChanged(); return; }
+  S.loopVer=(S.loopVer||0)+1;
+  if(a==null||b==null){ S.loop=null; S.loopNext=null; S.loopArmed=false; $("loopBtn").classList.remove("on"); loopUI(); if(SY.role==="m") syncLoopChanged(); return; }
   if(b<a) [a,b]=[b,a];
-  S.loop={a,b}; S.loopDraft=null; $("loopA").value=fmtK(a); $("loopB").value=fmtK(b);
-  $("loopBtn").classList.add("on"); updateLoopZone(); endPick();
-  const lr=loopRange(); if(lr && !S.playing && SY.role!=="f"){ curSeq=lr[0]; curOff=0; updateUI(curSeq,0); updateCursor(true); }
-  if(SY.role==="m") syncLoopChanged();
+  S.loopDraft=null; $("loopA").value=fmtK(a); $("loopB").value=fmtK(b); $("loopBtn").classList.add("on"); endPick();
+  if(S.playing&&S.loop&&S.loopArmed){ S.loopNext={a,b}; toast("Boucle "+kLabel(a)+" → "+kLabel(b)+" : après la fin de la boucle en cours",2600); }
+  else { S.loop={a,b}; S.loopNext=null;
+    if(S.playing){ const p=currentPos(); const k=p?p.k:curSeq; S.loopArmed=k>=a&&k<=b; }
+    else { S.loopArmed=false; if(SY.role!=="f"){ curSeq=a; curOff=0; S.resume=false; updateUI(curSeq,0); updateCursor(true); } } }
+  loopUI();
+  if(SY.role==="m") syncPush();
+}
+/* boucle active : crochets turquoise et zone sur la barre ; boucle en attente : pointillés + bandeau */
+function loopUI(){ updateLoopZone(); drawLoopMarks();
+  let t=$("loopNextTag"); if(!t){ t=document.createElement("div"); t.id="loopNextTag"; $("scoreBox").appendChild(t); }
+  const nx=S.loopNext&&S.loopNext!=="off"?S.loopNext:null;
+  if(nx&&S.loop){ t.textContent="Ensuite : boucle "+kLabel(nx.a)+" → "+kLabel(nx.b)+" (après la "+kLabel(S.loop.b)+")"; t.style.display="block"; } else t.style.display="none";
+  const z2=$("loopz2"); if(z2){ if(nx&&S.total){ const a=S.seq[nx.a], b=S.seq[nx.b]; z2.style.display="block"; z2.style.left=(a.t/S.total*100)+"%"; z2.style.width=((b.t+b.dur-a.t)/S.total*100)+"%"; } else z2.style.display="none"; }
+  if(S.loop){ $("loopA").value=fmtK(S.loop.a); $("loopB").value=fmtK(S.loop.b); $("loopBtn").classList.add("on"); }
+}
+function drawLoopMarks(){
+  const host=$("score"); if(!host) return; host.querySelectorAll(".lbrk").forEach(x=>x.remove());
+  const G=S.geo; if(!G||!S.seq) return; const line=isLine(), ox=6+(line?S.pad:0), oy=line?24:0;
+  const put=(L,dash)=>{ if(!L) return; const ka=L.a, kb=L.b;
+    const ma=G.meas[line?ka:S.seq[ka].mi], mb=G.meas[line?kb:S.seq[kb].mi]; if(!ma||!mb) return;
+    const mk=(m,side)=>{ const u=m.u, d=document.createElement("div"); d.className="lbrk "+side+(dash?" dash":"");
+      const x=side==="a"?((line||G.sysFirst[m.sys]!==(line?ka:S.seq[ka].mi))?m.x:m.xs)+ox-u*0.9:m.x2+ox+u*0.25;
+      d.style.cssText=`left:${x}px;top:${m.y+oy-u*1.4}px;height:${u*6.8}px;width:${u*0.75}px`; host.appendChild(d); };
+    mk(ma,"a"); mk(mb,"b"); };
+  put(S.loop,false); if(S.loopNext&&S.loopNext!=="off") put(S.loopNext,true);
 }
 /* « 48 », « 48² », « 48.2 » ou « 48/2 » (2e passage) -> positions possibles dans la séquence */
 function parseMeasureInput(v){
@@ -1580,7 +1705,7 @@ function startPick(which){
 }
 function endPick(){ S.pick=null; document.body.classList.remove("picking"); $("loopA").classList.remove("picking"); $("loopB").classList.remove("picking"); const h=$("pickHint"); if(h) h.remove(); }
 function pickK(k){
-  if(S.pick==="a"){ S.loopDraft={a:k}; $("loopA").value=fmtK(k); if(S.loop) setLoopK(null); startPick("b"); }
+  if(S.pick==="a"){ S.loopDraft={a:k}; $("loopA").value=fmtK(k); startPick("b"); }
   else if(S.pick==="b"){ const a=S.loopDraft&&S.loopDraft.a!=null?S.loopDraft.a:(S.loop?S.loop.a:resolveLoopInput("loopA")); 
     if(a==null){ $("loopB").value=fmtK(k); S.loopDraft={b:k}; startPick("a"); return; }
     setLoopK(a,k); toast("Boucle "+kLabel(Math.min(a,k))+" → "+kLabel(Math.max(a,k)),2200); }
@@ -2174,6 +2299,7 @@ function claimChef(attempt,fresh){
       if(fresh&&!SY.opened){ SY.code=newCode(); claimChef(0,true); return; }              // code déjà pris par une autre séance : on en tire un autre
       if(SY.opened){ const code=SY.code; toast("Un autre téléphone dirige maintenant la séance : vous redevenez musicien",4500); SY.role=null; startFollower(code); return; }
       // reprise : l'ancien chef occupe encore la séance (téléphone parti sans la fermer). Le serveur la libère en une minute environ.
+      if(SY.takeFast&&attempt>=2){ SY.takeFast=false; toast("Un autre musicien a déjà pris la direction : vous le suivez",4000); const code=SY.code; SY.role=null; startFollower(code); return; }
       if(attempt<45){ $("sessFState")&&($("sessFState").textContent="Prise de la direction… en attente de la libération par l'ancien chef ("+(attempt+1)+")"); sessUI(); SY.retry=setTimeout(()=>{ if(SY.role==="m") claimChef(attempt+1,false); },2000); return; }
       toast("Impossible de prendre la direction : l'ancien chef est toujours là",4500); const code=SY.code; SY.role=null; startFollower(code); return;
     }
@@ -2204,7 +2330,17 @@ function chefPresent(){ return SY.role==="f"&&SY.conn&&SY.conn.open&&SY.depth>0&
 /* Direction de la séance :
    - chef présent : le musicien DEMANDE, le chef accepte ou refuse (sans réponse en DEMANDE_DIRECTION_S secondes = refus) ;
    - chef muet depuis plus de CHEF_ABSENT_S secondes (batterie, réseau) : n'importe quel musicien peut reprendre la direction. */
-const CHEF_ABSENT_S=20, DEMANDE_DIRECTION_S=30;
+const CHEF_ABSENT_S=10, CHEF_BANDEAU_S=5, DEMANDE_DIRECTION_S=30;
+/* musicien : surveillance du chef — bandeau à 5 s, fenêtre « Prendre la direction ? » à 10 s */
+setInterval(()=>{
+  const box=$("chefGone"); if(!box) return;
+  if(SY.role!=="f"||!SY.everJoined){ if(!box.hidden) box.hidden=true; return; }
+  const sil=chefSilence();
+  if(sil<CHEF_BANDEAU_S){ if(!box.hidden) box.hidden=true; SY.goneWait=false; if(SY.goneBanner){ SY.goneBanner=false; banner(""); } return; }
+  if(!SY.goneBanner){ SY.goneBanner=true; banner("⚠ Liaison avec le chef perdue – reconnexion…"); }
+  if(sil>=CHEF_ABSENT_S&&!SY.goneWait&&box.hidden){ box.hidden=false; try{ navigator.vibrate&&navigator.vibrate([80,60,80]); }catch(e){} }
+  if(!box.hidden) $("chefGoneT").textContent="Le chef ne répond plus depuis "+Math.round(sil)+" s.";
+},1000);
 function chefSilence(){ return (performance.now()-Math.max(SY.lastStateAt||0,SY.followSince||0))/1000; }
 function requestChef(){
   if(SY.role!=="f") return;
@@ -2217,7 +2353,7 @@ function requestChef(){
   }
   const sil=chefSilence();
   if(sil<CHEF_ABSENT_S){ toast("Le chef ne répond plus depuis "+Math.round(sil)+" s. S'il ne revient pas, vous pourrez reprendre la direction dans "+Math.ceil(CHEF_ABSENT_S-sil)+" s.",4500); return; }
-  becomeChef();
+  becomeChef(true);
 }
 /* chef : une demande de direction arrive */
 function askHandoff(d){
@@ -2237,7 +2373,8 @@ function answerHandoff(ok,timeout){
 }
 /* chef : confier de lui-même la direction à un musicien de la liste */
 function giveChef(w){ if(SY.role!=="m"||!w||!w.dev) return; if(!confirm("Confier la direction de la séance à « "+w.part+" » ?\nVous deviendrez musicien ; la lecture continue.")) return; $("sessDlg").close(); stepDown(w.dev); }
-function becomeChef(){
+function becomeChef(fast){
+  SY.takeFast=!!fast; const box=$("chefGone"); if(box) box.hidden=true;
   const code=SY.code; clearTimeout(SY.takeT); SY.takePending=false;
   // on quitte la place de musicien sans arrêter le son ni la partition
   clearInterval(SY.pingT); clearTimeout(SY.retry); clearTimeout(SY.openT); clearTimeout(SY.mqT); clearTimeout(SY.slowT);
@@ -2268,7 +2405,7 @@ function gotSong(d,buf){
     .finally(()=>{ SY.wantSong=null; });
 }
 function stateMsg(extra){
-  const st={t:"state",ep:SY.epoch||1,v:++SY.ver,sid:S.src&&S.src.sid,speed:S.speed,loop:S.loop,countIn:$("countIn").checked,click:$("clickOn").checked,
+  const st={t:"state",ep:SY.epoch||1,v:++SY.ver,sid:S.src&&S.src.sid,speed:S.speed,loop:S.loop,loopNext:S.loopNext||null,loopArmed:!!S.loopArmed,loopVer:S.loopVer||0,countIn:$("countIn").checked,click:$("clickOn").checked,
     mix:S.parts.map(p=>[p.mute?1:0,p.solo?1:0,Math.round(p.vol*100)]),playing:S.playing,k:curSeq,off:curOff,at:masterNowMs()};
   if(S.playing){
     if(extra.start && S.anchor){ st.k=S.anchor.k; st.off=S.anchor.off; st.at=ctxToMs(S.anchor.ctx); st.start=true; st.ci=extra.ci||null; }
@@ -2380,7 +2517,7 @@ function parentLost(){
   SY.depth=0; $("sessFState").textContent="Liaison perdue… reconnexion"; banner("⚠ Liaison perdue – reconnexion…"); sessUI();
   clearTimeout(SY.retry); SY.retry=setTimeout(()=>connectTo(chefId()),400+Math.random()*900);   // petit délai aléatoire : tout le monde n'arrive pas en même temps
 }
-function scheduleRetry(){ clearTimeout(SY.retry); SY.retry=setTimeout(()=>{ if(SY.role==="f"&&!(SY.conn&&SY.conn.open)&&!SY.mqTrying) connectTo(chefId()); },2500); }
+function scheduleRetry(){ clearTimeout(SY.retry); SY.retry=setTimeout(()=>{ if(SY.role==="f"&&!(SY.conn&&SY.conn.open)) connectTo(chefId()); },2500); }
 function followerConnected(){
   banner(""); SY.last=null;
   send({t:"hello",part:partName(),sid:S.src&&S.src.sid,lead:Math.round(leadSec()*1000),dev:SY.id,avoid:SY.avoid});
@@ -2394,6 +2531,7 @@ function onFollowerMsg(d){
   if(d.t==="redirect"){ connectTo(d.to,d.avoid); return; }
   if(d.t==="full"){ SY.full=true; $("sessFState").textContent="Séance complète ("+d.max+" musiciens au maximum)."; banner("Séance complète"); toast("Séance complète : "+d.max+" musiciens au maximum",5000); return; }
   if(d.t==="handoff"){ broadcast(d); if(d.dev===SY.id) becomeChef(); return; }
+  if(d.t==="bye"){ broadcast(d); leaveSession(true); toast("Le chef a fermé la séance",5000); sessUI(); return; }
   if(d.t==="takeNo"){ broadcast(d); if(d.dev===SY.id&&SY.takePending){ SY.takePending=false; clearTimeout(SY.takeT); sessUI(); toast(d.timeout?"Le chef n'a pas répondu : demande annulée":"Le chef a refusé de vous confier la direction",3500); } return; }                  // c'est nous le nouveau chef ?
   if(d.t==="welcome"){ diag("acc","ok",(d.depth||1)>1?"via le téléphone d'un musicien (relais)":"directement chez le chef"); if(!(S.src&&DIAG.st.song&&DIAG.st.song.state==="ok")) diag("song",S.src?"ok":"wait",S.src?"déjà ouvert":"en attente du chef…"); SY.depth=d.depth||1; SY.everJoined=true; SY.joinFails=0; saveLastSession("f"); $("sessFState").textContent="Connecté à la séance "+SY.code; if(window.fxBurst) fxBurst({n:90}); sessUI(); return; }
   if(d.t==="pong"){
@@ -2415,7 +2553,7 @@ function onFollowerMsg(d){
   }
   if(d.t==="state"){
     if((d.ep||0)<(SY.epoch||0)) return;                  // ancien chef qui n'a pas compris qu'il a passé la main : ignoré
-    SY.epoch=d.ep||SY.epoch; SY.lastStateAt=performance.now();
+    SY.epoch=d.ep||SY.epoch; SY.lastStateAt=performance.now(); { const box=$("chefGone"); if(box&&!box.hidden) box.hidden=true; }
     broadcast(d); SY.lastRaw=d;                           // hôte : relais immédiat, avant de l'appliquer ici
     if(SY.wantChef){ SY.wantChef=false; setTimeout(requestChef,300); }
     if(SY.last&&d.v<SY.last.v&&!d.beacon) return;
@@ -2430,20 +2568,28 @@ function followerSongReady(){
   else send({t:"need"});
 }
 function applyState(st){
+  const cue=SY.cueReady&&SY.role==="f"?{k:curSeq,off:curOff,speed:S.speed,lv:S.loopVerSeen||0,click:$("clickOn").checked,ci:$("countIn").checked,mix:JSON.stringify(SY.chefMix||null),playing:S.playing}:null;
+  SY.cueReady=true;
   SY.last=st;
   // réglages communs
   if(Math.abs(S.speed-st.speed)>1e-6){ if(S.playing) stopAudio(); S.speed=st.speed; $("speed").value=Math.round(st.speed*100); $("speedLbl").textContent=Math.round(st.speed*100)+" %"; $("tempoLbl").textContent=Math.round(st.speed*100)+" %"; }
   $("countIn").checked=!!st.countIn; $("clickOn").checked=!!st.click;
-  const lk=JSON.stringify(S.loop||null), nk=JSON.stringify(st.loop||null);
-  if(lk!==nk){ if(st.loop) setLoopK(st.loop.a,st.loop.b); else setLoopK(null); }
+  // boucle : on reprend celle du chef quand il la change (ses transitions automatiques, chacun les fait de son côté)
+  if((st.loopVer||0)!==(S.loopVerSeen||0)||(!S.playing&&JSON.stringify(S.loop||null)!==JSON.stringify(st.loop||null))){
+    S.loopVerSeen=st.loopVer||0; S.loop=st.loop||null; S.loopNext=st.loopNext||null; S.loopArmed=!!st.loopArmed;
+    if(S.loop){ $("loopA").value=fmtK(S.loop.a); $("loopB").value=fmtK(S.loop.b); $("loopBtn").classList.add("on"); } else { $("loopA").value=""; $("loopB").value=""; $("loopBtn").classList.remove("on"); }
+    loopUI(); }
   SY.chefMix=st.mix;
   if(!ownMix()&&st.mix&&st.mix.length===S.parts.length){ let ch=false; st.mix.forEach((m,i)=>{ const p=S.parts[i]; const mu=!!m[0],so=!!m[1],vo=m[2]/100; if(p.mute!==mu||p.solo!==so||Math.abs(p.vol-vo)>0.005){ p.mute=mu;p.solo=so;p.vol=vo;ch=true; } }); if(ch){ drawMixer(); applyGains(); } }
+  if(cue) cueSettings(cue,st);
   // position
   if(!st.playing){
     if(S.playing) stopAudio();
     curSeq=Math.max(0,Math.min(S.seq.length-1,st.k)); curOff=st.off; updateUI(curSeq,curOff); updateCursor(true);
+    if(cue&&!cue.playing&&(cue.k!==curSeq||Math.abs(cue.off-curOff)>0.01)) cuePing(curSeq);
     banner(""); return;
   }
+  if(cue&&cue.playing&&st.start&&Math.abs(seqSec(st.k,st.off)-seqSec(cue.k,cue.off))>4) cueTell("mesure "+kLabel(st.k),[]);
   const ac=audio(), anchorCtx=masterMsToCtx(st.at);
   if(S.playing && !st.start){
     const p=currentPos();
@@ -2464,6 +2610,35 @@ function applyState(st){
   playAt(k,off,at);
 }
 function setLocalSound(on){ audio(); applyMaster(); }
+/* ===== Musiciens : petites animations quand le chef change quelque chose (pour repérer d'un coup d'œil) ===== */
+function cueSettings(c,st){
+  const msg=[], fl=[];
+  if(Math.abs(c.speed-S.speed)>1e-6){ msg.push("tempo "+Math.round(S.speed*100)+" %"); fl.push(".tempo"); }
+  if((st.loopVer||0)!==c.lv){ msg.push(S.loop?("boucle "+kLabel(S.loop.a)+" → "+kLabel(S.loop.b)+(S.loopNext?" (ensuite "+kLabel(S.loopNext.a)+" → "+kLabel(S.loopNext.b)+")":"")):"boucle retirée"); fl.push(".loopctl"); }
+  if(c.click!==$("clickOn").checked){ msg.push("métronome "+($("clickOn").checked?"activé":"coupé")); fl.push("#sideToggle","#lpSide"); }
+  if(c.ci!==$("countIn").checked){ msg.push("décompte "+($("countIn").checked?"activé":"coupé")); fl.push("#sideToggle","#lpSide"); }
+  if(c.mix!=="null"&&c.mix!==JSON.stringify(st.mix||null)&&!ownMix()){ msg.push("volumes des pupitres"); fl.push("#sideToggle","#lpSide"); }
+  if(msg.length) cueTell(msg.join(" · "),fl);
+}
+function cueTell(txt,flash){
+  let t=$("cueTag"); if(!t){ t=document.createElement("div"); t.id="cueTag"; $("scoreBox").appendChild(t); }
+  t.textContent="🎼 Le chef : "+txt; t.classList.remove("on"); void t.offsetWidth; t.classList.add("on");
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("on"),2800);
+  (flash||[]).forEach(sel=>document.querySelectorAll(sel).forEach(el=>{ el.classList.remove("cueflash"); void el.offsetWidth; el.classList.add("cueflash"); setTimeout(()=>el.classList.remove("cueflash"),1700); }));
+}
+function cuePing(k){
+  const G=S.geo, host=$("score"), e=S.seq[k]; if(!G||!host||!e) return;
+  host.querySelectorAll(".cue").forEach(x=>x.remove());
+  const line=isLine(), m=G.meas[line?k:e.mi]; if(!m) return;
+  const sy=G.sys[m.sys], ox=6+(line?S.pad:0), oy=line?24:0;
+  const x0=(line?m.x:(G.sysFirst[m.sys]===e.mi?m.xs:m.x))+ox-4, w=Math.max(30,m.x2-m.x+8), y0=sy.top+oy+2, h=sy.bottom-sy.top-4;
+  const calm=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const fr=document.createElement("div"); fr.className="cue cueframe"+(calm?" calm":""); fr.style.cssText=`left:${x0}px;top:${y0}px;width:${w}px;height:${h}px`;
+  fr.innerHTML="<span>Mes. "+e.M.number+(e.passes>1?" · "+passLabel(e):"")+"</span>"; host.appendChild(fr);
+  if(!calm){ const cx=line?(xAt(k,0)+S.pad):(xAt(e.mi,0)), cy=y0+h/2;
+    for(let i=0;i<2;i++){ const r=document.createElement("div"); r.className="cue cuering"; r.style.cssText=`left:${cx}px;top:${cy}px;animation-delay:${i*0.45}s`; host.appendChild(r); } }
+  setTimeout(()=>host.querySelectorAll(".cue").forEach(x=>x.remove()),calm?2200:1900);
+}
 function banner(t){ const b=$("followBanner"); if(!b) return; b.textContent=t; b.style.display=t?"block":"none"; }
 function leaveSession(silent){
   clearInterval(SY.beacon); clearInterval(SY.pingT); clearTimeout(SY.retry); clearTimeout(SY.openT); clearTimeout(SY.mqT); clearTimeout(SY.slowT);
@@ -2491,6 +2666,7 @@ function sessUI(){
   $("sessTake").style.display=r==="f"&&(SY.everJoined||SY.conn)?"inline-block":"none";
   if(r==="f"){ const pres=chefPresent(); $("sessTake").textContent=SY.takePending?"Demande envoyée…":pres?"Demander la direction":"Prendre la direction (chef absent)"; $("sessTake").disabled=!!SY.takePending;
     $("sessTakeTxt").textContent=pres?"Vous voulez diriger ? Le chef doit accepter.":"Le chef ne répond plus ? Après "+CHEF_ABSENT_S+" s sans nouvelles, vous pouvez reprendre la direction."; }
+  { const ls=r?null:lastSession(); const h=$("sessResumeHint"); if(h) h.style.display=ls&&ls.role==="m"?"block":"none"; }
   $("sessMaster").style.display=r==="m"?"block":"none";
   $("sessFollow").style.display=r==="f"?"block":"none";
   $("sessQuit").style.display=r?"inline-block":"none";
@@ -2509,7 +2685,18 @@ function withChecklist(fn){ const d=$("checkDlg"); d.returnValue=""; d.onclose=(
 $("sessCreate").onclick=()=>{ $("sessDlg").close(); withChecklist(()=>startMaster().then(()=>{ $("sessDlg").showModal(); })); };
 $("sessJoin").onclick=()=>{ const c=$("sessCodeIn").value; $("sessDlg").close(); withChecklist(()=>startFollower(c)); };
 $("sessCodeIn").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); $("sessJoin").click(); } });
-$("sessQuit").onclick=()=>{ leaveSession(); $("sessDlg").close(); };
+$("sessQuit").onclick=()=>{
+  if(SY.role==="m"&&treeTotal()>0){ quitAsChef(); return; }
+  leaveSession(); $("sessDlg").close(); };
+/* le chef quitte : confier d'abord la direction, ou fermer la séance pour tous */
+function quitAsChef(){
+  const d=$("quitDlg"), L=$("quitList"); L.innerHTML="";
+  treeWho().forEach(w=>{ const b=document.createElement("button"); b.type="button"; b.textContent=w.part+(w.mq?" ☁":""); b.onclick=()=>{ d.close(); $("sessDlg").close(); stepDown(w.dev); setTimeout(()=>leaveSession(true),3500); }; L.appendChild(b); });
+  $("quitAll").onclick=()=>{ d.close(); $("sessDlg").close(); broadcast({t:"bye"}); setTimeout(()=>{ leaveSession(); },400); };
+  $("quitCancel").onclick=()=>d.close();
+  d.showModal(); }
+$("chefGoneYes").onclick=()=>{ $("chefGone").hidden=true; requestChef(); };
+$("chefGoneNo").onclick=()=>{ $("chefGone").hidden=true; SY.goneWait=true; toast("On attend le chef. « Prendre la direction » reste dans la fenêtre Séance.",3500); };
 /* son forcé chez un musicien : il entend ce qu'il veut (ex. « Trombone seul » dans un ampli), sans toucher au son du chef ni des autres */
 function ownMix(){ return SY.role==="f"&&$("sessSound").checked; }
 function mixUI(){ const o=ownMix(); document.body.classList.toggle("ownmix",o);
@@ -2561,7 +2748,7 @@ LOCAL_SF.ready.then(()=>{ const el=$("packInfo"); if(el) el.textContent=LOCAL_SF
 $("sessResumeF").onclick=()=>{ const ls=lastSession(); if(!ls) return; $("sessDlg").close(); startFollower(ls.code,{resume:true}); };
 $("sessResumeC").onclick=()=>{ const ls=lastSession(); if(!ls) return; $("sessDlg").close(); startFollower(ls.code,{resume:true,asChef:true});
   // personne ne répond (chef parti) : on reprend la direction de sa séance
-  setTimeout(()=>{ if(SY.role==="f"&&SY.wantChef&&!chefPresent()&&!(SY.conn&&SY.conn.open)){ SY.wantChef=false; becomeChef(); } },7000); };
+  setTimeout(()=>{ if(SY.role==="f"&&SY.wantChef&&!chefPresent()&&!(SY.conn&&SY.conn.open)){ SY.wantChef=false; becomeChef(true); } },12000); };
 $("sessTake").onclick=()=>{ $("sessDlg").close(); requestChef(); };
 $("takeAskYes").onclick=()=>answerHandoff(true);
 $("takeAskNo").onclick=()=>answerHandoff(false);

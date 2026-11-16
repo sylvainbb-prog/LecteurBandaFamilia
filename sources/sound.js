@@ -212,6 +212,8 @@ async function runLatency(ui){
   }catch(e){
     const m={micro:micError(e.mic),faible:"Je n'ai pas bien entendu les bips : montez le volume, rapprochez le téléphone de l'enceinte, et recommencez dans le calme.",instable:"Mesure instable (bruit ?) : recommencez dans le calme.",rien:"Le micro n'a rien enregistré."}[e.message]||("Mesure impossible : "+e.message);
     say(m,5000);
+    if(out) out.innerHTML+=' <button type="button" class="soft" onclick="openEarLatency()" style="margin-top:6px">Régler à l\'oreille (sans micro)</button>';
+    else setTimeout(()=>{ if(confirm("La mesure au micro n'a pas fonctionné.\nAvec une enceinte Bluetooth sur iPhone, le micro et l'enceinte ne peuvent pas marcher ensemble.\n\nRégler le retard à l'oreille (sans micro) ?")) openEarLatency(); },400);
   } finally { btn.disabled=false; btn.textContent=old; latInfo(); }
   return res;
 }

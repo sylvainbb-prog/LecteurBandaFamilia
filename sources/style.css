@@ -635,3 +635,49 @@ body.rotc[data-rot="180"] dialog[open]{transform:rotate(180deg)}
 .dg{display:flex;gap:8px;font-size:12.5px;line-height:1.4;margin-top:6px}
 .dg i{font-style:normal;width:16px;text-align:center;flex-shrink:0;font-weight:800}
 .dg.ok i{color:#3ecf6e} .dg.err i,.dg.err b{color:#ff6b6b} .dg.wait i{color:var(--accent2)} .dg.todo{opacity:.45} .dg.info{opacity:.85}
+
+/* architecture du morceau : sauts calés sur la barre de fin, reprises en bleu */
+#score .jmp{position:absolute;white-space:nowrap;font:italic 800 16px/1 'Times New Roman',Times,serif;pointer-events:none;z-index:2;text-shadow:0 0 3px #fff,0 0 3px #fff}
+#score .jmp b{font-style:normal;font-weight:900;margin-left:2px}
+#score .jbar{position:absolute;width:5px;border-radius:2px;pointer-events:none;z-index:2;opacity:.9}
+#score .jtint{position:absolute;pointer-events:none;mix-blend-mode:lighten;z-index:1}
+/* mode page : portée coupée en bas d'écran masquée */
+#pageMask{position:absolute;display:none;z-index:3;pointer-events:none;background:var(--paper,#fff);border-top:2px solid var(--accent);border-radius:0 0 var(--r) var(--r)}
+#pageMask span{position:absolute;left:50%;top:3px;transform:translateX(-50%);font:700 11px/1 var(--ffB);color:var(--accent);white-space:nowrap;opacity:.85}
+#pageMask.short span{display:none}
+/* boucle : turquoise, crochets sur la partition ; boucle en attente en pointillés */
+.bar .loopz{background:color-mix(in srgb,#0bb3b8 24%,transparent)!important;border-left:2px solid #0bb3b8!important;border-right:2px solid #0bb3b8!important}
+.bar .loopz.next{background:repeating-linear-gradient(90deg,#0bb3b855 0 6px,transparent 6px 11px)!important;border-style:dashed!important}
+#score .lbrk{position:absolute;pointer-events:none;z-index:2;border:4px solid #0bb3b8;border-radius:3px}
+#score .lbrk.a{border-right:none}
+#score .lbrk.b{border-left:none}
+#score .lbrk.dash{border-style:dashed;opacity:.8}
+#loopNextTag{position:absolute;left:50%;top:8px;transform:translateX(-50%);z-index:7;display:none;background:#0bb3b8;color:#fff;font:700 12px/1.2 var(--ffB);padding:6px 12px;border-radius:20px;box-shadow:0 3px 10px #0004;white-space:nowrap;pointer-events:none}
+
+.takeask.gone{border-color:#f5a524}
+#quitList button{font-size:13px;padding:6px 12px}
+/* musiciens : repérer ce que le chef vient de changer */
+#cueTag{position:absolute;left:50%;top:44px;transform:translateX(-50%) translateY(-8px);z-index:8;opacity:0;pointer-events:none;background:var(--bg2,#14141c);color:var(--ink,#fff);border:2px solid var(--accent);
+  font:700 13px/1.25 var(--ffB);padding:7px 14px;border-radius:22px;box-shadow:0 6px 20px #0006;white-space:nowrap;max-width:94%;overflow:hidden;text-overflow:ellipsis;transition:opacity .25s,transform .25s}
+#cueTag.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.cueflash{animation:cueFlash .5s ease-in-out 3!important}
+@keyframes cueFlash{50%{box-shadow:0 0 0 3px var(--accent),0 0 18px var(--accent);transform:scale(1.06)}}
+#score .cueframe{position:absolute;z-index:3;pointer-events:none;border:3px solid var(--accent);border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,.22);animation:cueDim 1.9s ease-out forwards}
+#score .cueframe.calm{box-shadow:none;animation:none}
+#score .cueframe span{position:absolute;left:-3px;top:-26px;background:var(--accent);color:#fff;font:700 12px/1 var(--ffB);padding:5px 10px;border-radius:20px;white-space:nowrap}
+@keyframes cueDim{0%{box-shadow:0 0 0 9999px rgba(0,0,0,0)}15%{box-shadow:0 0 0 9999px rgba(0,0,0,.22)}45%{box-shadow:0 0 0 9999px rgba(0,0,0,.22)}100%{box-shadow:0 0 0 9999px rgba(0,0,0,0);border-color:transparent}}
+#score .cuering{position:absolute;z-index:3;pointer-events:none;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;border:4px solid var(--accent);animation:cueRing 1.2s ease-out backwards}
+@keyframes cueRing{from{transform:scale(.3);opacity:1}to{transform:scale(7);opacity:0}}
+@media (prefers-reduced-motion: reduce){ #score .cueframe,#score .cuering,.cueflash{animation:none!important} }
+
+/* latence à l'oreille */
+dialog.ear{max-width:560px}
+#earCv{width:100%;height:120px;border-radius:12px;display:block;box-shadow:inset 0 0 0 1px #0002}
+.earrow{display:flex;align-items:center;gap:10px;margin:12px 0 4px}
+.earrow input{flex:1}
+.earrow b{min-width:64px;text-align:right;font-size:16px}
+
+/* plein écran : conseil iPhone, scanner de QR code */
+.card.iostip{border-color:var(--accent);margin:6px 0 8px}
+dialog.qr{max-width:460px}
+#qrVid{width:100%;aspect-ratio:1;object-fit:cover;border-radius:14px;background:#000;display:block}

@@ -12,6 +12,8 @@
   const qb=$("qsMeasure"); qb.textContent=L.bouton; $("qsClose").textContent=L.fermer;
   qb.onclick=async()=>{ const r=await runLatency({btn:qb,out:$("qsSt")}); if(r!==null){ $("qsClose").textContent="Terminé"; qb.textContent="Refaire la mesure"; } };
   $("qsClose").onclick=()=>{ store("banda.qsDone","1"); qs.close(); };
+  $("qsEar").textContent=L.oreille||"À l'oreille"; $("qsEarTxt").textContent=L.oreilleTexte||"";
+  $("qsEar").onclick=()=>{ store("banda.qsDone","1"); qs.close(); openEarLatency(); };
   qs.addEventListener("cancel",()=>store("banda.qsDone","1"));
   window.openLatencyIntro=()=>{ $("qsSt").textContent=latStatus(); qs.showModal(); };
   if(store("banda.qsDone")!=="1" && !/[?&](seance|synctest)=/.test(location.search) && !(navigator.webdriver&&!/[?&]qs=1/.test(location.search)))

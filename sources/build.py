@@ -31,7 +31,7 @@ window.BANDA_VERSION = "{VER}";
 </style>
 </head>
 '''
-html=head+src('body.html')+"\n<script>\n"+src('img.js')+src('app.js')+src('sound.js')+src('neon.js')+src('tuner.js')+src('beat.js')+src('fx.js')+src('aide.js')+src('help.js')+"\n</script>\n</body>\n</html>\n"
+html=head+src('body.html')+"\n<script>\n"+src('img.js')+src('app.js')+src('sound.js')+src('neon.js')+src('tuner.js')+src('beat.js')+src('fx.js')+src('aide.js')+src('help.js')+src('ear.js')+src('fs.js')+"\n</script>\n</body>\n</html>\n"
 out=sys.argv[1] if len(sys.argv)>1 else os.path.join(D,'dist')
 os.makedirs(out,exist_ok=True)
 open(os.path.join(out,'index.html'),'w',encoding='utf-8').write(html)
@@ -44,24 +44,10 @@ for f in os.listdir(os.path.join(D,'static')):
     if os.path.isdir(s_): shutil.copytree(s_,d_,dirs_exist_ok=True)
     else: shutil.copy(s_,d_)
 sw=open(os.path.join(out,'sw.js')).read().replace('__VERSION__',VER); open(os.path.join(out,'sw.js'),'w').write(sw)
-SRC=os.path.join(D,'..','MX','out','mxl')
 md=os.path.join(out,'morceaux'); os.makedirs(md,exist_ok=True)
-def slug(t):
-    t=unicodedata.normalize('NFKD',t).encode('ascii','ignore').decode().lower()
-    return re.sub(r'[^a-z0-9]+','-',t).strip('-')
-songs=[]
-for f in sorted(os.listdir(SRC)):
-    if not f.endswith('.mxl'): continue
-    z=zipfile.ZipFile(os.path.join(SRC,f)); main=[n for n in z.namelist() if n.endswith('.xml') and not n.startswith('META')][0]
-    r=etree.fromstring(z.read(main))
-    title=(r.findtext('work/work-title') or r.findtext('movement-title') or f[:-4]).strip()
-    parts=[pe for pe in r.findall('part') if pe.find('measure/attributes/staff-details[@print-object="no"]') is None]
-    num=re.match(r'\s*(\d+)',f); num=num.group(1) if num else ''
-    fn=(num+'-' if num else '')+slug(title)+'.mxl'
-    shutil.copy(os.path.join(SRC,f),os.path.join(md,fn))
-    songs.append({"name":(num+' - ' if num else '')+title,"title":title,"file":fn,"parts":len(parts)})
-json.dump(songs,open(os.path.join(md,'songs.json'),'w',encoding='utf-8'),ensure_ascii=False,indent=1)
-print(len(songs),'morceaux')
+SRC=os.path.join(D,'morceaux')   # morceaux déjà nommés + songs.json
+for f in os.listdir(SRC): shutil.copy(os.path.join(SRC,f),os.path.join(md,f))
+print(len([f for f in os.listdir(SRC) if f.endswith('.mxl')]),'morceaux')
 # mise en page pré-calculée (largeurs « comme imprimé » et défilement) : APP/calibrage.json
 cal=os.path.join(D,'calibrage.json')
 if os.path.exists(cal): shutil.copy(cal,os.path.join(md,'calibrage.json'))

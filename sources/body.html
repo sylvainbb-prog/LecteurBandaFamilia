@@ -112,7 +112,7 @@
           <div id="partMenu" role="listbox" aria-label="Choisir ma partie" hidden></div>
           <div class="loading" id="loading" style="display:none">Chargement…</div></div>
         <div class="transport">
-          <div class="bar" id="bar" title="Avancement du morceau : touchez pour voir un endroit de la partition"><div class="fill" id="fill"></div><div class="loopz" id="loopz"></div><div class="head" id="head"></div></div>
+          <div class="bar" id="bar" title="Avancement du morceau : touchez pour voir un endroit de la partition"><div class="fill" id="fill"></div><div class="loopz" id="loopz"></div><div class="loopz next" id="loopz2"></div><div class="head" id="head"></div></div>
           <div class="controls">
             <div class="tmain">
               <button id="stopBtn" class="ic lk" title="Retour au début"><svg><use href="#i-stop"/></svg></button>
@@ -149,8 +149,14 @@
       <div id="sessResume" class="card resume" style="display:none">
         <div class="small" id="sessResumeInfo"></div>
         <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap"><button type="button" class="primary" id="sessResumeF">Reprendre la dernière séance</button><button type="button" id="sessResumeC">Reprendre en chef</button></div>
+        <div class="small muted" id="sessResumeHint" style="margin-top:6px;display:none">Si un musicien a pris la direction entre-temps, « Reprendre en chef » vous fait d'abord revenir comme musicien, puis demande la direction. Évitez « Créer la séance » : cela donnerait un nouveau code.</div>
       </div>
       <div class="dsec">Rejoindre une séance</div>
+      <div class="card iostip" id="iosTip" style="display:none"><b>📱 Pour avoir tout l'écran sur iPhone</b>
+        <ol class="small" style="margin:6px 0 6px 18px;padding:0"><li>Installez l'application : bouton <b>Partager</b> ⬆️ › <b>« Sur l'écran d'accueil »</b>.</li><li>Ouvrez-la depuis l'écran d'accueil, puis Séance › <b>« Scanner le QR code »</b>.</li></ol>
+        <div class="small muted">Sinon, dans Safari : bouton <b>« aA »</b> › <b>« Masquer la barre d'outils »</b>.</div>
+        <div class="row" style="margin-top:8px;justify-content:flex-end"><button type="button" id="iosTipOk">Compris</button></div></div>
+      <div class="row" style="margin-top:6px"><button type="button" id="sessScan" class="soft">📷 Scanner le QR code</button></div>
       <div class="row" style="margin-top:6px"><input type="text" id="sessCodeIn" placeholder="CODE" maxlength="6" autocomplete="off" autocapitalize="characters" style="width:150px;text-transform:uppercase;font-weight:700;letter-spacing:.1em"><button type="button" class="primary" id="sessJoin">Rejoindre</button></div>
       <p class="small muted" style="margin-top:12px">Réseau : chaque téléphone peut utiliser sa 4G/5G, ou le wifi d'un partage de connexion / d'un petit routeur 4G-5G. Une connexion internet est nécessaire pour la mise en relation.</p>
     </div>
@@ -216,8 +222,8 @@
     </div>
     <div class="dsec">Son</div>
     <div class="latrow"><span id="latInfo">Retard du son : automatique</span>
-      <span class="latbtns"><button type="button" id="latBtn">Mesurer</button><button type="button" id="latReset" title="Revenir à la valeur annoncée par l'appareil">Auto</button></span></div>
-    <p class="small muted" style="margin:4px 0 10px">Le son sort automatiquement sur l'appareil choisi par le téléphone ou l'ordinateur (Bluetooth, AirPlay, casque…). Avec une enceinte, posez le téléphone près d'elle, volume moyen, dans le calme, puis « Mesurer » : quelques bips sont réécoutés au micro et le son est ensuite envoyé en avance d'autant, pour tomber pile avec la barre de lecture et les autres téléphones.</p>
+      <span class="latbtns"><button type="button" id="latBtn">Mesurer</button><button type="button" id="earBtn" title="Sans micro : pour les enceintes Bluetooth sur iPhone">À l'oreille</button><button type="button" id="latReset" title="Revenir à la valeur annoncée par l'appareil">Auto</button></span></div>
+    <p class="small muted" style="margin:4px 0 10px">Le son sort automatiquement sur l'appareil choisi par le téléphone ou l'ordinateur (Bluetooth, AirPlay, casque…). Avec une enceinte, posez le téléphone près d'elle, volume moyen, dans le calme, puis « Mesurer » : quelques bips sont réécoutés au micro et le son est ensuite envoyé en avance d'autant, pour tomber pile avec la barre de lecture et les autres téléphones. <b>Enceinte Bluetooth sur iPhone</b> : le micro y est impossible (les bips sortent du téléphone) ; utilisez « À l'oreille ».</p>
     <div class="row" id="outRow" style="display:none;gap:8px;margin-bottom:10px"><select id="outSel" style="flex:1"></select><button type="button" id="airBtn">AirPlay…</button></div>
     <div class="latrow"><span>Diapason de l'accordeur : La = <b id="a4set">440</b> Hz</span><span class="latbtns"><button type="button" id="a4sm">−</button><button type="button" id="a4sp">+</button></span></div>
     <div class="seg" id="sfqSeg"><button type="button" data-v="hd">Haute qualité</button><button type="button" data-v="light">Léger (4G, vieux téléphones)</button></div>
@@ -247,13 +253,41 @@
   <div class="qsIcon">🎧</div>
   <div class="dtitle" id="qsTitle"></div>
   <div class="qsText" id="qsText"></div>
-  <div class="qsAct"><button type="button" class="primary" id="qsMeasure"></button><div class="small qsst" id="qsSt"></div></div>
+  <div class="qsAct"><button type="button" class="primary" id="qsMeasure"></button><div class="small qsst" id="qsSt"></div><button type="button" class="soft" id="qsEar"></button><div class="small muted" id="qsEarTxt"></div></div>
   <p class="small muted qsLater" id="qsLater"></p>
   <div class="row qsNav"><span style="flex:1"></span><button type="button" id="qsClose" autofocus></button></div>
 </dialog>
 
 <div id="tipLayer" hidden></div>
 
+<dialog id="qrDlg" class="qr">
+  <div class="dtitle">Scanner le QR code</div>
+  <video id="qrVid" muted playsinline></video>
+  <p class="small" id="qrMsg"></p>
+  <div class="row dfoot"><button type="button" id="qrClose">Fermer</button></div>
+</dialog>
+
+<dialog id="earDlg" class="ear">
+  <div class="dtitle">Régler à l'oreille</div>
+  <p class="small" style="margin:0 0 8px">Le « tic » <b>aigu</b> doit tomber pile quand le <b style="color:#0bb3b8">1</b> passe sous la barre rose. Bougez le curseur jusqu'à ce que ce soit le cas (le son est envoyé en avance d'autant).</p>
+  <canvas id="earCv"></canvas>
+  <div class="earrow"><button type="button" id="earM" class="ic sm2">−</button><input type="range" id="earMs" min="0" max="600" step="5" value="150"><button type="button" id="earP" class="ic sm2">+</button><b id="earVal">150 ms</b></div>
+  <div class="small muted" id="earOut"></div>
+  <div class="row dfoot" style="gap:8px"><button type="button" id="earCancel">Annuler</button><button type="button" class="primary" id="earOk">Valider</button></div>
+</dialog>
+
+<div id="chefGone" class="takeask gone" role="alertdialog" aria-live="assertive" hidden>
+  <div class="small" style="opacity:.8">Séance</div>
+  <b id="chefGoneT">Le chef ne répond plus.</b>
+  <div class="small" style="margin-top:4px">Prendre la direction ? Le premier qui accepte devient chef, les autres le suivent automatiquement.</div>
+  <div class="row" style="gap:8px;margin-top:10px;justify-content:flex-end"><button type="button" id="chefGoneNo">Attendre</button><button type="button" class="primary" id="chefGoneYes">Je prends la direction</button></div>
+</div>
+<dialog id="quitDlg">
+  <div class="dtitle">Quitter la séance</div>
+  <p class="small">Vous êtes le chef. Confiez la direction à un musicien pour que la séance continue :</p>
+  <div class="sesslist" id="quitList"></div>
+  <div class="row dfoot" style="gap:8px;flex-wrap:wrap"><button type="button" id="quitCancel">Annuler</button><button type="button" id="quitAll">Fermer la séance pour tous</button></div>
+</dialog>
 <div id="takeAsk" class="takeask" role="alertdialog" aria-live="assertive" hidden>
   <div class="small" style="opacity:.8">Séance</div>
   <b id="takeAskTxt"></b>
