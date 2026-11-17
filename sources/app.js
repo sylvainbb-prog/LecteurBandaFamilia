@@ -1066,13 +1066,19 @@ function drawStructure(host){
     add("jbar",`left:${X-2.5}px;top:${Y-u*0.6}px;height:${u*5.2}px;background:${(JKCOL[L[0].kind]||"#000")}`);
   });
   if(line||!S.model) return;
-  // reprises et cases : on teinte en bleu ce qui est noir à cet endroit (barres, points, crochets)
+  // reprises et cases 1re/2e fois : on colore en bleu les vrais traits (barres de reprise, points, crochets, numéros)
+  const svg=host.querySelector("svg"); if(!svg||!svg.viewBox||!svg.viewBox.baseVal||!svg.viewBox.baseVal.width) return;
+  const sc=svg.getBoundingClientRect().width/svg.viewBox.baseVal.width;
+  const els=[]; svg.querySelectorAll("g.vf-measure rect, g.vf-measure path, text").forEach(e=>{ if(e.closest(".deco,.measure-number,.vf-stavenote,.vf-note,.vf-beam,.vf-stem,.vf-flag,.vf-ledgers,.vf-modifiers,.vf-stavetie,.vf-curve,.vf-tuplet,.vf-clef,.vf-keysignature,.vf-timesignature")) return;
+    let bb; try{ bb=e.getBBox(); }catch(_){ return; } els.push({e,x:bb.x,y:bb.y,w:bb.width,h:bb.height,t:e.tagName==="text"?e.textContent.trim():null}); });
+  const paint=f=>els.forEach(o=>{ if(f(o)){ if(o.e.tagName==="text"||o.e.tagName==="rect"||o.e.getAttribute("fill")&&o.e.getAttribute("fill")!=="none") o.e.setAttribute("fill",JCOL.rep); if(o.e.getAttribute("stroke")&&o.e.getAttribute("stroke")!=="none") o.e.setAttribute("stroke",JCOL.rep); o.e.style.fill=o.e.tagName==="path"&&o.e.getAttribute("fill")==="none"?"":JCOL.rep; } });
+  const bar=(x0,x1,Y,U)=>paint(o=>o.t===null&&o.x>=x0-1&&o.x+o.w<=x1+1&&o.y>=Y-U*1.2&&o.y+o.h<=Y+U*5.2&&((o.w<=U*0.6&&o.h>=U*3)||(o.w<=U*0.8&&o.h<=U*0.8&&o.y>Y&&o.y<Y+U*4)));
   let inEnd=false;
   S.model.meas.forEach((M,mi)=>{ const endHere=!!M.ending||inEnd; if(M.ending) inEnd=true; if(M.endingStop||M.repEnd) inEnd=false;
-    const m=G.meas[mi]; if(!m||m.mr&&m.mr.j>0&&!M.repEnd) return; const u=m.u, Y=m.y+oy;
-    if(M.repEnd) add("jtint",`left:${m.x2+ox-u*1.6}px;top:${Y-u*0.2}px;width:${u*1.9}px;height:${u*4.4}px;background:${JCOL.rep}`);
-    if(M.repStart){ const x0=(G.sysFirst[m.sys]===mi?m.xs:m.x)+ox; add("jtint",`left:${x0-u*0.3}px;top:${Y-u*0.2}px;width:${u*1.9}px;height:${u*4.4}px;background:${JCOL.rep}`); }
-    if(endHere) add("jtint",`left:${m.x+ox}px;top:${Y-u*3.6}px;width:${m.x2-m.x}px;height:${u*2.8}px;background:${JCOL.rep}`);
+    const m=G.meas[mi]; if(!m||(m.mr&&m.mr.j>0&&!M.repEnd)) return; const U=m.u/sc, Y=m.y/sc, X=m.x/sc, X2=m.x2/sc, XS=m.xs/sc;
+    if(M.repEnd) bar(X2-U*1.6,X2+U*0.2,Y,U);
+    if(M.repStart){ if(G.sysFirst[m.sys]===mi) bar(XS-U*3.6,XS+U*0.6,Y,U); else bar(X-U*0.2,X+U*1.7,Y,U); }
+    if(endHere) paint(o=>o.x>=X-2&&o.x+o.w<=X2+2&&o.y+o.h<=Y-U*0.2&&o.y>=Y-U*7&&(o.t===null?(o.w<=U*0.5||o.h<=U*0.5):/^\d+[.,]?(\s*[,.]\s*\d+[.,]?)*$/.test(o.t)));
   });
 }
 function decorateSvg(host){
@@ -1678,9 +1684,12 @@ function drawLoopMarks(){
   const G=S.geo; if(!G||!S.seq) return; const line=isLine(), ox=6+(line?S.pad:0), oy=line?24:0;
   const put=(L,dash)=>{ if(!L) return; const ka=L.a, kb=L.b;
     const ma=G.meas[line?ka:S.seq[ka].mi], mb=G.meas[line?kb:S.seq[kb].mi]; if(!ma||!mb) return;
-    const mk=(m,side)=>{ const u=m.u, d=document.createElement("div"); d.className="lbrk "+side+(dash?" dash":"");
-      const x=side==="a"?((line||G.sysFirst[m.sys]!==(line?ka:S.seq[ka].mi))?m.x:m.xs)+ox-u*0.9:m.x2+ox+u*0.25;
-      d.style.cssText=`left:${x}px;top:${m.y+oy-u*1.4}px;height:${u*6.8}px;width:${u*0.75}px`; host.appendChild(d); };
+    // crochets réduits à leurs coins, hors de la portée : la partie verticale prolonge la barre de mesure, au-dessus et au-dessous
+    const mk=(m,side)=>{ const u=m.u, first=!line&&G.sysFirst[m.sys]===(line?ka:S.seq[ka].mi);
+      const x=side==="a"?((first&&!line)?m.xs-u*0.15:m.x)+ox:m.x2+ox, top=m.y+oy;
+      const L=u*1.8, H=u*1.0;   // branche horizontale, et petit prolongement vertical de la barre de mesure (hors portée)
+      [["vt",top-H],["vb",top+u*4]].forEach(([v,y])=>{ const d=document.createElement("div"); d.className="lbrk "+side+" "+v+(dash?" dash":"");
+        d.style.cssText=`left:${side==="a"?x-1.5:x-L+1.5}px;top:${y}px;width:${L}px;height:${H}px`; host.appendChild(d); }); };
     mk(ma,"a"); mk(mb,"b"); };
   put(S.loop,false); if(S.loopNext&&S.loopNext!=="off") put(S.loopNext,true);
 }

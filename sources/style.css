@@ -640,7 +640,6 @@ body.rotc[data-rot="180"] dialog[open]{transform:rotate(180deg)}
 #score .jmp{position:absolute;white-space:nowrap;font:italic 800 16px/1 'Times New Roman',Times,serif;pointer-events:none;z-index:2;text-shadow:0 0 3px #fff,0 0 3px #fff}
 #score .jmp b{font-style:normal;font-weight:900;margin-left:2px}
 #score .jbar{position:absolute;width:5px;border-radius:2px;pointer-events:none;z-index:2;opacity:.9}
-#score .jtint{position:absolute;pointer-events:none;mix-blend-mode:lighten;z-index:1}
 /* mode page : portée coupée en bas d'écran masquée */
 #pageMask{position:absolute;display:none;z-index:3;pointer-events:none;background:var(--paper,#fff);border-top:2px solid var(--accent);border-radius:0 0 var(--r) var(--r)}
 #pageMask span{position:absolute;left:50%;top:3px;transform:translateX(-50%);font:700 11px/1 var(--ffB);color:var(--accent);white-space:nowrap;opacity:.85}
@@ -648,10 +647,12 @@ body.rotc[data-rot="180"] dialog[open]{transform:rotate(180deg)}
 /* boucle : turquoise, crochets sur la partition ; boucle en attente en pointillés */
 .bar .loopz{background:color-mix(in srgb,#0bb3b8 24%,transparent)!important;border-left:2px solid #0bb3b8!important;border-right:2px solid #0bb3b8!important}
 .bar .loopz.next{background:repeating-linear-gradient(90deg,#0bb3b855 0 6px,transparent 6px 11px)!important;border-style:dashed!important}
-#score .lbrk{position:absolute;pointer-events:none;z-index:2;border:4px solid #0bb3b8;border-radius:3px}
-#score .lbrk.a{border-right:none}
-#score .lbrk.b{border-left:none}
-#score .lbrk.dash{border-style:dashed;opacity:.8}
+#score .lbrk{position:absolute;pointer-events:none;z-index:2;border:0 solid #0bb3b8;box-sizing:border-box}
+#score .lbrk.a.vt{border-left-width:3px;border-top-width:3px;border-top-left-radius:2px}
+#score .lbrk.a.vb{border-left-width:3px;border-bottom-width:3px;border-bottom-left-radius:2px}
+#score .lbrk.b.vt{border-right-width:3px;border-top-width:3px;border-top-right-radius:2px}
+#score .lbrk.b.vb{border-right-width:3px;border-bottom-width:3px;border-bottom-right-radius:2px}
+#score .lbrk.dash{border-style:dashed}
 #loopNextTag{position:absolute;left:50%;top:8px;transform:translateX(-50%);z-index:7;display:none;background:#0bb3b8;color:#fff;font:700 12px/1.2 var(--ffB);padding:6px 12px;border-radius:20px;box-shadow:0 3px 10px #0004;white-space:nowrap;pointer-events:none}
 
 .takeask.gone{border-color:#f5a524}
