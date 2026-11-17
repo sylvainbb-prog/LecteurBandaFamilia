@@ -1450,6 +1450,7 @@ function newSession(){
     p.out.connect(S.session); p.out.connect(p.send); p.send.connect(S.sessionRev); } });
 }
 function stopAudio(){
+  if(S.speedAt){ S.speed=S.speedAt.v; S.speedAt=null; setTimeout(speedUI,0); }
   S.playing=false; stopTicker(); cancelAnimationFrame(S.rafId); setPlayIcon(false);
   if(AC) newSession();
 }
@@ -1478,6 +1479,7 @@ function schedule(){
     if(S.nextSeq<0||S.nextSeq>=S.seq.length){
       if(S.instances.length && ac.currentTime>S.nextCtx+0.3){ if(SY.role==="f"){ stopAudio(); } else { stopAudio(); stop(true); } if(window.fxSongEnd) fxSongEnd(); } return;
     }
+    if(S.speedAt&&S.nextSeq===S.speedAt.k){ S.speed=S.speedAt.v; S.speedAt=null; setTimeout(speedUI,0); }   // nouveau tempo, pile sur la barre de mesure
     const e=S.seq[S.nextSeq], M=e.M, qs=60/M.tempo/S.speed;   // seconds per quarter
     const from=S.firstOff||0; S.firstOff=0;
     const t0=S.nextCtx-from*qs;
@@ -1743,11 +1745,11 @@ $("backBtn").onclick=()=>{ if(SY.role==="f"){ lockedToast("🔒 C'est le chef qu
   w.addEventListener("click",onScoreClick); })();
 /* ---------- thèmes ---------- */
 function setTheme(t){
-  if(!["neon","boule","scene","fete","fiesta","guinguette"].includes(t)) t="neon";
+  if(!["neon","boule","scene","fete","fiesta","guinguette","nuit"].includes(t)) t="neon";
   document.body.dataset.theme=t; store("banda.theme",t);
   const img=(t==="fete"||t==="fiesta")?IMG.white:IMG.ball; $("logoImg").src=img; $("heroImg").src=img;
   document.querySelectorAll("#themes .th").forEach(b=>b.classList.toggle("sel",b.dataset.t===t));
-  const tc={neon:"#050507",boule:"#0b0a26",scene:"#1b1c20",fete:"#e0218a",fiesta:"#ff3d7f",guinguette:"#0c1626"}[t];
+  const tc={neon:"#050507",boule:"#0b0a26",scene:"#1b1c20",fete:"#e0218a",fiesta:"#ff3d7f",guinguette:"#0c1626",nuit:"#111214"}[t];
   if(window.fxThemeChanged) fxThemeChanged(t);
   let m=document.querySelector('meta[name=theme-color]'); if(!m){ m=document.createElement("meta"); m.name="theme-color"; document.head.appendChild(m); } m.content=tc;
 }
@@ -1888,7 +1890,18 @@ $("fullBtn").onclick=()=>{ const d=document; if(d.fullscreenElement||d.webkitFul
 function syncSfq(){ const v=store("banda.sfq")==="light"?"light":"hd"; document.querySelectorAll("#sfqSeg button").forEach(b=>b.classList.toggle("on",b.dataset.v===v)); }
 document.querySelectorAll("#sfqSeg button").forEach(b=>b.onclick=()=>{ store("banda.sfq",b.dataset.v); syncSfq(); if(S.model) loadSounds(); });
 syncSfq();
-$("speed").onchange=e=>{ const was=S.playing; if(was) pause(); S.speed=e.target.value/100; if(was) play(); else if(SY.role==="m") syncPush(); };
+$("speed").onchange=e=>{ const v=e.target.value/100;
+  if(!S.playing){ S.speed=v; S.speedAt=null; if(SY.role==="m") syncPush(); return; }
+  if(Math.abs(v-S.speed)<1e-6&&!S.speedAt) return;
+  const k=(S.speedAt&&S.speedAt.k!=null)?S.speedAt.k:tempoTarget(); if(k<0) return;
+  S.speedAt={k,v,t:performance.now()}; toast("Tempo "+Math.round(v*100)+" % à la mesure "+kLabel(k),2000);
+  if(SY.role==="m") syncPush(); };
+/* première barre de mesure pas encore programmée, à au moins 1,2 s : le temps que tous les téléphones reçoivent l'ordre */
+function tempoTarget(){ if(!AC||S.nextSeq<0) return -1;
+  const now=AC.currentTime, L=loopState(); let k=S.nextSeq, ctx=S.nextCtx, g=0;
+  while(ctx<now+1.2&&g++<64){ const e=S.seq[k]; if(!e) return -1; ctx+=e.M.len*60/e.M.tempo/S.speed; k=lpNext(k,L); if(k<0) return -1; }
+  return k; }
+function speedUI(){ const v=Math.round((S.speedAt?S.speedAt.v:S.speed)*100); $("speed").value=v; $("speedLbl").textContent=v+" %"; $("tempoLbl").textContent=v+" %"; }
 $("countIn").onchange=$("clickOn").onchange=()=>{ if(SY.role==="m") syncPush(); };
 $("curSel").value="large";
 $("curSel").onchange=()=>{ store("banda.cur",$("curSel").value); applyCurStyle(); };
@@ -2343,12 +2356,13 @@ const CHEF_ABSENT_S=10, CHEF_BANDEAU_S=5, DEMANDE_DIRECTION_S=30;
 /* musicien : surveillance du chef — bandeau à 5 s, fenêtre « Prendre la direction ? » à 10 s */
 setInterval(()=>{
   const box=$("chefGone"); if(!box) return;
+  if(SY.bandaAsk&&SY.role==="f"&&!SY.everJoined) return;   // fenêtre « personne ne dirige BANDA » : on la laisse
   if(SY.role!=="f"||!SY.everJoined){ if(!box.hidden) box.hidden=true; return; }
   const sil=chefSilence();
   if(sil<CHEF_BANDEAU_S){ if(!box.hidden) box.hidden=true; SY.goneWait=false; if(SY.goneBanner){ SY.goneBanner=false; banner(""); } return; }
   if(!SY.goneBanner){ SY.goneBanner=true; banner("⚠ Liaison avec le chef perdue – reconnexion…"); }
   if(sil>=CHEF_ABSENT_S&&!SY.goneWait&&box.hidden){ box.hidden=false; try{ navigator.vibrate&&navigator.vibrate([80,60,80]); }catch(e){} }
-  if(!box.hidden) $("chefGoneT").textContent="Le chef ne répond plus depuis "+Math.round(sil)+" s.";
+  if(!box.hidden){ $("chefGoneT").textContent="Le chef ne répond plus depuis "+Math.round(sil)+" s."; $("chefGoneS").textContent="Prendre la direction ? Le premier qui accepte devient chef, les autres le suivent automatiquement."; }
 },1000);
 function chefSilence(){ return (performance.now()-Math.max(SY.lastStateAt||0,SY.followSince||0))/1000; }
 function requestChef(){
@@ -2395,6 +2409,18 @@ function becomeChef(fast){
   setTimeout(()=>claimChef(0,false),300);
 }
 function sessOpened(){ sessUI(); toast("Séance "+SY.code+" ouverte",2500); }
+/* ===== Séance BANDA : toujours le même code (QR code imprimable une fois pour toutes) ===== */
+const CODE_BANDA="BANDA";
+function joinBanda(){ SY.bandaAsk=false; startFollower(CODE_BANDA,{banda:true}); }
+function bandaNoChef(){ const box=$("chefGone"); if(!box) return;
+  $("chefGoneT").textContent="Personne ne dirige la séance BANDA."; $("chefGoneS").textContent="Prendre la direction ? Les musiciens qui arrivent vous rejoindront automatiquement.";
+  box.hidden=false; }
+async function startBandaChef(){
+  const ac=audio(); try{ await ac.resume(); }catch(e){}
+  leaveSession(true); SY.bandaAsk=false;
+  SY.code=CODE_BANDA; SY.epoch=1; SY.takeFast=true; DIAG.chef={tries:0,ok:0,fail:0,last:[]}; DIAG.cand={host:0,srflx:0,relay:0};
+  claimChef(0,false); setTimeout(()=>{ if(SY.role==="m"){ sessUI(); $("sessDlg").open||$("sessDlg").showModal(); } },1800);
+}
 const SONG_CHUNK=12000;
 function songMsgs(){ const src=S.src; if(!src||!src.buf) return [];
   if(src._msgs&&src._msgs.sid===src.sid) return src._msgs.list;
@@ -2414,7 +2440,7 @@ function gotSong(d,buf){
     .finally(()=>{ SY.wantSong=null; });
 }
 function stateMsg(extra){
-  const st={t:"state",ep:SY.epoch||1,v:++SY.ver,sid:S.src&&S.src.sid,speed:S.speed,loop:S.loop,loopNext:S.loopNext||null,loopArmed:!!S.loopArmed,loopVer:S.loopVer||0,countIn:$("countIn").checked,click:$("clickOn").checked,
+  const st={t:"state",ep:SY.epoch||1,v:++SY.ver,sid:S.src&&S.src.sid,speed:S.speed,loop:S.loop,loopNext:S.loopNext||null,loopArmed:!!S.loopArmed,loopVer:S.loopVer||0,speedAt:S.speedAt?{k:S.speedAt.k,v:S.speedAt.v}:null,countIn:$("countIn").checked,click:$("clickOn").checked,
     mix:S.parts.map(p=>[p.mute?1:0,p.solo?1:0,Math.round(p.vol*100)]),playing:S.playing,k:curSeq,off:curOff,at:masterNowMs()};
   if(S.playing){
     if(extra.start && S.anchor){ st.k=S.anchor.k; st.off=S.anchor.off; st.at=ctxToMs(S.anchor.ctx); st.start=true; st.ci=extra.ci||null; }
@@ -2462,6 +2488,8 @@ function followerPeer(){
     if(e.type==="peer-unavailable"){
       if(SY.target===chefId()){
         SY.joinFails++; diag("chef","err","code "+SY.code+" introuvable ("+SY.joinFails+")"); if(SY.joinFails>=2) tryMq();
+        if(SY.code===CODE_BANDA&&!SY.everJoined&&SY.joinFails>=2&&!SY.bandaAsk){ SY.bandaAsk=true; bandaNoChef(); }
+        if(SY.code===CODE_BANDA&&!SY.everJoined){ $("sessFState").textContent="Personne ne dirige encore la séance BANDA…"; scheduleRetry(); sessUI(); return; }
         if(!SY.everJoined&&SY.joinFails>=3){ const msg=SY.resume?"Cette séance n'existe plus (le chef l'a fermée). Demandez le nouveau code au chef ou scannez son QR code.":"Séance "+SY.code+" introuvable : vérifiez le code auprès du chef.";
           $("sessFState").textContent=msg; banner(""); toast(msg,6000); const was=SY.resume; leaveSession(true); if(was){ sessUI(); $("sessDlg").open||$("sessDlg").showModal(); } return; }
         $("sessFState").textContent=SY.everJoined?"Chef injoignable… nouvel essai (vous pouvez « Prendre la direction »)":"Recherche de la séance…";
@@ -2542,7 +2570,7 @@ function onFollowerMsg(d){
   if(d.t==="handoff"){ broadcast(d); if(d.dev===SY.id) becomeChef(); return; }
   if(d.t==="bye"){ broadcast(d); leaveSession(true); toast("Le chef a fermé la séance",5000); sessUI(); return; }
   if(d.t==="takeNo"){ broadcast(d); if(d.dev===SY.id&&SY.takePending){ SY.takePending=false; clearTimeout(SY.takeT); sessUI(); toast(d.timeout?"Le chef n'a pas répondu : demande annulée":"Le chef a refusé de vous confier la direction",3500); } return; }                  // c'est nous le nouveau chef ?
-  if(d.t==="welcome"){ diag("acc","ok",(d.depth||1)>1?"via le téléphone d'un musicien (relais)":"directement chez le chef"); if(!(S.src&&DIAG.st.song&&DIAG.st.song.state==="ok")) diag("song",S.src?"ok":"wait",S.src?"déjà ouvert":"en attente du chef…"); SY.depth=d.depth||1; SY.everJoined=true; SY.joinFails=0; saveLastSession("f"); $("sessFState").textContent="Connecté à la séance "+SY.code; if(window.fxBurst) fxBurst({n:90}); sessUI(); return; }
+  if(d.t==="welcome"){ SY.bandaAsk=false; { const box=$("chefGone"); if(box) box.hidden=true; } diag("acc","ok",(d.depth||1)>1?"via le téléphone d'un musicien (relais)":"directement chez le chef"); if(!(S.src&&DIAG.st.song&&DIAG.st.song.state==="ok")) diag("song",S.src?"ok":"wait",S.src?"déjà ouvert":"en attente du chef…"); SY.depth=d.depth||1; SY.everJoined=true; SY.joinFails=0; saveLastSession("f"); $("sessFState").textContent="Connecté à la séance "+SY.code; if(window.fxBurst) fxBurst({n:90}); sessUI(); return; }
   if(d.t==="pong"){
     const r=performance.now(), rtt=r-d.c; if(rtt<0||rtt>3000) return;
     SY.samples.push({rtt,off:d.m-(d.c+r)/2,at:r}); if(SY.samples.length>24) SY.samples.shift();
@@ -2581,7 +2609,11 @@ function applyState(st){
   SY.cueReady=true;
   SY.last=st;
   // réglages communs
-  if(Math.abs(S.speed-st.speed)>1e-6){ if(S.playing) stopAudio(); S.speed=st.speed; $("speed").value=Math.round(st.speed*100); $("speedLbl").textContent=Math.round(st.speed*100)+" %"; $("tempoLbl").textContent=Math.round(st.speed*100)+" %"; }
+  // changement de tempo annoncé par le chef : on le fait nous aussi sur la même barre de mesure, sans couper
+  if(st.speedAt&&S.playing&&st.playing&&(!S.speedAt||S.speedAt.k!==st.speedAt.k||S.speedAt.v!==st.speedAt.v)){
+    S.speedAt={k:st.speedAt.k,v:st.speedAt.v,t:performance.now()}; speedUI(); if(SY.role==="f") cueTell("tempo "+Math.round(st.speedAt.v*100)+" % à la mesure "+kLabel(st.speedAt.k),[".tempo"]); }
+  const pendingSame=S.playing&&S.speedAt&&Math.abs(S.speedAt.v-st.speed)<1e-6&&performance.now()-S.speedAt.t<4000;
+  if(Math.abs(S.speed-st.speed)>1e-6&&!pendingSame){ if(S.playing) stopAudio(); S.speed=st.speed; $("speed").value=Math.round(st.speed*100); $("speedLbl").textContent=Math.round(st.speed*100)+" %"; $("tempoLbl").textContent=Math.round(st.speed*100)+" %"; }
   $("countIn").checked=!!st.countIn; $("clickOn").checked=!!st.click;
   // boucle : on reprend celle du chef quand il la change (ses transitions automatiques, chacun les fait de son côté)
   if((st.loopVer||0)!==(S.loopVerSeen||0)||(!S.playing&&JSON.stringify(S.loop||null)!==JSON.stringify(st.loop||null))){
@@ -2691,6 +2723,7 @@ function sessUI(){
 }
 $("sessBtn").onclick=()=>{ sessUI(); $("sessDlg").showModal(); };
 function withChecklist(fn){ const d=$("checkDlg"); d.returnValue=""; d.onclose=()=>{ if(d.returnValue==="ok") fn(); }; d.showModal(); }
+$("sessBanda").onclick=()=>{ $("sessDlg").close(); withChecklist(()=>joinBanda()); };
 $("sessCreate").onclick=()=>{ $("sessDlg").close(); withChecklist(()=>startMaster().then(()=>{ $("sessDlg").showModal(); })); };
 $("sessJoin").onclick=()=>{ const c=$("sessCodeIn").value; $("sessDlg").close(); withChecklist(()=>startFollower(c)); };
 $("sessCodeIn").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); $("sessJoin").click(); } });
@@ -2704,8 +2737,8 @@ function quitAsChef(){
   $("quitAll").onclick=()=>{ d.close(); $("sessDlg").close(); broadcast({t:"bye"}); setTimeout(()=>{ leaveSession(); },400); };
   $("quitCancel").onclick=()=>d.close();
   d.showModal(); }
-$("chefGoneYes").onclick=()=>{ $("chefGone").hidden=true; requestChef(); };
-$("chefGoneNo").onclick=()=>{ $("chefGone").hidden=true; SY.goneWait=true; toast("On attend le chef. « Prendre la direction » reste dans la fenêtre Séance.",3500); };
+$("chefGoneYes").onclick=()=>{ $("chefGone").hidden=true; if(SY.bandaAsk&&!SY.everJoined){ startBandaChef(); return; } requestChef(); };
+$("chefGoneNo").onclick=()=>{ $("chefGone").hidden=true; if(SY.bandaAsk&&!SY.everJoined){ toast("On attend que quelqu'un dirige la séance BANDA…",3000); return; } SY.goneWait=true; toast("On attend le chef. « Prendre la direction » reste dans la fenêtre Séance.",3500); };
 /* son forcé chez un musicien : il entend ce qu'il veut (ex. « Trombone seul » dans un ampli), sans toucher au son du chef ni des autres */
 function ownMix(){ return SY.role==="f"&&$("sessSound").checked; }
 function mixUI(){ const o=ownMix(); document.body.classList.toggle("ownmix",o);

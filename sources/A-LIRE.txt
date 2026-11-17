@@ -3,7 +3,7 @@ Sources de l'application (pour Claude ou pour modifier à la main)
 - aide.js : TOUS les textes : étiquettes du bouton « ? », fenêtre de latence, rappel de latence.
   Vous pouvez les modifier directement (garder les guillemets et les virgules).
 - app.js : logique principale. Constantes utiles :
-    MESURES_VISIBLES_PAYSAGE (6), CHEF_ABSENT_S (10 s), CHEF_BANDEAU_S (5 s), MQ_SECOURS_S (10 s),
+    MESURES_VISIBLES_PAYSAGE (6), CHEF_ABSENT_S (10 s), CHEF_BANDEAU_S (5 s), MQ_SECOURS_S (10 s), CODE_BANDA ("BANDA"),
     JCOL (couleurs : coda violet, segno orange, D.C./Fine vert, reprises bleu, boucle turquoise).
 - ear.js : réglage de la latence à l'oreille. fs.js : plein écran, scanner de QR code.
 - sw-modele.js : modèle du fichier sw.js (le numéro de version y est inséré à la construction).

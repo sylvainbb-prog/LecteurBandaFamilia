@@ -145,7 +145,9 @@
     <div class="dtitle">Séance synchronisée</div>
     <div id="sessIdle">
       <p class="small muted">Tous les téléphones affichent le même morceau, au même endroit, au même tempo. Le <b>chef</b> (la pianiste) commande la lecture et choisit les pistes qui sonnent ; les <b>musiciens</b> suivent, chacun avec sa propre partie à l'écran.</p>
-      <div class="row" style="margin-top:6px"><button type="button" class="primary" id="sessCreate">Je suis le chef : créer la séance</button></div>
+      <div class="row" style="margin-top:6px"><button type="button" class="primary big" id="sessBanda">🎺 Séance BANDA</button></div>
+      <p class="small muted" style="margin:4px 0 0">La séance de la banda, toujours avec le même code (BANDA). Si personne ne la dirige, on vous proposera d'en prendre la direction.</p>
+      <div class="row" style="margin-top:10px"><button type="button" id="sessCreate">Créer une autre séance (code au hasard)</button></div>
       <div id="sessResume" class="card resume" style="display:none">
         <div class="small" id="sessResumeInfo"></div>
         <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap"><button type="button" class="primary" id="sessResumeF">Reprendre la dernière séance</button><button type="button" id="sessResumeC">Reprendre en chef</button></div>
@@ -217,8 +219,9 @@
       <button type="button" class="th" data-t="boule"><div class="sw boule"></div><span>Boule à facettes</span></button>
       <button type="button" class="th" data-t="scene"><div class="sw scene"></div><span>Scène</span></button>
       <button type="button" class="th" data-t="fete"><div class="sw fete"></div><span>Jour de fête</span></button>
-      <button type="button" class="th" data-t="fiesta"><div class="sw fiesta"></div><span>Fiesta <em class="new">nouveau</em></span></button>
-      <button type="button" class="th" data-t="guinguette"><div class="sw guinguette"></div><span>Guinguette <em class="new">nouveau</em></span></button>
+      <button type="button" class="th" data-t="fiesta"><div class="sw fiesta"></div><span>Fiesta</span></button>
+      <button type="button" class="th" data-t="guinguette"><div class="sw guinguette"></div><span>Guinguette</span></button>
+      <button type="button" class="th" data-t="nuit"><div class="sw nuit"></div><span>Nuit <em class="new">nouveau</em></span></button>
     </div>
     <div class="dsec">Son</div>
     <div class="latrow"><span id="latInfo">Retard du son : automatique</span>
@@ -279,7 +282,7 @@
 <div id="chefGone" class="takeask gone" role="alertdialog" aria-live="assertive" hidden>
   <div class="small" style="opacity:.8">Séance</div>
   <b id="chefGoneT">Le chef ne répond plus.</b>
-  <div class="small" style="margin-top:4px">Prendre la direction ? Le premier qui accepte devient chef, les autres le suivent automatiquement.</div>
+  <div class="small" style="margin-top:4px" id="chefGoneS">Prendre la direction ? Le premier qui accepte devient chef, les autres le suivent automatiquement.</div>
   <div class="row" style="gap:8px;margin-top:10px;justify-content:flex-end"><button type="button" id="chefGoneNo">Attendre</button><button type="button" class="primary" id="chefGoneYes">Je prends la direction</button></div>
 </div>
 <dialog id="quitDlg">

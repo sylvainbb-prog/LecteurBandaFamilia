@@ -682,3 +682,23 @@ dialog.ear{max-width:560px}
 .card.iostip{border-color:var(--accent);margin:6px 0 8px}
 dialog.qr{max-width:460px}
 #qrVid{width:100%;aspect-ratio:1;object-fit:cover;border-radius:14px;background:#000;display:block}
+
+/* séance BANDA */
+#sessBanda.big{font-size:17px;padding:12px 22px}
+/* ===== Thème Nuit : partition gris anthracite, notes gris clair chaud, barre de lecture ambre ===== */
+body[data-theme=nuit]{--bg:#0d0e10;--bg2:#141518;--panel:#17181b;--panel2:#202125;--ink:#e6dfd2;--muted:#9c968c;--line:#2c2d32;
+  --accent:#ffb020;--accent-ink:#1a1408;--accent2:#d9a441;--accent3:#ffb020;--soft:#ffb0201f;--title:#e6dfd2;
+  --ffT:Montserrat,system-ui,sans-serif;--ffB:Inter,system-ui,sans-serif;--glow:none;--paper:#24252a;--shadow:0 10px 34px #000c}
+body[data-theme=nuit] header h1{color:var(--ink)}
+body[data-theme=nuit] .hero h2{color:var(--ink);text-shadow:none}
+body[data-theme=nuit] #scoreWrap{background:var(--paper)}
+/* la partition (noir sur blanc) est inversée en clair sur foncé ; les couleurs gardent leur teinte */
+body[data-theme=nuit] #score svg, body[data-theme=nuit] #turnInner svg, body[data-theme=nuit] #sigBox svg{filter:invert(.86) hue-rotate(180deg) sepia(.18) saturate(1.1)}
+body[data-theme=nuit] #turnPrev{background:var(--paper)}
+body[data-theme=nuit] #turnBlur, body[data-theme=nuit] #turnSkip{background:rgba(36,37,42,.7)}
+body[data-theme=nuit] #score .mnum{color:#d8cfbf;background:#33353b}
+body[data-theme=nuit] #score .mnum.rep{background:#203a6a;color:#cfe0ff}
+body[data-theme=nuit] #score .mrep svg{filter:invert(.86)}
+body[data-theme=nuit] #score .jmp{text-shadow:0 0 3px #24252a,0 0 3px #24252a}
+body[data-theme=nuit] #pageMask{background:var(--paper)}
+body[data-theme=nuit] .sw.nuit, .sw.nuit{background:linear-gradient(135deg,#24252a 0 55%,#ffb020 55% 62%,#24252a 62%)}

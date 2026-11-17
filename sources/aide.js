@@ -40,7 +40,7 @@ const AIDE = {
 
     /* ---- barre du haut / boutons de droite en paysage ---- */
     { cibles: ["#sessBtn", "#lpSess"], nom: "Séance",
-      texte: "<b>Le chef</b> : « Je suis le chef » puis montrez le QR code ; il lance, arrête, règle tempo et boucle pour tous. Toucher un musicien dans sa liste lui confie la direction.<br><b>Le musicien</b> : scannez le QR code ou tapez le code. Son téléphone reste muet, sauf s'il coche « Forcer le son » (ampli, casque) : il choisit alors ses propres pistes. « Demander la direction » : le chef accepte ou refuse ; si le chef ne répond plus depuis 20 s, on peut la reprendre directement." },
+      texte: "<b>Séance BANDA</b> : toujours le même code ; le premier arrivé peut en prendre la direction, les autres la rejoignent (QR code imprimable).<br><b>Le chef</b> : montre le QR code ; il lance, arrête, règle tempo et boucle pour tous. Toucher un musicien dans sa liste lui confie la direction.<br><b>Le musicien</b> : scannez le QR code ou tapez le code. Son téléphone reste muet, sauf s'il coche « Forcer le son » (ampli, casque) : il choisit alors ses propres pistes. « Demander la direction » : le chef accepte ou refuse ; si le chef ne répond plus depuis 20 s, on peut la reprendre directement." },
     { cibles: ["#sideToggle", "#lpSide"], nom: "Réglages",
       texte: "Votre partie, l'affichage (Page, Comme imprimé, Défilement, « En paysage »), la taille, le tempo, le compteur de temps, le métronome et les volumes (Moins-un, Solo, Tutti)." },
     { cibles: ["#tuneBtn", "#lpTune"], nom: "Accordeur",
@@ -70,7 +70,7 @@ const AIDE = {
     { cibles: ["#posbox"], nom: "Position",
       texte: "Mesure et temps en cours. Le point « Sons » indique si les sons d'instruments sont prêts." },
     { cibles: [".tempo"], nom: "Vitesse",
-      texte: "− / + change la vitesse par pas de 5 %." },
+      texte: "− / + change la vitesse par pas de 5 %. Pendant la lecture, le nouveau tempo démarre à la barre de mesure suivante, sans couper la musique (chez tout le monde en séance)." },
     { cibles: ["#gotoForm"], nom: "Aller à",
       texte: "Tapez un numéro de mesure puis › pour y aller directement." },
     { cibles: [".loopctl"], nom: "Boucle",
