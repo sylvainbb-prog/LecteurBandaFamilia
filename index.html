@@ -11,11 +11,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Tilt+Neon&family=Poppins:wght@400;500;600;700;800&family=Sacramento&family=Montserrat:wght@400;600;800&family=Inter:wght@400;500;600;800&family=Baloo+2:wght@600;800&family=Nunito:wght@400;600;700;800&family=Lilita+One&family=Pacifico&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Tilt+Neon&family=Poppins:wght@400;500;600;700;800&family=Sacramento&family=Montserrat:wght@400;600;800&family=Inter:wght@400;500;600;800&family=Baloo+2:wght@600;800&family=Nunito:wght@400;600;700;800&family=Lilita+One&family=Pacifico&family=Quicksand:wght@500;600;700&family=Noto+Music&display=swap" rel="stylesheet">
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "4.18";
+window.BANDA_VERSION = "4.19";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -718,7 +718,7 @@ body[data-theme=nuit] header h1{color:var(--ink)}
 body[data-theme=nuit] .hero h2{color:var(--ink);text-shadow:none}
 body[data-theme=nuit] #scoreWrap{background:var(--paper)}
 /* la partition (noir sur blanc) est inversée en clair sur foncé ; les couleurs gardent leur teinte */
-body[data-theme=nuit] #score svg, body[data-theme=nuit] #turnInner svg, body[data-theme=nuit] #sigBox svg{filter:invert(.86) hue-rotate(180deg) sepia(.18) saturate(1.1)}
+body[data-theme=nuit] #score svg:not(.annsvg), body[data-theme=nuit] #turnInner svg, body[data-theme=nuit] #sigBox svg{filter:invert(.86) hue-rotate(180deg) sepia(.18) saturate(1.1)}
 body[data-theme=nuit] #turnPrev{background:var(--paper)}
 body[data-theme=nuit] #turnBlur, body[data-theme=nuit] #turnSkip{background:rgba(36,37,42,.7)}
 body[data-theme=nuit] #score .mnum{color:#d8cfbf;background:#33353b}
@@ -727,6 +727,93 @@ body[data-theme=nuit] #score .mrep svg{filter:invert(.86)}
 body[data-theme=nuit] #score .jmp{text-shadow:0 0 3px #24252a,0 0 3px #24252a}
 body[data-theme=nuit] #pageMask{background:var(--paper)}
 body[data-theme=nuit] .sw.nuit, .sw.nuit{background:linear-gradient(135deg,#24252a 0 55%,#ffb020 55% 62%,#24252a 62%)}
+
+/* ===== annotations ===== */
+#score svg.annsvg{position:absolute;left:0;top:0;pointer-events:none;z-index:3;overflow:visible}
+#annBtn.on,#lpAnn.on{background:var(--accent);color:var(--accent-ink)}
+#annBtn.has:not(.on)::after,#lpAnn.has:not(.on)::after{content:"";position:absolute;width:7px;height:7px;border-radius:50%;background:#e11d48;margin:-14px 0 0 16px}
+#annBtn,#lpAnn{position:relative}
+body.annot #scoreWrap{box-shadow:0 0 0 3px #f97316,var(--shadow)}
+body.annot #score{cursor:zoom-in}
+#annBar{position:fixed;left:0;right:0;bottom:0;z-index:5000;background:#fffdf8;color:#1d1d1f;border-top:1px solid #0002;box-shadow:0 -6px 24px #0003;
+  padding:6px 8px calc(6px + env(safe-area-inset-bottom));display:none;font-family:Inter,system-ui,sans-serif}
+#annBar.show{display:block}
+.annRow{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;align-items:center}
+.annRow::-webkit-scrollbar{display:none}
+#annTools button{flex:1 0 auto;min-width:47px;display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 4px 3px;border-radius:10px;border:1px solid transparent;background:transparent;color:#333;font-size:11px;font-weight:600;min-height:0}
+#annTools button svg{width:24px;height:24px}
+#annTools button.on{background:#1d1d1f;color:#fff}
+.annRow2{margin-top:5px}
+#annCols{display:flex;gap:6px;flex:none}
+#annCols .sw{width:28px;height:28px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #0003;padding:0;min-height:0;flex:none}
+#annCols .sw.on{box-shadow:0 0 0 2.5px #1d1d1f;transform:scale(1.08)}
+.annSp{flex:1}
+.annRow2>button,.annRow3>button{flex:none;min-height:34px;padding:4px 10px;border-radius:10px;border:1px solid #0002;background:#fff;color:#1d1d1f;font-size:13px;font-weight:600;white-space:nowrap}
+#annUndo{font-size:19px;padding:2px 10px}
+#annUndo:disabled{opacity:.35}
+#annClear.arm{background:#e11d48;color:#fff;border-color:#e11d48}
+.annOkBtn{background:#1d1d1f!important;color:#fff!important;border-color:#1d1d1f!important}
+.annRow3{margin-top:5px}
+#annHint{flex:1;font-size:12px;line-height:1.25;color:#555;min-height:15px;white-space:normal}
+#annClear svg{width:19px;height:19px;display:block}
+#annCols .sw{width:30px!important;height:30px!important}
+#annSize{background:#eee!important;border:none!important;padding:2px;border-radius:10px}
+#annSize button{background:transparent!important;color:#555!important;box-shadow:none!important}
+#annSize button.on{background:#1d1d1f!important;color:#fff!important}
+#annLoupe{position:fixed;left:8px;right:8px;top:calc(8px + env(safe-area-inset-top));z-index:4990;background:#fff;border-radius:14px;box-shadow:0 10px 40px #0006,0 0 0 2px #f97316;overflow:hidden;display:none;max-width:1000px;margin:0 auto}
+#annLoupe.show{display:block}
+.annHead{display:flex;align-items:center;gap:6px;padding:4px 6px;background:#fff4e8;color:#1d1d1f;font:600 13px Inter,system-ui,sans-serif}
+.annHead span{flex:1;text-align:center}
+.annHead button{min-height:0;width:38px;height:30px;padding:0;border-radius:9px;border:1px solid #0002;background:#fff;color:#1d1d1f;font-size:20px;line-height:1}
+.annHead .annX{font-size:15px}
+#annView{position:relative;overflow:hidden;touch-action:none;background:#fff;cursor:crosshair}
+#annLoupe[data-tool=er] #annView{cursor:not-allowed}
+#annLoupe[data-tool=tx] #annView,#annLoupe[data-tool=sy] #annView{cursor:text}
+.annInner{position:absolute;left:0;top:0;transform-origin:0 0}
+.annInner .annClone{position:relative!important;margin:0!important;pointer-events:none}
+.annInner svg.annsvg{position:absolute;left:0;top:0;overflow:visible}
+#annEdit{position:fixed;left:8px;right:8px;top:calc(8px + env(safe-area-inset-top));z-index:5010;background:#fffdf8;color:#1d1d1f;border-radius:14px;box-shadow:0 10px 40px #0007;padding:8px 10px 10px;display:none;max-width:640px;margin:0 auto;font-family:Inter,system-ui,sans-serif}
+#annEdit.show{display:block}
+.aeHead{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:14px}
+.aeHead b{flex:1}
+#annSize{flex:none;width:auto}
+#annSize button{min-width:38px;font-family:Georgia,serif}
+#annSize button.big{font-size:19px}
+#annText{width:100%;box-sizing:border-box;font:600 18px/1.3 'Times New Roman','Noto Music',Georgia,serif;padding:8px 10px;border-radius:10px;border:1.5px solid #0003;background:#fff;color:#1d1d1f;resize:none}
+#annEdit[data-kind=sy] #annText{display:none}
+#annSyms{display:flex;gap:4px;overflow-x:auto;padding:8px 0 4px;scrollbar-width:thin;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+#annSyms button{flex:none;min-width:44px;height:44px;padding:0 6px;border-radius:10px;border:1px solid #0002;background:#fff;color:#1d1d1f;font:400 24px/1 'Noto Music','Times New Roman',serif;scroll-snap-align:start}
+#annSyms button.w{font:italic 700 16px/1 'Times New Roman',Georgia,serif}
+#annEdit[data-kind=sy] #annSyms{flex-wrap:wrap;max-height:40vh;overflow-y:auto}
+.aeBtns{display:flex;gap:6px;margin-top:6px}
+.aeBtns button{min-height:38px;padding:4px 14px;border-radius:10px;border:1px solid #0002;background:#fff;color:#1d1d1f;font-weight:600}
+#annDel{color:#e11d48}
+body.annot #toast{bottom:150px;z-index:6000}
+#annPrint{display:none}
+@media print{
+  @page{size:A4;margin:10mm}
+  body.annprinting>*:not(#annPrint){display:none!important}
+  body.annprinting{background:#fff!important;transform:none!important;position:static!important;width:auto!important;height:auto!important;overflow:visible!important}
+  body.annprinting #annPrint{display:block}
+  #annPrint .ppage{page-break-after:always;break-after:page}
+  #annPrint .ppage:last-child{page-break-after:auto;break-after:auto}
+  #annPrint .phead{font:14px Inter,Arial,sans-serif;color:#000;margin:0 0 10px;display:flex;gap:8px;align-items:baseline}
+  #annPrint .phead span{margin-left:auto;font-size:11px;color:#555}
+  #annPrint .pwin{position:relative;overflow:hidden;width:190mm}
+  #annPrint .pwin>div{position:absolute;left:0;top:0}
+  #annPrint svg{filter:none!important}
+  #annPrint *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+@media (max-width:440px){ header .tools{gap:1px} header .tools button.ic{width:35px} header .tools button.ic svg{width:21px;height:21px} }
+#annLoupe,#annEdit{max-width:min(1000px,calc(100vw - 16px))}
+@media (max-width:400px){ #annTools button{min-width:44px;font-size:10px;padding:3px 1px} }
+@media (min-width:640px){
+  #annBar.show{display:flex;flex-wrap:wrap;gap:0 14px;align-items:center}
+  #annTools{flex:1 1 100%}
+  #annTools button{flex-direction:row;gap:6px;font-size:13px;padding:6px 8px}
+  #annTools button svg{width:21px;height:21px}
+  .annRow2,.annRow3{flex:1 1 auto;margin-top:5px}
+}
 
 </style>
 </head>
@@ -752,6 +839,7 @@ body[data-theme=nuit] .sw.nuit, .sw.nuit{background:linear-gradient(135deg,#2425
   <symbol id="i-help" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.4 9.3a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2.4-2.6 4"/></g><circle cx="12" cy="17.2" r="1.25" fill="currentColor"/></symbol>
   <symbol id="i-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7"/></g><circle cx="12" cy="15.5" r="1.4" fill="currentColor"/></symbol>
   <symbol id="i-unlock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.3-1.4"/><path d="M17.5 3.5l1.6 1.6M19.8 7.2h1.7"/></g></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-4.6L15.6 4.8a2 2 0 0 1 2.8 0l.8.8a2 2 0 0 1 0 2.8L8.6 19z"/><path d="M13.6 6.8l3.6 3.6"/></g></symbol>
   <symbol id="i-note" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.6" fill="currentColor"/><circle cx="16.5" cy="16" r="2.6" fill="currentColor"/></symbol>
 </svg>
 <div class="app">
@@ -764,6 +852,7 @@ body[data-theme=nuit] .sw.nuit, .sw.nuit{background:linear-gradient(135deg,#2425
       <button id="sideToggle" class="ic" title="Afficher / masquer les réglages"><svg><use href="#i-sliders"/></svg></button>
       <button id="fullBtn" class="ic" title="Plein écran"><svg><use href="#i-full"/></svg></button>
       <button id="tuneBtn" class="ic" title="Accordeur"><svg><use href="#i-fork"/></svg></button>
+      <button id="annBtn" class="ic plonly" title="Annoter ma partition"><svg><use href="#i-pen"/></svg></button>
       <button id="rotBtn" class="ic plonly" title="Verrouiller l'orientation" aria-pressed="false"><svg><use href="#i-unlock"/></svg></button>
       <button id="helpBtn" class="ic" title="Aide" aria-pressed="false"><svg><use href="#i-help"/></svg></button>
       <button id="settingsBtn" class="ic" title="Paramètres"><svg><use href="#i-gear"/></svg></button>
@@ -857,6 +946,7 @@ body[data-theme=nuit] .sw.nuit, .sw.nuit{background:linear-gradient(135deg,#2425
             <div class="loopctl lk" title="Boucle : choisir les mesures (ou glisser le doigt sur la barre de progression)"><button id="loopBtn"><svg class="sm"><use href="#i-loop"/></svg><span>Boucle</span></button><input type="text" id="loopA" placeholder="de" inputmode="numeric" autocomplete="off" title="Début : tapez le numéro, ou touchez la case puis la mesure sur la partition"><span class="arr">→</span><input type="text" id="loopB" placeholder="à" inputmode="numeric" autocomplete="off" title="Fin : tapez le numéro, ou touchez la case puis la mesure sur la partition"></div>
             <div class="marks lk" id="marks"></div>
             </div>
+            <button id="lpAnn" class="ic lp" title="Annoter ma partition"><svg><use href="#i-pen"/></svg></button>
             <button id="lpRot" class="ic lp" title="Verrouiller l'orientation" aria-pressed="false"><svg><use href="#i-unlock"/></svg></button>
             <button id="lpHelp" class="ic lp" title="Aide" aria-pressed="false"><svg><use href="#i-help"/></svg></button>
             <button id="lpView" class="ic lp" title="Passer en affichage standard"><svg><use href="#i-view"/></svg></button>
@@ -961,7 +1051,8 @@ body[data-theme=nuit] .sw.nuit, .sw.nuit{background:linear-gradient(135deg,#2425
     <p class="small muted" style="margin:4px 0 10px">Le son sort automatiquement sur l'appareil choisi par le téléphone ou l'ordinateur (Bluetooth, AirPlay, casque…). Avec une enceinte, posez le téléphone près d'elle, volume moyen, dans le calme, puis « Mesurer » : quelques bips sont réécoutés au micro et le son est ensuite envoyé en avance d'autant, pour tomber pile avec la barre de lecture et les autres téléphones. <b>Enceinte Bluetooth sur iPhone</b> : le micro y est impossible (les bips sortent du téléphone) ; utilisez « À l'oreille ».</p>
     <div class="row" id="outRow" style="display:none;gap:8px;margin-bottom:10px"><select id="outSel" style="flex:1"></select><button type="button" id="airBtn">AirPlay…</button></div>
     <div class="latrow"><span>Diapason de l'accordeur : La = <b id="a4set">440</b> Hz</span><span class="latbtns"><button type="button" id="a4sm">−</button><button type="button" id="a4sp">+</button></span></div>
-    <div class="seg" id="sfqSeg"><button type="button" data-v="hd">Haute qualité</button><button type="button" data-v="light">Léger (4G, vieux téléphones)</button></div>
+    <p class="small muted" style="margin:10px 0 4px">Sons des instruments : <b>Banda</b> = vraie batterie, cuivres brillants, sousaphone renforcé</p>
+    <div class="seg seg3" id="sfqSeg"><button type="button" data-v="banda">Banda</button><button type="button" data-v="hd">Classique</button><button type="button" data-v="light">Léger (4G)</button></div>
     <div class="dsec">Performances</div>
     <label class="chk"><input type="checkbox" id="lightMode"><span>Affichage allégé (appareil lent : animation moins fréquente, sans flou)</span></label>
     <div class="dsec kbd">Raccourcis clavier</div>
@@ -1027,6 +1118,26 @@ body[data-theme=nuit] .sw.nuit, .sw.nuit{background:linear-gradient(135deg,#2425
   <div class="small" style="opacity:.8">Séance</div>
   <b id="takeAskTxt"></b>
   <div class="row" style="gap:8px;margin-top:10px;justify-content:flex-end"><button type="button" id="takeAskNo">Refuser</button><button type="button" class="primary" id="takeAskYes">Lui confier la direction</button></div>
+</div>
+<!-- annotations : loupe, palette, texte -->
+<div id="annLoupe" aria-label="Loupe d'annotation">
+  <div class="annHead"><button type="button" id="annPrev" class="annNav" title="Mesure précédente">‹</button><span id="annMes">Mesure</span><button type="button" id="annNext" class="annNav" title="Mesure suivante">›</button><button type="button" id="annClose" class="annX" title="Fermer la loupe">✕</button></div>
+  <div id="annView"></div>
+</div>
+<div id="annBar">
+  <div class="annRow" id="annTools"></div>
+  <div class="annRow annRow2"><div id="annCols"></div><span class="annSp"></span>
+    <button type="button" id="annUndo" title="Annuler la dernière action">↶</button>
+    <button type="button" id="annClear" title="Tout effacer (cette partie)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/></svg></button></div>
+  <div class="annRow annRow3"><div id="annHint">Touchez une mesure pour la grossir</div>
+    <button type="button" id="annPdf" title="Exporter en PDF, partager, envoyer par mail">PDF / Mail</button>
+    <button type="button" id="annDone" class="annOkBtn">Terminé</button></div>
+</div>
+<div id="annEdit">
+  <div class="aeHead"><b id="annEditT">Écrire sur la partition</b><div class="seg" id="annSize"><button type="button" data-v="small">A</button><button type="button" data-v="big" class="big">A</button></div></div>
+  <textarea id="annText" rows="1" placeholder="Votre texte…" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+  <div id="annSyms"></div>
+  <div class="aeBtns"><button type="button" id="annDel">Supprimer</button><span class="annSp"></span><button type="button" id="annCancel">Annuler</button><button type="button" id="annOk" class="annOkBtn">OK</button></div>
 </div>
 
 <script>
@@ -1120,7 +1231,6 @@ async function prepareOffline(){
   if(!S.lib.length){ toast("Aucun morceau à préparer"); return; }
   try{ if(navigator.storage&&navigator.storage.persist) await navigator.storage.persist(); }catch(e){}
   const btn=$("offlineBtn"); btn.disabled=true; const fonts=new Set(); let n=0;
-  const q=sfQuality();
   for(const it of S.lib){
     btn.lastChild.textContent=" Morceaux "+(++n)+"/"+S.lib.length;
     try{ const r=await fetch(it.url); const xml=await bufferToXml(await r.arrayBuffer(),it.url); const m=buildModel(xml);
@@ -1128,7 +1238,7 @@ async function prepareOffline(){
   }
   let k=0;
   for(const f of fonts){ btn.lastChild.textContent=" Sons "+(++k)+"/"+fonts.size;
-    try{ await fetchFontText(q,f); }catch(e){} }
+    for(const b of banksFor(f)){ try{ await fetchFontText(b,f); break; }catch(e){} } }
   btn.disabled=false; btn.lastChild.textContent=" Prêt hors connexion ✓";
   toast("Tout est prêt : les "+S.lib.length+" morceaux et leurs sons fonctionnent sans connexion",4500);
 }
@@ -1646,7 +1756,8 @@ function audio(){
     const comp=AC.createDynamicsCompressor(); comp.threshold.value=-16; comp.knee.value=14; comp.ratio.value=3; comp.attack.value=0.006; comp.release.value=0.22;
     const warm=AC.createBiquadFilter(); warm.type="highshelf"; warm.frequency.value=7500; warm.gain.value=-2.5;   // adoucit le haut du spectre (mp3)
     master=AC.createGain(); master.gain.value=0.9*(S.gVol===undefined?1:S.gVol);
-    BUS.connect(warm); warm.connect(comp); comp.connect(master); setupOutput();
+    BRIGHT=AC.createBiquadFilter(); BRIGHT.type="highshelf"; BRIGHT.frequency.value=3200; BRIGHT.gain.value=soundMode()==="banda"?2.5:0;
+    BUS.connect(BRIGHT); BRIGHT.connect(warm); warm.connect(comp); comp.connect(master); setupOutput();
     try{ REVERB=AC.createConvolver(); REVERB.buffer=makeIR(2.0); const rg=AC.createGain(); rg.gain.value=0.85; REVERB.connect(rg); rg.connect(warm); }catch(e){ REVERB=null; }
     noiseBuf=AC.createBuffer(1,AC.sampleRate*1.5,AC.sampleRate);
     const d=noiseBuf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
@@ -1671,6 +1782,16 @@ function makeIR(sec){
 const FONTS={};
 const PCN={C:0,Db:1,D:2,Eb:3,E:4,F:5,Gb:6,G:7,Ab:8,A:9,Bb:10,B:11};
 function sfQuality(){ return store("banda.sfq")==="light"?"FluidR3_GM":"MusyngKite"; }
+/* « Sons banda » (par défaut) : pour chaque instrument, la banque la plus brillante / la plus ronde, vraie batterie (dossier sons/Banda),
+   percussions en soutien, sousaphone renforcé, un peu plus de brillance générale. « Classique » = sons d'avant. « Léger » = petite banque. */
+function soundMode(){ const v=store("banda.sfq"); return v==="light"||v==="hd"?v:"banda"; }
+const BANDA_BANK={alto_sax:"FatBoy",trombone:"FatBoy",tenor_sax:"FluidR3_GM",baritone_sax:"FluidR3_GM",tuba:"FluidR3_GM",percussion:"Banda"};
+function banksFor(inst){ const md=soundMode();
+  if(md==="light") return ["FluidR3_GM","MusyngKite"];
+  if(md==="banda"&&BANDA_BANK[inst]) return [BANDA_BANK[inst],"MusyngKite","FluidR3_GM"];
+  return ["MusyngKite","FluidR3_GM"]; }
+let BRIGHT=null;
+function applySoundMode(){ if(BRIGHT) BRIGHT.gain.value=soundMode()==="banda"?2.5:0; }
 /* sons hébergés avec l'application (dossier « sons/ » du site) en priorité, sinon la banque en ligne */
 const SF_LOCAL="sons/";
 /* les grosses banques sont découpées en morceaux de moins de 20 Mo (limite d'envoi du site GitHub : 25 Mo par fichier) */
@@ -1680,6 +1801,7 @@ LOCAL_SF.ready=fetch(SF_LOCAL+"index.json",{cache:"no-cache"}).then(r=>r.ok?r.js
   const nm=typeof n==="string"?n:n.n, k=f+"/"+nm; LOCAL_SF.set.add(k); if(typeof n==="object"&&n.parts>1) LOCAL_SF.parts[k]=n.parts; }); }).catch(()=>{});
 function localFontUrls(font,name){ const k=font+"/"+name, n=LOCAL_SF.parts[k]; if(!n) return [SF_LOCAL+font+"/"+name+"-mp3.js"]; return Array.from({length:n},(_,i)=>SF_LOCAL+font+"/"+name+"-mp3.p"+(i+1)+".js"); }
 async function fetchFontText(font,name){
+  if(font==="Banda"){ const r=await fetch(SF_LOCAL+"Banda/"+name+"-mp3.js"); if(!r.ok) throw new Error(r.status); return r.text(); }
   await LOCAL_SF.ready;
   if(LOCAL_SF.set.has(font+"/"+name)){ try{ const txt=await Promise.all(localFontUrls(font,name).map(u=>fetch(u).then(r=>{ if(!r.ok) throw new Error(r.status); return r.text(); }))); return txt.join(""); }catch(e){ console.warn("sons hébergés",font,name,e); } }
   const r=await fetch(SF_BASE+font+"/"+name+"-mp3.js"); if(!r.ok) throw new Error(r.status); return r.text();
@@ -1716,6 +1838,7 @@ function instrumentFor(P){
   for(const [rx,nm] of T) if(rx.test(n)) return nm;
   return GM[Math.max(1,Math.min(128,P.program||1))-1];
 }
+function tubaMode(p){ if(!p||!p.round) return; const b=soundMode()==="banda"; p.round.gain.value=b?7:0; p.boost.gain.value=b?1.5:1; }
 function familyOf(inst){
   if(/piano|guitar|bass_finger|steel/.test(inst)) return {a:0.003,r:0.28,lvl:0.9,rev:0.12,hum:0.004};
   if(/accordion|organ/.test(inst)) return {a:0.02,r:0.09,lvl:0.7,rev:0.14,hum:0.003};
@@ -1724,14 +1847,14 @@ function familyOf(inst){
 }
 function panFor(P){
   const n=P.name.toLowerCase();
-  const T=[[/piccolo|fl[uû]te|flute/,-0.45],[/clarinet/,-0.35],[/alto.*2|a 2|alto2/,-0.18],[/alto/,-0.3],[/t[ée]nor/,0.05],[/bar/,0.25],
-    [/trompette|trumpet/,-0.08],[/trombone/,0.35],[/sousa|tuba|basse|bass/,0],[/piano/,-0.15],[/accord/,0.22],[/guitar/,0.3],[/drum|batterie|perc/,0]];
+  const T=[[/piccolo|fl[uû]te|flute/,-0.55],[/clarinet/,-0.4],[/alto.*2|a 2|alto2/,-0.3],[/alto/,-0.45],[/t[ée]nor/,-0.2],[/bar/,-0.05],
+    [/trompette|trumpet/,0.3],[/trombone/,0.45],[/sousa|tuba|basse|bass/,0.05],[/piano/,-0.7],[/accord/,0.65],[/guitar/,0.6],[/drum|batterie|perc/,0]];
   for(const [rx,v] of T) if(rx.test(n)) return v;
   return 0;
 }
 /* chargement des sons du morceau : banque, puis décodage des seules notes jouées */
 async function loadSounds(){
-  const ac=audio(), q=sfQuality(), other=q==="MusyngKite"?"FluidR3_GM":"MusyngKite";
+  const ac=audio(); applySoundMode();
   const parts=S.model.parts, token=S.loadToken=(S.loadToken||0)+1;
   const need=parts.map((P,i)=>{ const set=new Set(); for(const e of P.events){ if(P.isDrum){ if(e.drum!=null) set.add(e.drum); } else if(e.midi!=null) set.add(Math.round(e.midi)); } return set; });
   const todo=parts.map((P,i)=>i).filter(i=>need[i].size && !parts[i].hidden);
@@ -1739,9 +1862,9 @@ async function loadSounds(){
   await Promise.all(todo.map(async i=>{
     const P=parts[i], ps=S.parts[i], inst=P.isDrum?"percussion":instrumentFor(P);
     let font=null;
-    for(const f of [q,other]){ try{ font=await loadFont(f,inst); break; }catch(e){} }
+    for(const f of banksFor(inst)){ try{ font=await loadFont(f,inst); break; }catch(e){} }
     if(token!==S.loadToken) return;
-    if(font){ ps.font=font; ps.fontName=font.key; await Promise.all([...need[i]].map(m=>{ const r=sampleFor(font,m); return r?r.e.p:null; })); if(font.key.startsWith("MusyngKite")) S.snd.hq++; }
+    if(font){ ps.font=font; ps.fontName=font.key; await Promise.all([...need[i]].map(m=>{ const r=sampleFor(font,m); return r?r.e.p:null; })); if(!font.key.startsWith("FluidR3")||soundMode()==="banda") S.snd.hq++; } else { ps.font=null; ps.fontName=""; }
     S.snd.done++; soundUI();
   }));
 }
@@ -1858,7 +1981,7 @@ function buildSequence(){
 function setupParts(){
   const sel=$("partSel"); sel.innerHTML="";
   const saved=store("banda.part");
-  S.parts=S.model.parts.map((P,i)=>({vol:P.isDrum?0.8:0.85,mute:!!P.hidden,solo:false,gain:null,font:null,env:familyOf(P.isDrum?"percussion":instrumentFor(P))}));
+  S.parts=S.model.parts.map((P,i)=>({vol:P.isDrum?drumVol():0.85,mute:!!P.hidden,solo:false,gain:null,font:null,env:familyOf(P.isDrum?"percussion":instrumentFor(P))}));
   S.model.parts.forEach((P,i)=>{ if(P.hidden) return; const o=document.createElement("option"); o.value=i; o.textContent=P.name; sel.appendChild(o); });
   let idx=S.model.parts.findIndex(P=>P.name===saved&&!P.hidden); if(idx<0) idx=Math.max(0,S.model.parts.findIndex(P=>!P.hidden));
   S.myPart=idx; sel.value=idx; setKick();
@@ -1866,7 +1989,9 @@ function setupParts(){
   S.parts.forEach((p,i)=>{ const P=S.model.parts[i];
     p.gain=ac.createGain();
     p.pan=ac.createStereoPanner?ac.createStereoPanner():null; if(p.pan) p.pan.pan.value=panFor(P);
-    p.out=p.pan||p.gain; if(p.pan) p.gain.connect(p.pan);
+    let src=p.gain;
+    if(!P.isDrum&&instrumentFor(P)==="tuba"){ p.round=ac.createBiquadFilter(); p.round.type="lowshelf"; p.round.frequency.value=180; p.boost=ac.createGain(); src.connect(p.round); p.round.connect(p.boost); src=p.boost; tubaMode(p); }
+    p.out=p.pan||src; if(p.pan) src.connect(p.pan);
     p.send=ac.createGain(); p.send.gain.value=P.isDrum?0.08:p.env.rev; });
   newSession();
   drawMixer(); applyGains();
@@ -1908,7 +2033,8 @@ function drawMixer(){
   $("minusOne").classList.toggle("on",!!mine.mute && !S.parts.some(p=>p.solo));
   $("soloMine").classList.toggle("on",!!mine.solo && S.parts.filter(p=>p.solo).length===1);
 }
-function defaultMix(){ S.parts.forEach((p,i)=>{ const P=S.model.parts[i]; p.vol=P.isDrum?0.8:0.85; p.mute=!!P.hidden; p.solo=false; }); drawMixer(); applyGains(); }
+function drumVol(){ return soundMode()==="banda"?0.45:0.8; }
+function defaultMix(){ S.parts.forEach((p,i)=>{ const P=S.model.parts[i]; p.vol=P.isDrum?drumVol():0.85; p.mute=!!P.hidden; p.solo=false; }); drawMixer(); applyGains(); }
 /* volume général (propre à chaque appareil) */
 S.gVol=parseFloat(store("banda.gvol")||"1"); if(!(S.gVol>=0&&S.gVol<=1)) S.gVol=1;
 function applyMaster(){ if(!master||!AC) return; const on=!(SY.role==="f"&&!$("sessSound").checked); master.gain.setTargetAtTime(on?0.9*S.gVol:0,AC.currentTime,0.02); }
@@ -2000,6 +2126,7 @@ async function renderScore(){
   decorateSvg(host);
   buildGeometry();
   try{ drawStructure(host); drawLoopMarks(); }catch(e){ console.warn("structure",e); }
+  try{ if(typeof annDraw==="function") annDraw(); }catch(e){ console.warn("annotations",e); }
   // défilement : numéro de chaque mesure, et passage (1re / 2e fois) en bleu pour les reprises
   if(line && S.geo) S.geo.meas.forEach((m,k)=>{ const e=S.seq[k]; if(!m||!e||k===0) return;
     const d=document.createElement("div"); d.className="mnum"+(e.passes>1?" rep":"");
@@ -2646,6 +2773,7 @@ function closePassOut(ev){ const d=$("passPick"); if(d&&!d.contains(ev.target)) 
 function closePass(){ const d=$("passPick"); if(d) d.remove(); document.removeEventListener("pointerdown",closePassOut,true); }
 function onScoreClick(e){
   if(!S.model||S.dragged||performance.now()-(S.pinchEnd||0)<500) return;
+  if(typeof ANN!=="undefined"&&ANN.on){ annScoreClick(e); return; }   // mode annotation : chacun annote sa partie, même en séance
   if(SY.role==="f"){ lockedToast(); return; }
   const mi=measureAtPoint(e.clientX,e.clientY); if(mi<0) return;
   const act=S.pick?pickK:(k=>{ endPeek(); jumpTo(k); });
@@ -2767,7 +2895,7 @@ function resolveLoopInput(id,after){
 function setPlayIcon(on){ const b=$("playBtn"); b.classList.toggle("on",on); document.body.classList.toggle("playing",!!on); if(on&&window.fxClear) fxClear(); b.querySelector("use").setAttribute("href",on?"#i-pause":"#i-play"); }
 function syncLayoutSeg(){ document.querySelectorAll("#layoutSeg button").forEach(b=>b.classList.toggle("on",b.dataset.v===$("layoutSel").value)); }
 function showPlayer(){ const was=document.body.classList.contains("inplayer"); document.body.classList.add("inplayer"); $("library").style.display="none"; $("player").classList.add("show"); $("backBtn").style.display="inline-block"; if(!was&&window.fxEnterPlayer) fxEnterPlayer(); if(!was) setTimeout(landSuggest,2500); if(window.tipsRefresh) tipsRefresh(); }
-function showLibrary(){ stop(true); $("kick").textContent="La Banda Familia · répétitions"; closeSheet(); document.body.classList.remove("inplayer"); $("side").classList.remove("open"); $("player").classList.remove("show"); $("library").style.display="block"; $("backBtn").style.display="none"; $("title").textContent="Nos morceaux"; if(window.fxEnterLibrary) fxEnterLibrary(); if(window.tipsRefresh) tipsRefresh(); }
+function showLibrary(){ stop(true); if(typeof annToggle==="function"&&ANN.on) annToggle(false); $("kick").textContent="La Banda Familia · répétitions"; closeSheet(); document.body.classList.remove("inplayer"); $("side").classList.remove("open"); $("player").classList.remove("show"); $("library").style.display="block"; $("backBtn").style.display="none"; $("title").textContent="Nos morceaux"; if(window.fxEnterLibrary) fxEnterLibrary(); if(window.tipsRefresh) tipsRefresh(); }
 function showLoading(t){ if($("player").classList.contains("show")){ const l=$("loading"); l.textContent=t; l.style.display="flex"; } else $("libInfo").textContent=t; }
 function hideLoading(){ $("loading").style.display="none"; }
 
@@ -2920,8 +3048,9 @@ if("serviceWorker" in navigator && /^https?:/.test(location.protocol) && !/local
 if(document.fullscreenEnabled||document.webkitFullscreenEnabled) document.body.classList.add("canfull");
 $("fullBtn").onclick=()=>{ const d=document; if(d.fullscreenElement||d.webkitFullscreenElement){ (d.exitFullscreen||d.webkitExitFullscreen).call(d); } else { const e=d.documentElement; (e.requestFullscreen||e.webkitRequestFullscreen).call(e); } };
 /* qualité des sons */
-function syncSfq(){ const v=store("banda.sfq")==="light"?"light":"hd"; document.querySelectorAll("#sfqSeg button").forEach(b=>b.classList.toggle("on",b.dataset.v===v)); }
-document.querySelectorAll("#sfqSeg button").forEach(b=>b.onclick=()=>{ store("banda.sfq",b.dataset.v); syncSfq(); if(S.model) loadSounds(); });
+function syncSfq(){ const v=soundMode(); document.querySelectorAll("#sfqSeg button").forEach(b=>b.classList.toggle("on",b.dataset.v===v)); }
+document.querySelectorAll("#sfqSeg button").forEach(b=>b.onclick=()=>{ store("banda.sfq",b.dataset.v); syncSfq(); applySoundMode();
+  if(S.model){ S.parts.forEach((p,i)=>{ if(S.model.parts[i].isDrum) p.vol=drumVol(); tubaMode(p); }); drawMixer(); applyGains(); loadSounds(); } });
 syncSfq();
 $("speed").onchange=e=>{ const v=e.target.value/100;
   if(!S.playing){ S.speed=v; S.speedAt=null; if(SY.role==="m") syncPush(); return; }
@@ -3800,7 +3929,7 @@ async function buildSoundPack(){
     if(!window.JSZip) throw new Error("module zip indisponible");
     const inst=new Set(PACK_INST);
     for(const it of S.lib||[]){ try{ const r=await fetch(it.url); const xml=await bufferToXml(await r.arrayBuffer(),it.url); buildModel(xml).parts.forEach(P=>inst.add(P.isDrum?"percussion":instrumentFor(P))); }catch(e){} }
-    const zip=new JSZip(), idx={version:1,fonts:{}}, banks=["MusyngKite","FluidR3_GM"], all=[...inst]; let n=0, tot=all.length*banks.length, bytes=0, miss=[];
+    const zip=new JSZip(), idx={version:1,fonts:{}}, banks=["MusyngKite","FluidR3_GM","FatBoy"], all=[...inst]; let n=0, tot=all.length*banks.length, bytes=0, miss=[];
     for(const b of banks){ idx.fonts[b]=[];
       for(const name of all){ btn.textContent="Téléchargement "+(++n)+"/"+tot+"…";
         try{ const r=await fetch(SF_BASE+b+"/"+name+"-mp3.js"); if(!r.ok) throw 0; const t=await r.text(); bytes+=t.length;
@@ -4565,9 +4694,11 @@ const AIDE = {
     { cibles: ["#tuneBtn", "#lpTune"], nom: "Accordeur",
       texte: "Jouez une note tenue : elle s'affiche dans la notation de votre instrument, avec le son réel à côté. Le néon s'allume quand c'est juste. Le La (440 Hz) se règle avec − / +." },
     { cibles: ["#settingsBtn", "#lpSet"], nom: "Paramètres",
-      texte: "Apparence (thèmes) et son : <b>Mesurer</b> la latence au micro, ou la régler <b>À l'oreille</b> (enceinte Bluetooth sur iPhone), qualité des sons." },
+      texte: "Apparence (thèmes) et son : <b>Mesurer</b> la latence au micro, ou la régler <b>À l'oreille</b> (enceinte Bluetooth sur iPhone). Sons : <b>Banda</b> (vraie batterie, cuivres plus brillants, sousaphone renforcé), <b>Classique</b> (sons d'avant) ou <b>Léger</b> (4G, vieux téléphones)." },
     { cibles: ["#fullBtn"], nom: "Plein écran",
       texte: "Cache la barre du navigateur pour agrandir la partition." },
+    { cibles: ["#annBtn", "#lpAnn"], nom: "Annoter",
+      texte: "Écrire sur <b>sa</b> partition (chacun la sienne, même en séance). Touchez une mesure : elle s'ouvre en grand. Choisissez un outil (Surligner, Texte, Flèche, Entourer, Barrer, Symbole, Gomme) et une couleur, puis glissez le doigt ou touchez une note. ↶ annule. Les annotations restent sur ce téléphone, accrochées aux mesures (elles suivent le zoom et le paysage). <b>PDF / Mail</b> : imprimer, enregistrer en PDF ou envoyer. Le point rouge sur le crayon signale une partie déjà annotée." },
     { cibles: ["#rotBtn", "#lpRot"], nom: "Verrou",
       texte: "Fige l'orientation : la partition ne tourne plus quand vous bougez. Sur iPhone, si l'écran pivote quand même, l'application se tourne à l'inverse pour garder le même sens de lecture. Touchez à nouveau pour libérer." },
     { cibles: ["#lpView"], nom: "Paysage",
@@ -4810,6 +4941,345 @@ const AIDE = {
   }
   function closeScan(){ clearInterval(timer); if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } vid.srcObject=null; if(qd.open) qd.close(); }
   $("qrClose").onclick=closeScan; qd.addEventListener("close",closeScan);
+})();
+
+/* =====================================================================
+   ANNOTATIONS (bouton crayon) — chacun annote SA partie, sur SON appareil.
+   - On touche une mesure : elle s'ouvre en grand dans une loupe (pas besoin de stylet).
+   - Outils : Surligner, Texte (clavier + barre de symboles musicaux), Flèche, Entourer, Barrer, Symbole, Gomme.
+   - Chaque annotation est accrochée à la musique (mesure + position dans la mesure + hauteur en interlignes),
+     pas à l'écran : elle suit le zoom, le défilement, le paysage, et revient après rechargement ou séance.
+   - Mémoire : localStorage « banda.ann|titre|partie ». Export : PDF (impression) → Enregistrer / Partager / Mail.
+   ===================================================================== */
+const ANN_COLS=[["#e11d48","Rouge"],["#f97316","Orange"],["#facc15","Jaune"],["#16a34a","Vert"],["#2563eb","Bleu"],["#9333ea","Violet"]];
+const ANN_TOOLS=[
+  {id:"hl",nom:"Surligner",ic:'<path d="M4 20h7" stroke-width="2.4"/><path d="M14.5 4.5l5 5L11 18l-5.5.5.5-5.5z" />',aide:"Glissez le doigt sur les notes à surligner"},
+  {id:"tx",nom:"Texte",ic:'<path d="M5 6V4.5h14V6M12 4.5V20M9 20h6" />',aide:"Touchez l'endroit où écrire"},
+  {id:"ar",nom:"Flèche",ic:'<path d="M5 19L19 5M10 5h9v9" />',aide:"Glissez du départ vers la pointe (ou touchez une note)"},
+  {id:"ci",nom:"Entourer",ic:'<ellipse cx="12" cy="12" rx="8.5" ry="6.5" />',aide:"Glissez en diagonale autour des notes (ou touchez une note)"},
+  {id:"st",nom:"Barrer",ic:'<path d="M4 18L20 6" /><path d="M7 7h10M7 12h10M7 17h10" stroke-width="1.2" opacity=".5"/>',aide:"Glissez le doigt en travers de ce qu'il faut barrer"},
+  {id:"sy",nom:"Symbole",ic:'<text x="12" y="18" text-anchor="middle" font-size="17" stroke="none" fill="currentColor" font-family="Noto Music,serif">♯</text>',aide:"Touchez l'endroit, puis choisissez le symbole"},
+  {id:"er",nom:"Gomme",ic:'<path d="M8.5 19.5h11M4.8 14.6l9.6-9.6a1.8 1.8 0 0 1 2.5 0l2.1 2.1a1.8 1.8 0 0 1 0 2.5l-9.6 9.6H8.2z" /><path d="M9.5 9.9l4.6 4.6" />',aide:"Touchez une annotation pour l'effacer"}];
+/* barre de symboles : [ce qui est écrit, nom affiché en bulle] — modifiable librement */
+const ANN_SYMS=[["♯","dièse"],["♭","bémol"],["♮","bécarre"],["𝄪","double dièse"],["𝄫","double bémol"],["𝄐","point d'orgue"],["𝄑","point d'orgue (dessous)"],
+  ["𝄋","segno"],["𝄌","coda"],["𝄆","début de reprise"],["𝄇","fin de reprise"],["𝄒","crescendo"],["𝄓","decrescendo"],
+  ["𝆏","piano"],["𝆐","mezzo"],["𝆑","forte"],["pp","pianissimo"],["p","piano"],["mp","mezzo piano"],["mf","mezzo forte"],["f","forte"],["ff","fortissimo"],["sfz","sforzando"],["fp","forte-piano"],
+  ["cresc.","crescendo"],["dim.","diminuendo"],["rit.","ritardando"],["rall.","rallentando"],["accel.","accelerando"],["a tempo","a tempo"],["𝆖","pédale / respiration"],["’","respiration"],["//","césure"],
+  ["♩","noire"],["♪","croche"],["♫","croches"],["𝅗𝅥","blanche"],["𝅝","ronde"],["𝄽","soupir"],["𝄾","demi-soupir"],["𝄼","pause"],
+  [">","accent"],["^","marcato"],["·","staccato"],["—","tenuto"],["8va","octave au-dessus"],["8vb","octave au-dessous"],["×","ne pas jouer"],["solo","solo"],["tutti","tutti"],
+  ["↑","plus haut"],["↓","plus bas"],["!","attention"],["?","à vérifier"],["👀","regarder le chef"]];
+const ANN_FONT="'Times New Roman','Noto Music',Georgia,serif";
+var ANN={on:false,tool:"hl",col:ANN_COLS[0][0],items:[],undo:[],key:"",d:-1,z:2,x0:0,y0:0,drag:null,edit:null,clone:null,cloneGeo:null,orph:0,clearArm:0};
+
+/* ---------- mémoire ---------- */
+function annKey(){ const P=S.model&&S.model.parts[S.myPart]; return "banda.ann|"+((S.title||(S.src&&S.src.name)||"").trim())+"|"+(P?P.name:""); }
+function annLoad(){
+  ANN.key=annKey(); ANN.undo=[]; ANN.items=[];
+  try{ const j=JSON.parse(store(ANN.key)||"null"); if(j&&Array.isArray(j.items)) ANN.items=j.items; }catch(e){}
+  annResolve();
+}
+function annSave(){ if(!ANN.key) return;
+  if(ANN.items.length) store(ANN.key,JSON.stringify({v:1,t:Date.now(),items:ANN.items}));
+  else try{ localStorage.removeItem(ANN.key); }catch(e){}
+  annBtns(); }
+function annPush(){ ANN.undo.push(JSON.stringify(ANN.items)); if(ANN.undo.length>60) ANN.undo.shift(); }
+/* la partition a peut-être été mise à jour : on retrouve chaque mesure par son numéro */
+function annResolve(){ ANN.orph=0; const ms=S.model?S.model.meas:[];
+  const fix=p=>{ if(!p) return true; const m=ms[p.mi]; if(m&&String(m.number)===String(p.n)){ p._mi=p.mi; return true; }
+    const i=ms.findIndex(x=>String(x.number)===String(p.n)); p._mi=i; return i>=0; };
+  ANN.items.forEach(it=>{ it._ok=fix(it.a)&&fix(it.b); if(!it._ok) ANN.orph++; }); }
+
+/* ---------- géométrie : mesure affichée ↔ point d'accroche ---------- */
+function annOff(){ const line=isLine(); return {ox:6+(line?S.pad:0),oy:line?24:0,line}; }
+function annBox(d){ const G=S.geo, m=G&&G.meas[d]; if(!m) return null; let xs=m.xs,x2=m.x2,x=m.x;
+  if(m.mr){ const w=(m.x2-m.xs)/m.mr.n; xs=m.xs+w*m.mr.j; x2=xs+w; if(m.mr.j) x=xs; }
+  return {x,xs,x2,y:m.y,u:m.u,sys:m.sys}; }
+function annDisp(mi){ if(mi==null||mi<0||!S.geo) return []; if(!isLine()) return S.geo.meas[mi]?[mi]:[];
+  const r=[]; S.seq.forEach((e,k)=>{ if(e.mi===mi&&S.geo.meas[k]) r.push(k); }); return r; }
+function annPt(p,d){ const b=annBox(d); if(!b) return null; const o=annOff();
+  return {x:b.xs+p.f*(b.x2-b.xs)+o.ox, y:b.y+p.dy*b.u+o.oy, u:b.u, sys:b.sys, d}; }
+function annAnchor(hx,hy,sys){
+  const G=S.geo; if(!G) return null; const o=annOff(), gx=hx-o.ox, gy=hy-o.oy;   // repère de la géométrie (S.geo)
+  let best=-1,bd=1e18;
+  G.meas.forEach((m,d)=>{ if(!m||(sys!=null&&m.sys!==sys)) return; const b=annBox(d), sy=G.sys[m.sys];
+    const dyS=gy<sy.top?sy.top-gy:gy>sy.bottom?gy-sy.bottom:0, dx=gx<b.x?b.x-gx:gx>b.x2?gx-b.x2:0;
+    const s=dyS*1000+dx; if(s<bd){ bd=s; best=d; } });
+  if(best<0) return null;
+  const b=annBox(best), mi=o.line?S.seq[best].mi:best, M=S.model.meas[mi];
+  const f=Math.max(-0.5,Math.min(1.2,(gx-b.xs)/(b.x2-b.xs)));
+  return {mi,n:M?M.number:"",f:+f.toFixed(4),dy:+((gy-b.y)/b.u).toFixed(3),_mi:mi,_d:best};
+}
+/* fin d'un trait : la même occurrence (défilement), sinon la plus proche */
+function annPair(it,da){ const pa=annPt(it.a,da); if(!pa) return null; if(!it.b) return [pa,null];
+  let db;
+  if(!isLine()) db=it.b._mi; else { const ks=annDisp(it.b._mi), mi0=S.seq[da].mi; const want=da+(it.b._mi-mi0);
+    const span=Math.abs(it.b._mi-mi0)+1;   // passage qui saute la fin (1re / 2e fois) : on ne relie pas à un autre passage lointain
+    db=ks.includes(want)?want:ks.reduce((a,k)=>a==null||Math.abs(k-da)<Math.abs(a-da)?k:a,null); if(db!=null&&Math.abs(db-da)>span) db=null; }
+  const pb=db==null?null:annPt(it.b,db); return pb?[pa,pb]:null; }
+/* un trait qui change de ligne (mode page) : un morceau par ligne */
+function annSegs(A,B){
+  const G=S.geo, o=annOff(); if(A.sys===B.sys) return [{x1:A.x,y1:A.y,x2:B.x,y2:B.y,u:A.u}];
+  const [P,Q]=A.sys<B.sys?[A,B]:[B,A]; const out=[];
+  const sysX=s=>{ let a=1e9,b=-1e9; G.meas.forEach(m=>{ if(m&&m.sys===s){ a=Math.min(a,m.x); b=Math.max(b,m.x2); } }); return [a+o.ox,b+o.ox]; };
+  const staffY=s=>{ const m=G.meas[G.sysFirst[s]]; return m?m.y+o.oy:0; };
+  const dyP=(P.y-staffY(P.sys))/P.u, dyQ=(Q.y-staffY(Q.sys))/Q.u;
+  for(let s=P.sys;s<=Q.sys;s++){ const [xa,xb]=sysX(s), y0=staffY(s);
+    out.push({x1:s===P.sys?P.x:xa, y1:y0+(s===P.sys?dyP:dyQ)*P.u, x2:s===Q.sys?Q.x:xb, y2:y0+(s===Q.sys?dyQ:dyP)*P.u, u:P.u, cont:s<Q.sys}); }
+  return out; }
+
+/* ---------- dessin ---------- */
+const SVGNS="http://www.w3.org/2000/svg";
+function annEl(tag,at,par){ const e=document.createElementNS(SVGNS,tag); for(const k in at) e.setAttribute(k,at[k]); if(par) par.appendChild(e); return e; }
+function annDrawItem(svg,it,i,da,hit){
+  const pr=annPair(it,da); if(!pr) return; const [A,B]=pr, u=A.u, c=it.c||"#e11d48";
+  const g=annEl("g",{"data-i":i,class:"ai ai-"+it.t},svg);
+  const fat=(x1,y1,x2,y2)=>{ if(hit) annEl("line",{x1,y1,x2,y2,stroke:"transparent","stroke-width":Math.max(18,u*2.2),"stroke-linecap":"round"},g); };
+  if(it.t==="tx"||it.t==="sy"){
+    const fs=(it.z||(it.t==="sy"?2.8:1.7))*u, lines=String(it.s||"").split("\n");
+    const t=annEl("text",{x:A.x,y:A.y,fill:c,"font-size":fs,"font-family":ANN_FONT,"font-weight":it.t==="sy"&&!/[a-z]/i.test(it.s)?"400":"700","font-style":/^(p|pp|ppp|mp|mf|f|ff|fff|sfz|fp|cresc\.|dim\.|rit\.|rall\.|accel\.|a tempo)$/.test(it.s)?"italic":"normal",
+      "dominant-baseline":"middle","text-anchor":it.t==="sy"?"middle":"start",stroke:"#fff","stroke-width":Math.max(2,fs*0.16),"stroke-linejoin":"round","paint-order":"stroke"},g);
+    lines.forEach((l,j)=>{ const ts=annEl("tspan",{x:A.x,dy:j?fs*1.12:0},t); ts.textContent=l; });
+    if(hit){ try{ const bb=t.getBBox(); annEl("rect",{x:bb.x-6,y:bb.y-6,width:bb.width+12,height:bb.height+12,fill:"transparent"},g); }catch(e){} }
+    return; }
+  if(!B) return;
+  const segs=annSegs(A,B);
+  if(it.t==="hl"){ segs.forEach(s=>{ const x=Math.min(s.x1,s.x2), w=Math.max(u*0.8,Math.abs(s.x2-s.x1)), y=Math.min(s.y1,s.y2), h=Math.max(u*0.8,Math.abs(s.y2-s.y1));
+    annEl("rect",{x,y,width:w,height:h,rx:u*0.6,fill:c,"fill-opacity":c==="#facc15"?0.42:0.28},g); }); return; }
+  if(it.t==="st"){ segs.forEach(s=>{ fat(s.x1,s.y1,s.x2,s.y2); annEl("line",{x1:s.x1,y1:s.y1,x2:s.x2,y2:s.y2,stroke:c,"stroke-width":u*0.42,"stroke-linecap":"round","stroke-opacity":0.85},g); }); return; }
+  if(it.t==="ci"){
+    if(segs.length===1){ const s=segs[0]; annEl("ellipse",{cx:(s.x1+s.x2)/2,cy:(s.y1+s.y2)/2,rx:Math.max(u,Math.abs(s.x2-s.x1)/2),ry:Math.max(u,Math.abs(s.y2-s.y1)/2),fill:"none",stroke:c,"stroke-width":u*0.3},g);
+      if(hit) annEl("ellipse",{cx:(s.x1+s.x2)/2,cy:(s.y1+s.y2)/2,rx:Math.max(u,Math.abs(s.x2-s.x1)/2),ry:Math.max(u,Math.abs(s.y2-s.y1)/2),fill:"none",stroke:"transparent","stroke-width":Math.max(18,u*2)},g); }
+    else segs.forEach(s=>{ const x=Math.min(s.x1,s.x2), y=Math.min(s.y1,s.y2); annEl("rect",{x,y,width:Math.abs(s.x2-s.x1),height:Math.max(u*2,Math.abs(s.y2-s.y1)),rx:u*1.4,fill:hit?"transparent":"none",stroke:c,"stroke-width":u*0.3},g); });
+    return; }
+  if(it.t==="ar"){ segs.forEach((s,j)=>{ fat(s.x1,s.y1,s.x2,s.y2);
+      annEl("line",{x1:s.x1,y1:s.y1,x2:s.x2,y2:s.y2,stroke:c,"stroke-width":u*0.32,"stroke-linecap":"round"},g);
+      if(j===segs.length-1){ const ang=Math.atan2(s.y2-s.y1,s.x2-s.x1), L=u*1.5, W=0.45;
+        const p=[[s.x2,s.y2],[s.x2-L*Math.cos(ang-W),s.y2-L*Math.sin(ang-W)],[s.x2-L*Math.cos(ang+W),s.y2-L*Math.sin(ang+W)]];
+        annEl("polygon",{points:p.map(q=>q.join(",")).join(" "),fill:c,stroke:c,"stroke-width":u*0.12,"stroke-linejoin":"round"},g); } }); }
+}
+function annRender(svg,hit){
+  svg.innerHTML=""; if(!S.geo) return;
+  ANN.items.forEach((it,i)=>{ if(!it._ok) return; annDisp(it.a._mi).forEach(d=>annDrawItem(svg,it,i,d,hit)); });
+  if(ANN.drag&&ANN.drag.tmp) annDisp(ANN.drag.tmp.a._mi).filter(d=>!isLine()||d===ANN.drag.tmp.a._d).forEach(d=>annDrawItem(svg,ANN.drag.tmp,-1,d,false));
+}
+function annSize(svg,host){ const w=Math.max(host.scrollWidth,host.offsetWidth), h=Math.max(host.scrollHeight,host.offsetHeight);
+  svg.setAttribute("width",w); svg.setAttribute("height",h); svg.setAttribute("viewBox","0 0 "+w+" "+h); }
+/* appelé après chaque dessin de la partition */
+function annDraw(){
+  const host=$("score"); if(!host||!S.model) return;
+  if(ANN.key!==annKey()){ annLoad(); annCloseLoupe(); annCloseEdit(); } else annResolve();
+  let svg=host.querySelector("svg.annsvg"); if(!svg){ svg=annEl("svg",{class:"annsvg"}); host.appendChild(svg); }
+  annSize(svg,host); annRender(svg,false);
+  ANN.clone=null;
+  if(ANN.on&&ANN.d>=0) annLoupe(ANN.d,true);
+  annBtns();
+}
+
+/* ---------- mode annotation ---------- */
+function annBtns(){ ["annBtn","lpAnn"].forEach(id=>{ const b=$(id); if(!b) return; b.classList.toggle("on",ANN.on); b.classList.toggle("has",ANN.items.length>0); }); }
+function annToggle(on){
+  if(on===undefined) on=!ANN.on; if(on&&!S.model) return;
+  ANN.on=on; document.body.classList.toggle("annot",on); annBtns();
+  if(on){ if(ANN.key!==annKey()) annLoad(); annBuildBar(); $("annBar").classList.add("show"); annHint();
+    if(ANN.orph) toast(ANN.orph+" annotation(s) ne retrouvent plus leur mesure (partition modifiée) : elles sont masquées",4500); }
+  else { annCloseLoupe(); annCloseEdit(); $("annBar").classList.remove("show"); }
+}
+function annHint(t){ const h=$("annHint"); if(!h) return;
+  const T=ANN_TOOLS.find(x=>x.id===ANN.tool);
+  h.textContent=t||(ANN.d<0?"Touchez une mesure pour la grossir":T.aide); }
+function annBuildBar(){
+  const bar=$("annBar"); if(bar.dataset.ok) { annSyncBar(); return; } bar.dataset.ok=1;
+  const tl=$("annTools"); tl.innerHTML="";
+  ANN_TOOLS.forEach(T=>{ const b=document.createElement("button"); b.type="button"; b.dataset.t=T.id; b.title=T.nom;
+    b.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${T.ic}</svg><span>${T.nom}</span>`;
+    b.onclick=()=>{ ANN.tool=T.id; store("banda.annTool",T.id); annSyncBar(); annHint(); annLoupeMode(); }; tl.appendChild(b); });
+  const cl=$("annCols"); cl.innerHTML="";
+  ANN_COLS.forEach(([c,n])=>{ const b=document.createElement("button"); b.type="button"; b.className="sw"; b.dataset.c=c; b.title=n; b.style.background=c;
+    b.onclick=()=>{ ANN.col=c; store("banda.annCol",c); annSyncBar(); }; cl.appendChild(b); });
+  $("annUndo").onclick=annUndo; $("annDone").onclick=()=>annToggle(false); $("annPdf").onclick=annExport; $("annClear").onclick=annClearAll;
+  const t=store("banda.annTool"), c=store("banda.annCol"); if(ANN_TOOLS.some(x=>x.id===t)) ANN.tool=t; if(ANN_COLS.some(x=>x[0]===c)) ANN.col=c;
+  annSyncBar();
+}
+function annSyncBar(){ document.querySelectorAll("#annTools button").forEach(b=>b.classList.toggle("on",b.dataset.t===ANN.tool));
+  document.querySelectorAll("#annCols button").forEach(b=>b.classList.toggle("on",b.dataset.c===ANN.col));
+  $("annUndo").disabled=!ANN.undo.length; }
+function annUndo(){ if(!ANN.undo.length) return; ANN.items=JSON.parse(ANN.undo.pop()); annResolve(); annSave(); annRefresh(); annSyncBar(); }
+function annClearAll(){ const b=$("annClear");
+  if(!ANN.items.length){ toast("Aucune annotation sur cette partie",1600); return; }
+  if(performance.now()-ANN.clearArm>3000){ ANN.clearArm=performance.now(); b.classList.add("arm"); toast("Touchez encore « Tout effacer » pour supprimer les "+ANN.items.length+" annotations de cette partie",3000);
+    setTimeout(()=>b.classList.remove("arm"),3000); return; }
+  ANN.clearArm=0; b.classList.remove("arm"); annPush(); ANN.items=[]; annSave(); annRefresh(); annSyncBar(); toast("Annotations effacées (↶ pour revenir)",2200); }
+function annRefresh(){ const host=$("score"), svg=host&&host.querySelector("svg.annsvg"); if(svg) annRender(svg,false); const ls=$("annLoupe")&&$("annLoupe").querySelector("svg.annsvg"); if(ls) annRender(ls,true); }
+function annAdd(it){ annPush(); ANN.items.push(it); annResolve(); annSave(); annRefresh(); annSyncBar(); }
+/* clic sur la partition en mode annotation */
+function annScoreClick(e){
+  const d=measureAtPoint(e.clientX,e.clientY); if(d<0) return;
+  annLoupe(d);
+}
+
+/* ---------- copie de la partition (loupe, PDF) : mêmes styles que #score ---------- */
+let annCssDone=false;
+function annCloneCss(){ if(annCssDone) return; annCssDone=true; const add=[];
+  for(const sh of document.styleSheets){ let rs; try{ rs=sh.cssRules; }catch(e){ continue; }
+    for(const r of rs){ if(r.selectorText&&/#score\b/.test(r.selectorText)&&!/nuit|#scoreWrap/.test(r.selectorText)){
+      const sel=r.selectorText.split(",").filter(x=>/#score\b/.test(x)).map(x=>x.replace(/#score\b/g,".annClone")).join(",");
+      if(sel) add.push(sel+"{"+r.style.cssText+"}"); } } }
+  const st=document.createElement("style"); st.textContent=add.join("\n"); document.head.appendChild(st); }
+function annCloneOf(host){ annCloneCss(); const cl=host.cloneNode(true); cl.removeAttribute("id"); cl.classList.add("annClone");
+  cl.querySelectorAll("#pcur,#jumpMark,#pageMask,.cuering,.cueframe").forEach(x=>x.remove());
+  cl.querySelectorAll("[id]").forEach(x=>x.removeAttribute("id"));
+  const cs=getComputedStyle(host); cl.style.paddingTop=cs.paddingTop; cl.style.paddingLeft=cs.paddingLeft;
+  cl.style.width=host.offsetWidth+"px"; cl.style.transform="none"; cl.style.marginTop="0"; cl.style.paddingBottom="0"; cl.style.minHeight="0";
+  return cl; }
+/* ---------- la loupe ---------- */
+function annLoupe(d,keep){
+  const G=S.geo, b=annBox(d); if(!b) return; ANN.d=d;
+  const host=$("score"), lp=$("annLoupe"), vp=$("annView"), o=annOff();
+  if(!ANN.clone||ANN.cloneGeo!==G){ const cl=annCloneOf(host); cl.querySelectorAll("svg.annsvg").forEach(x=>x.remove()); ANN.clone=cl; ANN.cloneGeo=G; }
+  lp.classList.add("show"); annHint();
+  const sy=G.sys[b.sys], W=vp.clientWidth||Math.min(VW()-16,900);
+  const top=sy.top+o.oy-b.u*(o.line?3:1.5), bot=sy.bottom+o.oy+b.u*1.5, mw=b.x2-b.x+b.u*2;
+  const barH=$("annBar").offsetHeight||120, Hmax=Math.max(140,VH()-barH-70);
+  let z=Math.min(3.2,(W*0.82)/mw); z=Math.min(z,Hmax/(bot-top)); z=Math.max(1.15,z); ANN.z=z;
+  const H=Math.min(Hmax,(bot-top)*z); vp.style.height=H+"px";
+  ANN.x0=(b.x+b.x2)/2+o.ox-6-(W/z)/2; ANN.y0=((top+bot)/2)-(H/z)/2;
+  let inner=vp.querySelector(".annInner");
+  if(!inner||inner.firstChild!==ANN.clone){ vp.innerHTML=""; inner=document.createElement("div"); inner.className="annInner"; inner.appendChild(ANN.clone);
+    const s=annEl("svg",{class:"annsvg"}); inner.appendChild(s); vp.appendChild(inner); }
+  inner.style.transform=`scale(${z}) translate(${-ANN.x0}px,${-ANN.y0}px)`;
+  const s=inner.querySelector("svg.annsvg"); annSize(s,host); annRender(s,true);
+  const M=S.model.meas[o.line?S.seq[d].mi:d]; $("annMes").textContent="Mesure "+(M?M.number:"")+(o.line&&S.seq[d].passes>1?" · "+passLabel(S.seq[d]):"");
+  annLoupeMode();
+}
+function annLoupeMode(){ const lp=$("annLoupe"); if(lp) lp.dataset.tool=ANN.tool; }
+function annCloseLoupe(){ ANN.d=-1; const lp=$("annLoupe"); if(lp) lp.classList.remove("show"); annHint(); }
+function annStep(dir){ const G=S.geo; if(!G||ANN.d<0) return; let d=ANN.d+dir;
+  while(d>=0&&d<G.meas.length&&!G.meas[d]) d+=dir;
+  if(d<0||d>=G.meas.length) return; annLoupe(d); }
+function annSys(){ const b=annBox(ANN.d); return b?b.sys:null; }   // dans la loupe : la ligne grossie
+function annLocal(e){ const vp=$("annView"), r=vrect(vp), q=vpt(e.clientX,e.clientY); return {hx:ANN.x0+(q.x-r.left)/ANN.z, hy:ANN.y0+(q.y-r.top)/ANN.z}; }
+function annDown(e){
+  if(!ANN.on||ANN.d<0) return; e.preventDefault();
+  const p=annLocal(e), A=annAnchor(p.hx,p.hy,annSys()); if(!A) return;
+  if(ANN.tool==="er"){ const g=e.target.closest&&e.target.closest("g[data-i]"); let i=g?+g.dataset.i:-1;
+    if(i<0) i=annNearest(p.hx,p.hy);
+    if(i>=0){ annPush(); ANN.items.splice(i,1); annResolve(); annSave(); annRefresh(); annSyncBar(); } else annHint("Rien à effacer ici");
+    return; }
+  if(ANN.tool==="tx"||ANN.tool==="sy"){ const g=e.target.closest&&e.target.closest("g[data-i]"); const i=g?+g.dataset.i:-1;
+    if(i>=0&&(ANN.items[i].t==="tx"||ANN.items[i].t==="sy")){ annOpenEdit(ANN.items[i].t,null,i); return; }
+    annOpenEdit(ANN.tool,A,-1); return; }
+  ANN.drag={id:e.pointerId,A,x:p.hx,y:p.hy,moved:false,tmp:null};
+  try{ $("annView").setPointerCapture(e.pointerId); }catch(er){}
+}
+function annMove(e){ const D=ANN.drag; if(!D||e.pointerId!==D.id) return; e.preventDefault();
+  const p=annLocal(e); const u=annBox(D.A._d).u;
+  if(Math.hypot(p.hx-D.x,p.hy-D.y)>u*0.6) D.moved=true;
+  if(!D.moved) return;
+  const B=annAnchor(p.hx,p.hy,annSys()); if(!B) return;
+  D.tmp=annMake(D.A,B,u,true); annResolve1(D.tmp); D.tmp.a._d=D.A._d;
+  const s=$("annView").querySelector("svg.annsvg"); if(s) annRender(s,true); }
+function annUp(e){ const D=ANN.drag; if(!D||e.pointerId!==D.id) return; ANN.drag=null;
+  const p=annLocal(e), u=annBox(D.A._d).u; let it=null;
+  if(D.moved){ const B=annAnchor(p.hx,p.hy,annSys()); if(B) it=annMake(D.A,B,u,false); }
+  else it=annTap(D.A);
+  if(it){ annAdd(it); } else { annRefresh(); }
+}
+function annResolve1(it){ [it.a,it.b].forEach(p=>{ if(p) p._mi=p.mi; }); it._ok=true; }
+const annP=(A,dx,dy)=>({mi:A.mi,n:A.n,f:+(A.f+dx).toFixed(4),dy:+(A.dy+dy).toFixed(3)});
+function annClean(p){ return p?{mi:p.mi,n:p.n,f:p.f,dy:p.dy}:p; }
+function annMake(A,B,u,tmp){
+  let a=annClean(A), b=annClean(B), t=ANN.tool;
+  if(t==="hl"&&Math.abs(B.dy-A.dy)<1.6){ a.dy=-1.2; b.dy=5.2; }   // geste horizontal : toute la hauteur de la portée
+  return {t,c:ANN.col,a,b};
+}
+/* simple toucher (sans glisser) : forme par défaut autour de la note touchée */
+function annTap(A){ const t=ANN.tool, b=annBox(A._d), w=b?1.4/((b.x2-b.xs)/b.u):0.06;
+  if(t==="hl") return {t,c:ANN.col,a:annP(A,-w*0.8,-1.2-A.dy),b:annP(A,w*0.8,5.2-A.dy)};
+  if(t==="ci") return {t,c:ANN.col,a:annP(A,-w,-1.4),b:annP(A,w,1.4)};
+  if(t==="ar") return {t,c:ANN.col,a:annP(A,-w*1.4,-4.2),b:annP(A,0,-1)};
+  if(t==="st") return {t,c:ANN.col,a:annP(A,-w*0.7,1.2),b:annP(A,w*0.7,-1.2)};
+  return null; }
+function annNearest(hx,hy){ const svg=$("annView").querySelector("svg.annsvg"); let best=-1,bd=1e9;
+  svg.querySelectorAll("g[data-i]").forEach(g=>{ try{ const bb=g.getBBox(); const dx=hx<bb.x?bb.x-hx:hx>bb.x+bb.width?hx-bb.x-bb.width:0, dy=hy<bb.y?bb.y-hy:hy>bb.y+bb.height?hy-bb.y-bb.height:0;
+    const dd=Math.hypot(dx,dy); if(dd<bd){ bd=dd; best=+g.dataset.i; } }catch(e){} });
+  const u=annBox(ANN.d)?annBox(ANN.d).u:10; return bd<=u*1.2?best:-1; }
+
+/* ---------- texte et symboles ---------- */
+function annOpenEdit(kind,A,idx){
+  const dlg=$("annEdit"), inp=$("annText"); ANN.edit={kind,A,idx};
+  const it=idx>=0?ANN.items[idx]:null;
+  inp.value=it?it.s:""; ANN.edit.big=it?(it.z||(it.t==="sy"?2.8:1.7))>2:kind==="sy";
+  dlg.dataset.kind=kind; $("annEditT").textContent=kind==="sy"?"Choisissez un symbole":(it?"Modifier le texte":"Écrire sur la partition");
+  $("annDel").style.display=it?"":"none"; annBigSync();
+  const sb=$("annSyms"); if(!sb.dataset.ok){ sb.dataset.ok=1;
+    ANN_SYMS.forEach(([s,n])=>{ const b=document.createElement("button"); b.type="button"; b.textContent=s; b.title=n; b.setAttribute("aria-label",n);
+      if(/^[a-z.\/ 0-9]+$/i.test(s)&&s.length>1) b.classList.add("w");
+      b.onpointerdown=ev=>ev.preventDefault();   // le clavier reste ouvert
+      b.onclick=()=>annSym(s); sb.appendChild(b); }); }
+  dlg.classList.add("show");
+  if(kind==="tx") setTimeout(()=>{ try{ inp.focus({preventScroll:true}); }catch(e){ inp.focus(); } },30);
+}
+function annBigSync(){ document.querySelectorAll("#annSize button").forEach(b=>b.classList.toggle("on",(b.dataset.v==="big")===!!(ANN.edit&&ANN.edit.big))); }
+function annSym(s){ const E=ANN.edit, inp=$("annText"); if(!E) return;
+  if(E.kind==="sy"&&E.idx<0&&!inp.value){ inp.value=s; annEditOk(); return; }   // outil Symbole : un toucher suffit
+  const a=inp.selectionStart!=null?inp.selectionStart:inp.value.length, b=inp.selectionEnd!=null?inp.selectionEnd:a;
+  const pre=inp.value.slice(0,a), sp=pre&&!/\s$/.test(pre)&&s.length>1?" ":"";
+  inp.value=pre+sp+s+inp.value.slice(b); const c=a+sp.length+s.length; try{ inp.setSelectionRange(c,c); }catch(e){} }
+function annEditOk(){ const E=ANN.edit; if(!E) return; const s=$("annText").value.replace(/\s+$/,"");
+  if(!s){ if(E.idx>=0){ annPush(); ANN.items.splice(E.idx,1); annResolve(); annSave(); annRefresh(); annSyncBar(); } annCloseEdit(); return; }
+  const z=E.big?(E.kind==="sy"?3.2:2.5):(E.kind==="sy"?2.2:1.7);
+  if(E.idx>=0){ annPush(); const it=ANN.items[E.idx]; it.s=s; it.z=z; it.c=ANN.col; annSave(); annRefresh(); annSyncBar(); }
+  else annAdd({t:E.kind,c:ANN.col,a:annClean(E.A),s,z});
+  annCloseEdit(); }
+function annCloseEdit(){ ANN.edit=null; const d=$("annEdit"); if(d) d.classList.remove("show"); const i=$("annText"); if(i) i.blur(); }
+
+/* ---------- export PDF (impression) : Enregistrer en PDF, Partager, Mail ---------- */
+async function annExport(){
+  if(!S.geo||!S.model) return;
+  if(isLine()){ toast("Pour l'export, passez en affichage Page (téléphone en portrait ou Réglages › Affichage)",4500); return; }
+  try{ if(document.fonts&&document.fonts.load) await Promise.race([document.fonts.load("20px 'Noto Music'","♯𝄐"),new Promise(r=>setTimeout(r,1500))]); }catch(e){}
+  annCloseLoupe(); annCloseEdit();
+  const host=$("score"), G=S.geo, W=host.offsetWidth, PW=718, s=Math.min(1.6,PW/W), PH=1040;
+  const old=$("annPrint"); if(old) old.remove();
+  const box=document.createElement("div"); box.id="annPrint";
+  const P=S.model.parts[S.myPart], dt=new Date().toLocaleDateString("fr-FR");
+  const base=annCloneOf(host); base.querySelectorAll(".lbrk").forEach(x=>x.remove());
+  let i=0, first=true;
+  // en-tête (titre) au-dessus de la 1re ligne
+  const titleTop=0;
+  let cut=titleTop;
+  while(i<G.sys.length){ const top=cut; let j=i; const avail=(first?PH-40:PH)/s;
+    while(j+1<G.sys.length&&G.sys[j+1].bottom+4-top<=avail) j++;
+    const bot=j+1<G.sys.length?(G.sys[j].bottom+G.sys[j+1].top)/2:Math.max(G.sys[j].bottom+8,annMaxY(host));
+    const pg=document.createElement("div"); pg.className="ppage";
+    if(first) pg.innerHTML=`<div class="phead"><b>${annEsc(S.title||"")}</b> — ${annEsc(P?P.name:"")}<span>annotations du ${dt} · La Banda Familia</span></div>`;
+    const win=document.createElement("div"); win.className="pwin"; win.style.height=Math.ceil((bot-top)*s)+"px";
+    const cl=base.cloneNode(true); cl.style.transform=`scale(${s}) translateY(${-top}px)`; cl.style.transformOrigin="0 0";
+    win.appendChild(cl); pg.appendChild(win); box.appendChild(pg);
+    first=false; i=j+1; cut=bot; }
+  document.body.appendChild(box); document.body.classList.add("annprinting");
+  const done=()=>{ document.body.classList.remove("annprinting"); box.remove(); window.removeEventListener("afterprint",done); };
+  window.addEventListener("afterprint",done);
+  toast("Choisissez « Enregistrer en PDF », ou Partager › Mail",3500);
+  setTimeout(()=>{ try{ window.print(); }catch(e){ done(); toast("Impression impossible sur cet appareil",3000); } },350);
+}
+function annMaxY(host){ const svg=host.querySelector("svg.annsvg"); let m=0; if(svg) svg.querySelectorAll("g").forEach(g=>{ try{ const b=g.getBBox(); m=Math.max(m,b.y+b.height+6); }catch(e){} }); return m; }
+function annEsc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+/* ---------- branchements ---------- */
+(function(){
+  const vp=$("annView"); if(!vp) return;
+  vp.addEventListener("pointerdown",annDown); vp.addEventListener("pointermove",annMove);
+  vp.addEventListener("pointerup",annUp); vp.addEventListener("pointercancel",()=>{ ANN.drag=null; annRefresh(); });
+  ["annBtn","lpAnn"].forEach(id=>{ const b=$(id); if(b) b.onclick=()=>annToggle(); });
+  $("annPrev").onclick=()=>annStep(-1); $("annNext").onclick=()=>annStep(1); $("annClose").onclick=annCloseLoupe;
+  $("annOk").onclick=annEditOk; $("annCancel").onclick=annCloseEdit;
+  $("annDel").onclick=()=>{ $("annText").value=""; annEditOk(); };
+  $("annText").addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); annEditOk(); } if(e.key==="Escape") annCloseEdit(); });
+  document.querySelectorAll("#annSize button").forEach(b=>b.onclick=()=>{ if(ANN.edit){ ANN.edit.big=b.dataset.v==="big"; annBigSync(); } });
+  document.addEventListener("keydown",e=>{ if(!ANN.on||ANN.edit) return; if(e.key==="Escape"){ if(ANN.d>=0) annCloseLoupe(); else annToggle(false); }
+    if((e.ctrlKey||e.metaKey)&&e.key==="z"){ e.preventDefault(); annUndo(); }
+    if(ANN.d>=0&&e.key==="ArrowLeft") annStep(-1); if(ANN.d>=0&&e.key==="ArrowRight") annStep(1); });
 })();
 
 </script>
