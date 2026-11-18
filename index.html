@@ -15,7 +15,7 @@
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "4.19";
+window.BANDA_VERSION = "4.20";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -814,6 +814,19 @@ body.annot #toast{bottom:150px;z-index:6000}
   #annTools button svg{width:21px;height:21px}
   .annRow2,.annRow3{flex:1 1 auto;margin-top:5px}
 }
+body.annDirect #scoreWrap{touch-action:none}
+body.annDirect #score{cursor:crosshair}
+body.annDirect #score svg.annsvg .ai,body.annDirect #score svg.annsvg .ah{pointer-events:auto;cursor:move}
+#annLoupe svg.annsvg .ah,body.annDirect #score svg.annsvg .ah{cursor:grab}
+#annLp{display:inline-flex;align-items:center;gap:4px}
+#annLp svg{width:18px;height:18px}
+#annLp.on{background:#1d1d1f;color:#fff;border-color:#1d1d1f}
+#annSelBar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(150px + env(safe-area-inset-bottom));z-index:5005;display:none;gap:6px;padding:6px;background:#fffdf8;border-radius:14px;box-shadow:0 6px 24px #0005,0 0 0 2px #0ea5e9;font-family:Inter,system-ui,sans-serif}
+#annSelBar.show{display:flex}
+#annSelBar button{min-height:36px;padding:4px 12px;border-radius:10px;border:1px solid #0002;background:#fff;color:#1d1d1f;font-weight:600;font-size:14px}
+#annSelBar svg{width:19px;height:19px;display:block}
+@media (min-width:640px){ #annSelBar{bottom:110px} }
+@media (max-width:400px){ #annTools button{min-width:41px} }
 
 </style>
 </head>
@@ -1127,11 +1140,16 @@ body.annot #toast{bottom:150px;z-index:6000}
 <div id="annBar">
   <div class="annRow" id="annTools"></div>
   <div class="annRow annRow2"><div id="annCols"></div><span class="annSp"></span>
+    <button type="button" id="annLp" title="Loupe : grossir une mesure avant d'annoter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5M8 10.5h5M10.5 8v5"/></svg><span>Loupe</span></button>
     <button type="button" id="annUndo" title="Annuler la dernière action">↶</button>
     <button type="button" id="annClear" title="Tout effacer (cette partie)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/></svg></button></div>
   <div class="annRow annRow3"><div id="annHint">Touchez une mesure pour la grossir</div>
     <button type="button" id="annPdf" title="Exporter en PDF, partager, envoyer par mail">PDF / Mail</button>
     <button type="button" id="annDone" class="annOkBtn">Terminé</button></div>
+</div>
+<div id="annSelBar">
+  <button type="button" id="annSelText" class="tx">✎ Texte</button><button type="button" id="annSelMinus" class="tx wd" title="Plus petit / plus fin">A−</button><button type="button" id="annSelPlus" class="tx wd" title="Plus grand / plus épais">A+</button>
+  <button type="button" id="annSelDel" title="Supprimer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/></svg></button><button type="button" id="annSelOk" class="annOkBtn">OK</button>
 </div>
 <div id="annEdit">
   <div class="aeHead"><b id="annEditT">Écrire sur la partition</b><div class="seg" id="annSize"><button type="button" data-v="small">A</button><button type="button" data-v="big" class="big">A</button></div></div>
@@ -2414,7 +2432,8 @@ function touchLandscape(){ return vmm("(orientation: landscape) and (pointer: co
 function isTablet(){ return window.matchMedia("(pointer: coarse)").matches && Math.min(screen.width,screen.height)>=600; }
 function landPref(){ const v=store("banda.landMode"); return v==="line"||v==="std"?v:"auto"; }
 function landLine(){ if(!touchLandscape()) return false; const p=landPref(); return p==="line"||(p==="auto"&&!isTablet()); }
-function layoutMode(){ return landLine()?"line":$("layoutSel").value; }
+function layoutMode(){ if(typeof ANN!=="undefined"&&ANN.on) return "idem";   // annotations : toujours sur la mise en page « comme imprimé »
+  return landLine()?"line":$("layoutSel").value; }
 function isLine(){ return layoutMode()==="line"; }
 function dmeas(i){ return isLine()?(S.seq[i]&&S.seq[i].M):S.model.meas[i]; }   // mesure du modèle pour une mesure affichée
 function dIdx(k){ return isLine()?k:S.seq[k].mi; }
@@ -4698,7 +4717,7 @@ const AIDE = {
     { cibles: ["#fullBtn"], nom: "Plein écran",
       texte: "Cache la barre du navigateur pour agrandir la partition." },
     { cibles: ["#annBtn", "#lpAnn"], nom: "Annoter",
-      texte: "Écrire sur <b>sa</b> partition (chacun la sienne, même en séance). Touchez une mesure : elle s'ouvre en grand. Choisissez un outil (Surligner, Texte, Flèche, Entourer, Barrer, Symbole, Gomme) et une couleur, puis glissez le doigt ou touchez une note. ↶ annule. Les annotations restent sur ce téléphone, accrochées aux mesures (elles suivent le zoom et le paysage). <b>PDF / Mail</b> : imprimer, enregistrer en PDF ou envoyer. Le point rouge sur le crayon signale une partie déjà annotée." },
+      texte: "Écrire sur <b>sa</b> partition (chacun la sienne, même en séance). L'affichage passe en « Comme imprimé » (la mise en page de la partie papier) et revient comme avant avec <b>Terminé</b>.<br>Outils : Surligner, <b>Stylo</b> (main levée), Texte, Flèche, Entourer, Barrer, Symbole, Gomme, et 6 couleurs. On peut entourer ou surligner plusieurs mesures, même sur deux lignes.<br><b>Modifier</b> : touchez une annotation, puis glissez-la ou tirez ses poignées ; une pastille change sa couleur ; touchez encore un texte pour le réécrire. ↶ annule.<br><b>Loupe</b> (téléphone) : touchez une mesure pour la grossir. Sans loupe, on dessine directement (deux doigts pour faire défiler).<br>Les annotations restent sur ce téléphone. Le stylo n'apparaît qu'en « Comme imprimé » ; le reste se voit aussi dans les autres affichages. <b>PDF / Mail</b> : imprimer, enregistrer ou envoyer la partition annotée." },
     { cibles: ["#rotBtn", "#lpRot"], nom: "Verrou",
       texte: "Fige l'orientation : la partition ne tourne plus quand vous bougez. Sur iPhone, si l'écran pivote quand même, l'application se tourne à l'inverse pour garder le même sens de lecture. Touchez à nouveau pour libérer." },
     { cibles: ["#lpView"], nom: "Paysage",
@@ -4954,6 +4973,7 @@ const AIDE = {
 const ANN_COLS=[["#e11d48","Rouge"],["#f97316","Orange"],["#facc15","Jaune"],["#16a34a","Vert"],["#2563eb","Bleu"],["#9333ea","Violet"]];
 const ANN_TOOLS=[
   {id:"hl",nom:"Surligner",ic:'<path d="M4 20h7" stroke-width="2.4"/><path d="M14.5 4.5l5 5L11 18l-5.5.5.5-5.5z" />',aide:"Glissez le doigt sur les notes à surligner"},
+  {id:"fh",nom:"Stylo",ic:'<path d="M3.5 17c2.5-6 5-8 7-6s-1 6 2 6 4-7 8-9" />',aide:"Dessinez à main levée (flèche de renvoi, accolade…). Visible en « Comme imprimé » et dans le PDF"},
   {id:"tx",nom:"Texte",ic:'<path d="M5 6V4.5h14V6M12 4.5V20M9 20h6" />',aide:"Touchez l'endroit où écrire"},
   {id:"ar",nom:"Flèche",ic:'<path d="M5 19L19 5M10 5h9v9" />',aide:"Glissez du départ vers la pointe (ou touchez une note)"},
   {id:"ci",nom:"Entourer",ic:'<ellipse cx="12" cy="12" rx="8.5" ry="6.5" />',aide:"Glissez en diagonale autour des notes (ou touchez une note)"},
@@ -4969,7 +4989,7 @@ const ANN_SYMS=[["♯","dièse"],["♭","bémol"],["♮","bécarre"],["𝄪","do
   [">","accent"],["^","marcato"],["·","staccato"],["—","tenuto"],["8va","octave au-dessus"],["8vb","octave au-dessous"],["×","ne pas jouer"],["solo","solo"],["tutti","tutti"],
   ["↑","plus haut"],["↓","plus bas"],["!","attention"],["?","à vérifier"],["👀","regarder le chef"]];
 const ANN_FONT="'Times New Roman','Noto Music',Georgia,serif";
-var ANN={on:false,tool:"hl",col:ANN_COLS[0][0],items:[],undo:[],key:"",d:-1,z:2,x0:0,y0:0,drag:null,edit:null,clone:null,cloneGeo:null,orph:0,clearArm:0};
+var ANN={sel:-1,loupe:null,ptrs:new Set(),on:false,tool:"hl",col:ANN_COLS[0][0],items:[],undo:[],key:"",d:-1,z:2,x0:0,y0:0,drag:null,edit:null,clone:null,cloneGeo:null,orph:0,clearArm:0};
 
 /* ---------- mémoire ---------- */
 function annKey(){ const P=S.model&&S.model.parts[S.myPart]; return "banda.ann|"+((S.title||(S.src&&S.src.name)||"").trim())+"|"+(P?P.name:""); }
@@ -4979,10 +4999,10 @@ function annLoad(){
   annResolve();
 }
 function annSave(){ if(!ANN.key) return;
-  if(ANN.items.length) store(ANN.key,JSON.stringify({v:1,t:Date.now(),items:ANN.items}));
+  if(ANN.items.length) store(ANN.key,JSON.stringify({v:1,t:Date.now(),items:ANN.items.map(annStrip)}));
   else try{ localStorage.removeItem(ANN.key); }catch(e){}
   annBtns(); }
-function annPush(){ ANN.undo.push(JSON.stringify(ANN.items)); if(ANN.undo.length>60) ANN.undo.shift(); }
+function annPush(){ ANN.undo.push(JSON.stringify(ANN.items.map(annStrip))); if(ANN.undo.length>60) ANN.undo.shift(); }
 /* la partition a peut-être été mise à jour : on retrouve chaque mesure par son numéro */
 function annResolve(){ ANN.orph=0; const ms=S.model?S.model.meas:[];
   const fix=p=>{ if(!p) return true; const m=ms[p.mi]; if(m&&String(m.number)===String(p.n)){ p._mi=p.mi; return true; }
@@ -5001,9 +5021,11 @@ function annPt(p,d){ const b=annBox(d); if(!b) return null; const o=annOff();
 function annAnchor(hx,hy,sys){
   const G=S.geo; if(!G) return null; const o=annOff(), gx=hx-o.ox, gy=hy-o.oy;   // repère de la géométrie (S.geo)
   let best=-1,bd=1e18;
-  G.meas.forEach((m,d)=>{ if(!m||(sys!=null&&m.sys!==sys)) return; const b=annBox(d), sy=G.sys[m.sys];
-    const dyS=gy<sy.top?sy.top-gy:gy>sy.bottom?gy-sy.bottom:0, dx=gx<b.x?b.x-gx:gx>b.x2?gx-b.x2:0;
-    const s=dyS*1000+dx; if(s<bd){ bd=s; best=d; } });
+  // 1) la ligne : celle dont la portée est la plus proche verticalement (entre deux lignes, plutôt celle du dessous : on écrit au-dessus des notes)
+  if(sys==null){ let sd=1e18; G.meas.forEach(m=>{ if(!m) return; const c=gy<m.y?m.y-gy:gy>m.y+4*m.u?(gy-m.y-4*m.u)*1.4:0; if(c<sd){ sd=c; sys=m.sys; } }); }
+  // 2) la mesure dans cette ligne
+  G.meas.forEach((m,d)=>{ if(!m||m.sys!==sys) return; const b=annBox(d);
+    const s=gx<b.x?b.x-gx:gx>b.x2?gx-b.x2:0; if(s<bd){ bd=s; best=d; } });
   if(best<0) return null;
   const b=annBox(best), mi=o.line?S.seq[best].mi:best, M=S.model.meas[mi];
   const f=Math.max(-0.5,Math.min(1.2,(gx-b.xs)/(b.x2-b.xs)));
@@ -5017,14 +5039,15 @@ function annPair(it,da){ const pa=annPt(it.a,da); if(!pa) return null; if(!it.b)
     db=ks.includes(want)?want:ks.reduce((a,k)=>a==null||Math.abs(k-da)<Math.abs(a-da)?k:a,null); if(db!=null&&Math.abs(db-da)>span) db=null; }
   const pb=db==null?null:annPt(it.b,db); return pb?[pa,pb]:null; }
 /* un trait qui change de ligne (mode page) : un morceau par ligne */
-function annSegs(A,B){
+function annSegs(A,B,box){
   const G=S.geo, o=annOff(); if(A.sys===B.sys) return [{x1:A.x,y1:A.y,x2:B.x,y2:B.y,u:A.u}];
   const [P,Q]=A.sys<B.sys?[A,B]:[B,A]; const out=[];
   const sysX=s=>{ let a=1e9,b=-1e9; G.meas.forEach(m=>{ if(m&&m.sys===s){ a=Math.min(a,m.x); b=Math.max(b,m.x2); } }); return [a+o.ox,b+o.ox]; };
   const staffY=s=>{ const m=G.meas[G.sysFirst[s]]; return m?m.y+o.oy:0; };
   const dyP=(P.y-staffY(P.sys))/P.u, dyQ=(Q.y-staffY(Q.sys))/Q.u;
   for(let s=P.sys;s<=Q.sys;s++){ const [xa,xb]=sysX(s), y0=staffY(s);
-    out.push({x1:s===P.sys?P.x:xa, y1:y0+(s===P.sys?dyP:dyQ)*P.u, x2:s===Q.sys?Q.x:xb, y2:y0+(s===Q.sys?dyQ:dyP)*P.u, u:P.u, cont:s<Q.sys}); }
+    if(box) out.push({x1:s===P.sys?P.x:xa, y1:y0+dyP*P.u, x2:s===Q.sys?Q.x:xb, y2:y0+dyQ*P.u, u:P.u, cont:s<Q.sys});   // surlignage, entourage : même hauteur sur chaque ligne
+    else out.push({x1:s===P.sys?P.x:xa, y1:y0+(s===P.sys?dyP:dyQ)*P.u, x2:s===Q.sys?Q.x:xb, y2:y0+(s===Q.sys?dyQ:dyP)*P.u, u:P.u, cont:s<Q.sys}); }
   return out; }
 
 /* ---------- dessin ---------- */
@@ -5032,7 +5055,12 @@ const SVGNS="http://www.w3.org/2000/svg";
 function annEl(tag,at,par){ const e=document.createElementNS(SVGNS,tag); for(const k in at) e.setAttribute(k,at[k]); if(par) par.appendChild(e); return e; }
 function annDrawItem(svg,it,i,da,hit){
   const pr=annPair(it,da); if(!pr) return; const [A,B]=pr, u=A.u, c=it.c||"#e11d48";
-  const g=annEl("g",{"data-i":i,class:"ai ai-"+it.t},svg);
+  const g=annEl("g",{"data-i":i,"data-d":da,class:"ai ai-"+it.t+(i>=0&&i===ANN.sel?" sel":"")},svg);
+  if(it.t==="fh"){ const pts=(it.pts||[]).map(q=>[A.x+q[0]*u,A.y+q[1]*u]); if(!pts.length) return;
+    const dd="M"+pts.map(q=>q[0].toFixed(1)+" "+q[1].toFixed(1)).join(" L");
+    if(hit) annEl("path",{d:dd,fill:"none",stroke:"transparent","stroke-width":Math.max(18,u*2),"stroke-linecap":"round","stroke-linejoin":"round"},g);
+    annEl("path",{d:dd,fill:"none",stroke:c,"stroke-width":u*(it.w||0.3),"stroke-linecap":"round","stroke-linejoin":"round"},g);
+    annSelDeco(svg,g,it,i,A,null); return; }
   const fat=(x1,y1,x2,y2)=>{ if(hit) annEl("line",{x1,y1,x2,y2,stroke:"transparent","stroke-width":Math.max(18,u*2.2),"stroke-linecap":"round"},g); };
   if(it.t==="tx"||it.t==="sy"){
     const fs=(it.z||(it.t==="sy"?2.8:1.7))*u, lines=String(it.s||"").split("\n");
@@ -5040,26 +5068,39 @@ function annDrawItem(svg,it,i,da,hit){
       "dominant-baseline":"middle","text-anchor":it.t==="sy"?"middle":"start",stroke:"#fff","stroke-width":Math.max(2,fs*0.16),"stroke-linejoin":"round","paint-order":"stroke"},g);
     lines.forEach((l,j)=>{ const ts=annEl("tspan",{x:A.x,dy:j?fs*1.12:0},t); ts.textContent=l; });
     if(hit){ try{ const bb=t.getBBox(); annEl("rect",{x:bb.x-6,y:bb.y-6,width:bb.width+12,height:bb.height+12,fill:"transparent"},g); }catch(e){} }
-    return; }
+    annSelDeco(svg,g,it,i,A,null); return; }
   if(!B) return;
-  const segs=annSegs(A,B);
+  annDrawShape(g,it,A,B,u,c,hit); annSelDeco(svg,g,it,i,A,B);
+}
+function annDrawShape(g,it,A,B,u,c,hit){
+  const fat=(x1,y1,x2,y2)=>{ if(hit) annEl("line",{x1,y1,x2,y2,stroke:"transparent","stroke-width":Math.max(18,u*2.2),"stroke-linecap":"round"},g); };
+  const segs=annSegs(A,B,it.t==="hl"||it.t==="ci");
   if(it.t==="hl"){ segs.forEach(s=>{ const x=Math.min(s.x1,s.x2), w=Math.max(u*0.8,Math.abs(s.x2-s.x1)), y=Math.min(s.y1,s.y2), h=Math.max(u*0.8,Math.abs(s.y2-s.y1));
     annEl("rect",{x,y,width:w,height:h,rx:u*0.6,fill:c,"fill-opacity":c==="#facc15"?0.42:0.28},g); }); return; }
-  if(it.t==="st"){ segs.forEach(s=>{ fat(s.x1,s.y1,s.x2,s.y2); annEl("line",{x1:s.x1,y1:s.y1,x2:s.x2,y2:s.y2,stroke:c,"stroke-width":u*0.42,"stroke-linecap":"round","stroke-opacity":0.85},g); }); return; }
+  if(it.t==="st"){ segs.forEach(s=>{ fat(s.x1,s.y1,s.x2,s.y2); annEl("line",{x1:s.x1,y1:s.y1,x2:s.x2,y2:s.y2,stroke:c,"stroke-width":u*(it.w?it.w*1.4:0.42),"stroke-linecap":"round","stroke-opacity":0.85},g); }); return; }
   if(it.t==="ci"){
     if(segs.length===1){ const s=segs[0]; annEl("ellipse",{cx:(s.x1+s.x2)/2,cy:(s.y1+s.y2)/2,rx:Math.max(u,Math.abs(s.x2-s.x1)/2),ry:Math.max(u,Math.abs(s.y2-s.y1)/2),fill:"none",stroke:c,"stroke-width":u*0.3},g);
       if(hit) annEl("ellipse",{cx:(s.x1+s.x2)/2,cy:(s.y1+s.y2)/2,rx:Math.max(u,Math.abs(s.x2-s.x1)/2),ry:Math.max(u,Math.abs(s.y2-s.y1)/2),fill:"none",stroke:"transparent","stroke-width":Math.max(18,u*2)},g); }
     else segs.forEach(s=>{ const x=Math.min(s.x1,s.x2), y=Math.min(s.y1,s.y2); annEl("rect",{x,y,width:Math.abs(s.x2-s.x1),height:Math.max(u*2,Math.abs(s.y2-s.y1)),rx:u*1.4,fill:hit?"transparent":"none",stroke:c,"stroke-width":u*0.3},g); });
     return; }
   if(it.t==="ar"){ segs.forEach((s,j)=>{ fat(s.x1,s.y1,s.x2,s.y2);
-      annEl("line",{x1:s.x1,y1:s.y1,x2:s.x2,y2:s.y2,stroke:c,"stroke-width":u*0.32,"stroke-linecap":"round"},g);
+      annEl("line",{x1:s.x1,y1:s.y1,x2:s.x2,y2:s.y2,stroke:c,"stroke-width":u*(it.w||0.32),"stroke-linecap":"round"},g);
       if(j===segs.length-1){ const ang=Math.atan2(s.y2-s.y1,s.x2-s.x1), L=u*1.5, W=0.45;
         const p=[[s.x2,s.y2],[s.x2-L*Math.cos(ang-W),s.y2-L*Math.sin(ang-W)],[s.x2-L*Math.cos(ang+W),s.y2-L*Math.sin(ang+W)]];
         annEl("polygon",{points:p.map(q=>q.join(",")).join(" "),fill:c,stroke:c,"stroke-width":u*0.12,"stroke-linejoin":"round"},g); } }); }
 }
+/* annotation sélectionnée : cadre pointillé + poignées (extrémités, coins) */
+function annSelDeco(svg,g,it,i,A,B){
+  if(i<0||i!==ANN.sel) return; const u=A.u, k=ANN.sc||1, r=(matchMedia("(pointer: coarse)").matches?12:8)/k;
+  try{ const bb=g.getBBox(); annEl("rect",{x:bb.x-u*0.4,y:bb.y-u*0.4,width:bb.width+u*0.8,height:bb.height+u*0.8,fill:"none",stroke:"#0ea5e9","stroke-width":1.5/k,"stroke-dasharray":(5/k)+" "+(4/k),"pointer-events":"none"},svg); }catch(e){}
+  const h=(x,y,w)=>{ const e=annEl("circle",{cx:x,cy:y,r,fill:"#fff","fill-opacity":0.7,stroke:"#0ea5e9","stroke-width":2.5/k,"data-h":w,"data-i":i,"data-d":g.getAttribute("data-d"),class:"ah"},svg); return e; };
+  if(B){ h(A.x,A.y,"a"); h(B.x,B.y,"b"); }
+}
 function annRender(svg,hit){
-  svg.innerHTML=""; if(!S.geo) return;
-  ANN.items.forEach((it,i)=>{ if(!it._ok) return; annDisp(it.a._mi).forEach(d=>annDrawItem(svg,it,i,d,hit)); });
+  svg.innerHTML=""; if(!S.geo) return; ANN.sc=svg.closest&&svg.closest("#annView")?ANN.z:1;   // taille des poignées : constante à l'écran
+  const idem=layoutMode()==="idem";
+  ANN.items.forEach((it,i)=>{ if(!it._ok||(it.t==="fh"&&!idem)) return; annDisp(it.a._mi).forEach(d=>annDrawItem(svg,it,i,d,hit)); });
+  if(ANN.drag&&ANN.drag.fh&&ANN.drag.fh.length>1) annEl("path",{d:"M"+ANN.drag.fh.map(q=>q[0].toFixed(1)+" "+q[1].toFixed(1)).join(" L"),fill:"none",stroke:ANN.col,"stroke-width":ANN.drag.u*0.3,"stroke-linecap":"round","stroke-linejoin":"round"},svg);
   if(ANN.drag&&ANN.drag.tmp) annDisp(ANN.drag.tmp.a._mi).filter(d=>!isLine()||d===ANN.drag.tmp.a._d).forEach(d=>annDrawItem(svg,ANN.drag.tmp,-1,d,false));
 }
 function annSize(svg,host){ const w=Math.max(host.scrollWidth,host.offsetWidth), h=Math.max(host.scrollHeight,host.offsetHeight);
@@ -5069,7 +5110,7 @@ function annDraw(){
   const host=$("score"); if(!host||!S.model) return;
   if(ANN.key!==annKey()){ annLoad(); annCloseLoupe(); annCloseEdit(); } else annResolve();
   let svg=host.querySelector("svg.annsvg"); if(!svg){ svg=annEl("svg",{class:"annsvg"}); host.appendChild(svg); }
-  annSize(svg,host); annRender(svg,false);
+  annSize(svg,host); annRender(svg,ANN.on);
   ANN.clone=null;
   if(ANN.on&&ANN.d>=0) annLoupe(ANN.d,true);
   annBtns();
@@ -5077,25 +5118,32 @@ function annDraw(){
 
 /* ---------- mode annotation ---------- */
 function annBtns(){ ["annBtn","lpAnn"].forEach(id=>{ const b=$(id); if(!b) return; b.classList.toggle("on",ANN.on); b.classList.toggle("has",ANN.items.length>0); }); }
+function annLayoutSeg(){ document.querySelectorAll("#layoutSeg button").forEach(b=>b.classList.toggle("on",b.dataset.v===(ANN.on?"idem":$("layoutSel").value))); }
 function annToggle(on){
   if(on===undefined) on=!ANN.on; if(on&&!S.model) return;
-  ANN.on=on; document.body.classList.toggle("annot",on); annBtns();
+  const was=layoutMode(); ANN.on=on; ANN.sel=-1; document.body.classList.toggle("annot",on); annBtns(); annLoupeSync(); annLayoutSeg();
+  if(layoutMode()!==was) relayout(); else annRefresh();   // on annote toujours sur la mise en page « comme imprimé »
   if(on){ if(ANN.key!==annKey()) annLoad(); annBuildBar(); $("annBar").classList.add("show"); annHint();
+    if(was!=="idem") toast("Annotations : affichage « Comme imprimé » (la mise en page de la partie papier)",3200);
     if(ANN.orph) toast(ANN.orph+" annotation(s) ne retrouvent plus leur mesure (partition modifiée) : elles sont masquées",4500); }
-  else { annCloseLoupe(); annCloseEdit(); $("annBar").classList.remove("show"); }
+  else { annCloseLoupe(); annCloseEdit(); $("annBar").classList.remove("show"); annSelBar(); }
 }
 function annHint(t){ const h=$("annHint"); if(!h) return;
   const T=ANN_TOOLS.find(x=>x.id===ANN.tool);
-  h.textContent=t||(ANN.d<0?"Touchez une mesure pour la grossir":T.aide); }
+  h.textContent=t||(ANN.sel>=0?"Glissez l'annotation ou ses poignées · couleur : touchez une pastille":ANN.loupe&&ANN.d<0?"Touchez une mesure pour la grossir":T.aide+(ANN.items.length?" · touchez une annotation pour la modifier":"")); }
+function annLoupeOn(){ if(ANN.loupe==null){ const v=store("banda.annLoupe"); ANN.loupe=v==="1"?true:v==="0"?false:!matchMedia("(pointer: fine)").matches; } return ANN.loupe; }
+function annLoupeSync(){ annLoupeOn(); document.body.classList.toggle("annDirect",ANN.on&&!ANN.loupe); const b=$("annLp"); if(b) b.classList.toggle("on",ANN.loupe); }
 function annBuildBar(){
   const bar=$("annBar"); if(bar.dataset.ok) { annSyncBar(); return; } bar.dataset.ok=1;
   const tl=$("annTools"); tl.innerHTML="";
   ANN_TOOLS.forEach(T=>{ const b=document.createElement("button"); b.type="button"; b.dataset.t=T.id; b.title=T.nom;
     b.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${T.ic}</svg><span>${T.nom}</span>`;
-    b.onclick=()=>{ ANN.tool=T.id; store("banda.annTool",T.id); annSyncBar(); annHint(); annLoupeMode(); }; tl.appendChild(b); });
+    b.onclick=()=>{ ANN.tool=T.id; store("banda.annTool",T.id); annDeselect(); annSyncBar(); annHint(); annLoupeMode(); }; tl.appendChild(b); });
   const cl=$("annCols"); cl.innerHTML="";
   ANN_COLS.forEach(([c,n])=>{ const b=document.createElement("button"); b.type="button"; b.className="sw"; b.dataset.c=c; b.title=n; b.style.background=c;
-    b.onclick=()=>{ ANN.col=c; store("banda.annCol",c); annSyncBar(); }; cl.appendChild(b); });
+    b.onclick=()=>{ ANN.col=c; store("banda.annCol",c); const it=ANN.items[ANN.sel]; if(it&&it.c!==c){ annPush(); it.c=c; annSave(); annRefresh(); } annSyncBar(); }; cl.appendChild(b); });
+  $("annLp").onclick=()=>{ ANN.loupe=!annLoupeOn(); store("banda.annLoupe",ANN.loupe?"1":"0"); if(!ANN.loupe) annCloseLoupe(); annLoupeSync(); annHint();
+    toast(ANN.loupe?"Loupe : touchez une mesure pour la grossir":"Sans loupe : dessinez directement sur la partition"+(matchMedia("(pointer: coarse)").matches?" (deux doigts pour faire défiler)":""),2600); };
   $("annUndo").onclick=annUndo; $("annDone").onclick=()=>annToggle(false); $("annPdf").onclick=annExport; $("annClear").onclick=annClearAll;
   const t=store("banda.annTool"), c=store("banda.annCol"); if(ANN_TOOLS.some(x=>x.id===t)) ANN.tool=t; if(ANN_COLS.some(x=>x[0]===c)) ANN.col=c;
   annSyncBar();
@@ -5103,16 +5151,17 @@ function annBuildBar(){
 function annSyncBar(){ document.querySelectorAll("#annTools button").forEach(b=>b.classList.toggle("on",b.dataset.t===ANN.tool));
   document.querySelectorAll("#annCols button").forEach(b=>b.classList.toggle("on",b.dataset.c===ANN.col));
   $("annUndo").disabled=!ANN.undo.length; }
-function annUndo(){ if(!ANN.undo.length) return; ANN.items=JSON.parse(ANN.undo.pop()); annResolve(); annSave(); annRefresh(); annSyncBar(); }
+function annUndo(){ if(!ANN.undo.length) return; ANN.items=JSON.parse(ANN.undo.pop()); ANN.sel=-1; annResolve(); annSave(); annRefresh(); annSyncBar(); }
 function annClearAll(){ const b=$("annClear");
   if(!ANN.items.length){ toast("Aucune annotation sur cette partie",1600); return; }
   if(performance.now()-ANN.clearArm>3000){ ANN.clearArm=performance.now(); b.classList.add("arm"); toast("Touchez encore « Tout effacer » pour supprimer les "+ANN.items.length+" annotations de cette partie",3000);
     setTimeout(()=>b.classList.remove("arm"),3000); return; }
   ANN.clearArm=0; b.classList.remove("arm"); annPush(); ANN.items=[]; annSave(); annRefresh(); annSyncBar(); toast("Annotations effacées (↶ pour revenir)",2200); }
-function annRefresh(){ const host=$("score"), svg=host&&host.querySelector("svg.annsvg"); if(svg) annRender(svg,false); const ls=$("annLoupe")&&$("annLoupe").querySelector("svg.annsvg"); if(ls) annRender(ls,true); }
+function annRefresh(){ const host=$("score"), svg=host&&host.querySelector("svg.annsvg"); if(svg) annRender(svg,ANN.on); annSelBar(); const ls=$("annLoupe")&&$("annLoupe").querySelector("svg.annsvg"); if(ls) annRender(ls,true); }
 function annAdd(it){ annPush(); ANN.items.push(it); annResolve(); annSave(); annRefresh(); annSyncBar(); }
 /* clic sur la partition en mode annotation */
 function annScoreClick(e){
+  if(!annLoupeOn()) return;          // sans loupe : tout se passe dans les gestionnaires de pointeur
   const d=measureAtPoint(e.clientX,e.clientY); if(d<0) return;
   annLoupe(d);
 }
@@ -5140,7 +5189,7 @@ function annLoupe(d,keep){
   const sy=G.sys[b.sys], W=vp.clientWidth||Math.min(VW()-16,900);
   const top=sy.top+o.oy-b.u*(o.line?3:1.5), bot=sy.bottom+o.oy+b.u*1.5, mw=b.x2-b.x+b.u*2;
   const barH=$("annBar").offsetHeight||120, Hmax=Math.max(140,VH()-barH-70);
-  let z=Math.min(3.2,(W*0.82)/mw); z=Math.min(z,Hmax/(bot-top)); z=Math.max(1.15,z); ANN.z=z;
+  let z=Math.min(4.5,(W*0.82)/mw); z=Math.min(z,Hmax/(bot-top)); z=Math.max(1.15,z); ANN.z=z;
   const H=Math.min(Hmax,(bot-top)*z); vp.style.height=H+"px";
   ANN.x0=(b.x+b.x2)/2+o.ox-6-(W/z)/2; ANN.y0=((top+bot)/2)-(H/z)/2;
   let inner=vp.querySelector(".annInner");
@@ -5158,32 +5207,83 @@ function annStep(dir){ const G=S.geo; if(!G||ANN.d<0) return; let d=ANN.d+dir;
   if(d<0||d>=G.meas.length) return; annLoupe(d); }
 function annSys(){ const b=annBox(ANN.d); return b?b.sys:null; }   // dans la loupe : la ligne grossie
 function annLocal(e){ const vp=$("annView"), r=vrect(vp), q=vpt(e.clientX,e.clientY); return {hx:ANN.x0+(q.x-r.left)/ANN.z, hy:ANN.y0+(q.y-r.top)/ANN.z}; }
-function annDown(e){
-  if(!ANN.on||ANN.d<0) return; e.preventDefault();
-  const p=annLocal(e), A=annAnchor(p.hx,p.hy,annSys()); if(!A) return;
-  if(ANN.tool==="er"){ const g=e.target.closest&&e.target.closest("g[data-i]"); let i=g?+g.dataset.i:-1;
-    if(i<0) i=annNearest(p.hx,p.hy);
-    if(i>=0){ annPush(); ANN.items.splice(i,1); annResolve(); annSave(); annRefresh(); annSyncBar(); } else annHint("Rien à effacer ici");
+/* deux surfaces de dessin : la loupe, ou la partition elle-même (sans loupe) */
+const ANN_SURF={
+  loupe:{el:()=>$("annView"), pt:annLocal, sys:()=>annSys(), svg:()=>$("annView").querySelector("svg.annsvg")},
+  score:{el:()=>$("score"), pt:e=>{ const h=$("score"), r=vrect(h), q=vpt(e.clientX,e.clientY), k=r.width/(h.offsetWidth||r.width)||1; return {hx:(q.x-r.left)/k, hy:(q.y-r.top)/k}; },
+    sys:()=>null, svg:()=>$("score").querySelector("svg.annsvg")}};
+function annU(){ const m=S.geo&&S.geo.meas.find(x=>x); return m?m.u:10; }
+function annDeselect(){ if(ANN.sel<0) return; ANN.sel=-1; annRefresh(); annHint(); }
+function annDown(e,surf){
+  if(!ANN.on) return;
+  ANN.ptrs.add(e.pointerId);
+  if(ANN.ptrs.size>1){ if(ANN.drag){ ANN.drag=null; annRefresh(); } return; }   // deux doigts : défilement / zoom
+  if(surf===ANN_SURF.loupe&&ANN.d<0) return;
+  if(surf===ANN_SURF.score&&annLoupeOn()) return;
+  const p=surf.pt(e), hEl=e.target.closest&&e.target.closest("[data-h]"), g=e.target.closest&&e.target.closest("g[data-i]");
+  const i=hEl?+hEl.dataset.i:g?+g.dataset.i:-1, d=hEl?+hEl.dataset.d:g?+g.dataset.d:-1;
+  if(e.pointerType!=="touch"||surf===ANN_SURF.loupe) e.preventDefault();
+  const cap=()=>{ try{ surf.el().setPointerCapture(e.pointerId); }catch(er){} };
+  if(ANN.tool==="er"){ let k=i; if(k<0) k=annNearest(surf,p.hx,p.hy);
+    if(k>=0){ annPush(); ANN.items.splice(k,1); ANN.sel=-1; annResolve(); annSave(); annRefresh(); annSyncBar(); } else annHint("Rien à effacer ici");
     return; }
-  if(ANN.tool==="tx"||ANN.tool==="sy"){ const g=e.target.closest&&e.target.closest("g[data-i]"); const i=g?+g.dataset.i:-1;
-    if(i>=0&&(ANN.items[i].t==="tx"||ANN.items[i].t==="sy")){ annOpenEdit(ANN.items[i].t,null,i); return; }
-    annOpenEdit(ANN.tool,A,-1); return; }
-  ANN.drag={id:e.pointerId,A,x:p.hx,y:p.hy,moved:false,tmp:null};
-  try{ $("annView").setPointerCapture(e.pointerId); }catch(er){}
+  if(i>=0&&ANN.items[i]){   // toucher une annotation : la sélectionner, la déplacer, l'étirer
+    const it=ANN.items[i], again=ANN.sel===i;
+    ANN.sel=i; ANN.drag={mode:hEl?hEl.dataset.h:"m",i,d,x:p.hx,y:p.hy,orig:JSON.stringify(it),moved:false,again,surf,id:e.pointerId};
+    cap(); annRefresh(); annHint(); return; }
+  if(ANN.sel>=0){ annDeselect(); return; }   // toucher ailleurs : on désélectionne seulement
+  const A=annAnchor(p.hx,p.hy,surf.sys()); if(!A) return;
+  if(ANN.tool==="tx"||ANN.tool==="sy"){ annOpenEdit(ANN.tool,A,-1); return; }
+  const u=annBox(A._d).u;
+  ANN.drag={mode:"new",A,x:p.hx,y:p.hy,u,moved:false,tmp:null,surf,id:e.pointerId,fh:ANN.tool==="fh"?[[p.hx,p.hy]]:null};
+  cap();
 }
-function annMove(e){ const D=ANN.drag; if(!D||e.pointerId!==D.id) return; e.preventDefault();
-  const p=annLocal(e); const u=annBox(D.A._d).u;
-  if(Math.hypot(p.hx-D.x,p.hy-D.y)>u*0.6) D.moved=true;
+function annMove(e,surf){ const D=ANN.drag; if(!D||e.pointerId!==D.id) return; e.preventDefault();
+  const p=D.surf.pt(e), u=D.u||annU();
+  if(Math.hypot(p.hx-D.x,p.hy-D.y)>u*0.5) D.moved=true;
   if(!D.moved) return;
-  const B=annAnchor(p.hx,p.hy,annSys()); if(!B) return;
-  D.tmp=annMake(D.A,B,u,true); annResolve1(D.tmp); D.tmp.a._d=D.A._d;
-  const s=$("annView").querySelector("svg.annsvg"); if(s) annRender(s,true); }
-function annUp(e){ const D=ANN.drag; if(!D||e.pointerId!==D.id) return; ANN.drag=null;
-  const p=annLocal(e), u=annBox(D.A._d).u; let it=null;
-  if(D.moved){ const B=annAnchor(p.hx,p.hy,annSys()); if(B) it=annMake(D.A,B,u,false); }
-  else it=annTap(D.A);
-  if(it){ annAdd(it); } else { annRefresh(); }
+  if(D.mode==="new"){
+    if(D.fh){ const l=D.fh[D.fh.length-1]; if(Math.hypot(p.hx-l[0],p.hy-l[1])>u*0.25) D.fh.push([p.hx,p.hy]); }
+    else { const B=annAnchor(p.hx,p.hy,D.surf.sys()); if(!B) return; D.tmp=annMake(D.A,B,u,true); annResolve1(D.tmp); D.tmp.a._d=D.A._d; }
+    const s=D.surf.svg(); if(s) annRender(s,true); return; }
+  annEditDrag(D,p,false);
 }
+function annUp(e,surf){ ANN.ptrs.delete(e.pointerId); const D=ANN.drag; if(!D||e.pointerId!==D.id) return; ANN.drag=null;
+  const p=D.surf.pt(e);
+  if(D.mode==="new"){ const u=D.u; let it=null;
+    if(D.fh){ if(D.moved&&D.fh.length>1) it=annMakeFh(D); }
+    else if(D.moved){ const B=annAnchor(p.hx,p.hy,D.surf.sys()); if(B) it=annMake(D.A,B,u,false); }
+    else it=annTap(D.A);
+    if(it) annAdd(it); else annRefresh(); return; }
+  if(D.moved){ annEditDrag(D,p,true); return; }
+  const it=ANN.items[D.i]; if(D.again&&it&&(it.t==="tx"||it.t==="sy")) annOpenEdit(it.t,null,D.i);   // 2e toucher sur un texte : le modifier
+  annRefresh();
+}
+/* déplacer (m) ou étirer (a / b) l'annotation sélectionnée */
+function annEditDrag(D,p,fin){
+  const it=ANN.items[D.i]; if(!it) return; const o=JSON.parse(D.orig), sys=D.surf.sys();
+  const re=(q,dx,dy)=>{ const P=annPt(q,annDispOf(q,D.d)); if(!P) return q; const N=annAnchor(P.x+dx,P.y+dy,null); return N?annClean(N):q; };
+  if(D.mode==="a"||D.mode==="b"){ const N=annAnchor(p.hx,p.hy,sys); if(N) it[D.mode]=annClean(N); }
+  else { const dx=p.hx-D.x, dy=p.hy-D.y; it.a=re(o.a,dx,dy); if(o.b) it.b=re(o.b,dx,dy); }
+  annResolve();
+  if(fin){ ANN.undo.push(D.orig.startsWith("{")?annSnapBefore(D):JSON.stringify(ANN.items)); annSave(); annSyncBar(); }
+  annRefresh(); }
+/* instantané d'avant la modification, pour ↶ */
+function annSnapBefore(D){ const cur=ANN.items.map(x=>x); const before=cur.slice(); before[D.i]=JSON.parse(D.orig); return JSON.stringify(before.map(annStrip)); }
+function annStrip(it){ const o=Object.assign({},it); delete o._ok; ["a","b"].forEach(k=>{ if(o[k]) o[k]=annClean(o[k]); }); return o; }
+function annDispOf(q,d){ const ks=annDisp(q._mi!=null?q._mi:q.mi); if(ks.includes(d)) return d; if(!isLine()) return ks[0];
+  return ks.reduce((a,k)=>a==null||Math.abs(k-d)<Math.abs(a-d)?k:a,null); }
+function annMakeFh(D){ const A=annAnchor(D.fh[0][0],D.fh[0][1],D.surf.sys()); if(!A) return null; const P=annPt(A,A._d); if(!P) return null;
+  const u=P.u; return {t:"fh",c:ANN.col,w:0.3,a:annClean(A),pts:D.fh.map(q=>[+((q[0]-P.x)/u).toFixed(2),+((q[1]-P.y)/u).toFixed(2)])}; }
+/* petite barre de la sélection : texte, taille, supprimer */
+function annSelBar(){ const b=$("annSelBar"); if(!b) return; const it=ANN.on&&ANN.items[ANN.sel];
+  b.classList.toggle("show",!!it); if(!it) return;
+  b.querySelectorAll(".tx").forEach(x=>x.style.display=it.t==="tx"||it.t==="sy"?"":"none");
+  b.querySelectorAll(".wd").forEach(x=>x.style.display=it.t==="fh"||it.t==="st"||it.t==="ar"?"":"none"); }
+function annSelSize(f){ const it=ANN.items[ANN.sel]; if(!it) return; annPush();
+  if(it.t==="tx"||it.t==="sy") it.z=Math.max(0.9,Math.min(6,+((it.z||(it.t==="sy"?2.8:1.7))*f).toFixed(2)));
+  else it.w=Math.max(0.12,Math.min(1.2,+((it.w||0.3)*f).toFixed(2)));
+  annSave(); annRefresh(); annSyncBar(); }
 function annResolve1(it){ [it.a,it.b].forEach(p=>{ if(p) p._mi=p.mi; }); it._ok=true; }
 const annP=(A,dx,dy)=>({mi:A.mi,n:A.n,f:+(A.f+dx).toFixed(4),dy:+(A.dy+dy).toFixed(3)});
 function annClean(p){ return p?{mi:p.mi,n:p.n,f:p.f,dy:p.dy}:p; }
@@ -5199,10 +5299,10 @@ function annTap(A){ const t=ANN.tool, b=annBox(A._d), w=b?1.4/((b.x2-b.xs)/b.u):
   if(t==="ar") return {t,c:ANN.col,a:annP(A,-w*1.4,-4.2),b:annP(A,0,-1)};
   if(t==="st") return {t,c:ANN.col,a:annP(A,-w*0.7,1.2),b:annP(A,w*0.7,-1.2)};
   return null; }
-function annNearest(hx,hy){ const svg=$("annView").querySelector("svg.annsvg"); let best=-1,bd=1e9;
+function annNearest(surf,hx,hy){ const svg=surf.svg(); let best=-1,bd=1e9; if(!svg) return -1;
   svg.querySelectorAll("g[data-i]").forEach(g=>{ try{ const bb=g.getBBox(); const dx=hx<bb.x?bb.x-hx:hx>bb.x+bb.width?hx-bb.x-bb.width:0, dy=hy<bb.y?bb.y-hy:hy>bb.y+bb.height?hy-bb.y-bb.height:0;
     const dd=Math.hypot(dx,dy); if(dd<bd){ bd=dd; best=+g.dataset.i; } }catch(e){} });
-  const u=annBox(ANN.d)?annBox(ANN.d).u:10; return bd<=u*1.2?best:-1; }
+  return bd<=annU()*1.2?best:-1; }
 
 /* ---------- texte et symboles ---------- */
 function annOpenEdit(kind,A,idx){
@@ -5228,7 +5328,7 @@ function annSym(s){ const E=ANN.edit, inp=$("annText"); if(!E) return;
 function annEditOk(){ const E=ANN.edit; if(!E) return; const s=$("annText").value.replace(/\s+$/,"");
   if(!s){ if(E.idx>=0){ annPush(); ANN.items.splice(E.idx,1); annResolve(); annSave(); annRefresh(); annSyncBar(); } annCloseEdit(); return; }
   const z=E.big?(E.kind==="sy"?3.2:2.5):(E.kind==="sy"?2.2:1.7);
-  if(E.idx>=0){ annPush(); const it=ANN.items[E.idx]; it.s=s; it.z=z; it.c=ANN.col; annSave(); annRefresh(); annSyncBar(); }
+  if(E.idx>=0){ annPush(); const it=ANN.items[E.idx]; it.s=s; it.z=z; annSave(); annRefresh(); annSyncBar(); }
   else annAdd({t:E.kind,c:ANN.col,a:annClean(E.A),s,z});
   annCloseEdit(); }
 function annCloseEdit(){ ANN.edit=null; const d=$("annEdit"); if(d) d.classList.remove("show"); const i=$("annText"); if(i) i.blur(); }
@@ -5236,7 +5336,8 @@ function annCloseEdit(){ ANN.edit=null; const d=$("annEdit"); if(d) d.classList.
 /* ---------- export PDF (impression) : Enregistrer en PDF, Partager, Mail ---------- */
 async function annExport(){
   if(!S.geo||!S.model) return;
-  if(isLine()){ toast("Pour l'export, passez en affichage Page (téléphone en portrait ou Réglages › Affichage)",4500); return; }
+  if(!ANN.on){ annToggle(true); toast("Affichage « Comme imprimé » : touchez à nouveau PDF / Mail",3000); return; }
+  ANN.sel=-1; annRefresh();
   try{ if(document.fonts&&document.fonts.load) await Promise.race([document.fonts.load("20px 'Noto Music'","♯𝄐"),new Promise(r=>setTimeout(r,1500))]); }catch(e){}
   annCloseLoupe(); annCloseEdit();
   const host=$("score"), G=S.geo, W=host.offsetWidth, PW=718, s=Math.min(1.6,PW/W), PH=1040;
@@ -5269,18 +5370,38 @@ function annEsc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt
 /* ---------- branchements ---------- */
 (function(){
   const vp=$("annView"); if(!vp) return;
-  vp.addEventListener("pointerdown",annDown); vp.addEventListener("pointermove",annMove);
-  vp.addEventListener("pointerup",annUp); vp.addEventListener("pointercancel",()=>{ ANN.drag=null; annRefresh(); });
+  const L=ANN_SURF.loupe, Sc=ANN_SURF.score, sc=$("score");
+  vp.addEventListener("pointerdown",e=>annDown(e,L)); vp.addEventListener("pointermove",e=>annMove(e,L));
+  vp.addEventListener("pointerup",e=>annUp(e,L)); vp.addEventListener("pointercancel",e=>{ ANN.ptrs.delete(e.pointerId); ANN.drag=null; annRefresh(); });
+  sc.addEventListener("pointerdown",e=>{ if(ANN.on&&!annLoupeOn()) annDown(e,Sc); });
+  sc.addEventListener("pointermove",e=>{ if(ANN.drag&&ANN.drag.surf===Sc) annMove(e,Sc); });
+  sc.addEventListener("pointerup",e=>{ ANN.ptrs.delete(e.pointerId); if(ANN.drag&&ANN.drag.surf===Sc){ ANN.ptrs.add(e.pointerId); annUp(e,Sc); } });
+  sc.addEventListener("pointercancel",e=>{ ANN.ptrs.delete(e.pointerId); if(ANN.drag&&ANN.drag.surf===Sc){ ANN.drag=null; annRefresh(); } });
+  window.addEventListener("pointerup",e=>ANN.ptrs.delete(e.pointerId),true);
+  // sans loupe, sur écran tactile : deux doigts font défiler la partition (un doigt dessine)
+  const w=$("scoreWrap"); let tp=null;
+  const mid=t=>({x:(t[0].clientX+t[1].clientX)/2,y:(t[0].clientY+t[1].clientY)/2});
+  w.addEventListener("touchstart",e=>{ if(ANN.on&&!annLoupeOn()&&e.touches.length===2){ tp=mid(e.touches); tp.l=w.scrollLeft; tp.t=w.scrollTop; } },{passive:true});
+  w.addEventListener("touchmove",e=>{ if(tp&&e.touches.length===2){ const m=mid(e.touches); w.scrollLeft=tp.l-(m.x-tp.x); w.scrollTop=tp.t-(m.y-tp.y); } },{passive:true});
+  w.addEventListener("touchend",e=>{ if(e.touches.length<2) tp=null; });
+  $("annSelText").onclick=()=>{ const it=ANN.items[ANN.sel]; if(it) annOpenEdit(it.t,null,ANN.sel); };
+  $("annSelMinus").onclick=()=>annSelSize(1/1.2); $("annSelPlus").onclick=()=>annSelSize(1.2);
+  $("annSelDel").onclick=()=>{ if(ANN.sel<0) return; annPush(); ANN.items.splice(ANN.sel,1); ANN.sel=-1; annResolve(); annSave(); annRefresh(); annSyncBar(); annHint(); };
+  $("annSelOk").onclick=annDeselect;
   ["annBtn","lpAnn"].forEach(id=>{ const b=$(id); if(b) b.onclick=()=>annToggle(); });
   $("annPrev").onclick=()=>annStep(-1); $("annNext").onclick=()=>annStep(1); $("annClose").onclick=annCloseLoupe;
   $("annOk").onclick=annEditOk; $("annCancel").onclick=annCloseEdit;
   $("annDel").onclick=()=>{ $("annText").value=""; annEditOk(); };
   $("annText").addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); annEditOk(); } if(e.key==="Escape") annCloseEdit(); });
   document.querySelectorAll("#annSize button").forEach(b=>b.onclick=()=>{ if(ANN.edit){ ANN.edit.big=b.dataset.v==="big"; annBigSync(); } });
-  document.addEventListener("keydown",e=>{ if(!ANN.on||ANN.edit) return; if(e.key==="Escape"){ if(ANN.d>=0) annCloseLoupe(); else annToggle(false); }
+  document.addEventListener("keydown",e=>{ if(!ANN.on||ANN.edit) return;
+    if((e.key==="Delete"||e.key==="Backspace")&&ANN.sel>=0){ e.preventDefault(); $("annSelDel").click(); return; }
+    if(e.key==="Escape"){ if(ANN.sel>=0) annDeselect(); else if(ANN.d>=0) annCloseLoupe(); else annToggle(false); }
     if((e.ctrlKey||e.metaKey)&&e.key==="z"){ e.preventDefault(); annUndo(); }
     if(ANN.d>=0&&e.key==="ArrowLeft") annStep(-1); if(ANN.d>=0&&e.key==="ArrowRight") annStep(1); });
 })();
+/* choisir un affichage dans Réglages pendant l'annotation : on sort du mode annotation */
+document.querySelectorAll("#layoutSeg button").forEach(b=>b.addEventListener("click",()=>{ if(ANN.on) annToggle(false); },true));
 
 </script>
 </body>
