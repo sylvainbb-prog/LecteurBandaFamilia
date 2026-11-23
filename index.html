@@ -15,7 +15,7 @@
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "4.20";
+window.BANDA_VERSION = "4.21";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -980,8 +980,8 @@ body.annDirect #score svg.annsvg .ai,body.annDirect #score svg.annsvg .ah{pointe
     <div class="dtitle">Séance synchronisée</div>
     <div id="sessIdle">
       <p class="small muted">Tous les téléphones affichent le même morceau, au même endroit, au même tempo. Le <b>chef</b> (la pianiste) commande la lecture et choisit les pistes qui sonnent ; les <b>musiciens</b> suivent, chacun avec sa propre partie à l'écran.</p>
-      <div class="row" style="margin-top:6px"><button type="button" class="primary big" id="sessBanda">🎺 Séance BANDA</button></div>
-      <p class="small muted" style="margin:4px 0 0">La séance de la banda, toujours avec le même code (BANDA). Si personne ne la dirige, on vous proposera d'en prendre la direction.</p>
+      <div class="row" style="margin-top:6px;gap:8px"><button type="button" class="primary big" id="sessBanda">🎺 Rejoindre BANDA</button><button type="button" class="big" id="sessBandaChef">🎼 Diriger BANDA</button></div>
+      <p class="small muted" style="margin:4px 0 0">La séance de la banda, toujours avec le même code (BANDA). <b>Rejoindre</b> : vous suivez le chef. <b>Diriger</b> : si personne ne dirige, vous devenez chef tout de suite ; sinon, le chef reçoit votre demande.</p>
       <div class="row" style="margin-top:10px"><button type="button" id="sessCreate">Créer une autre séance (code au hasard)</button></div>
       <div id="sessResume" class="card resume" style="display:none">
         <div class="small" id="sessResumeInfo"></div>
@@ -1262,7 +1262,7 @@ async function prepareOffline(){
 }
 async function openUrlSong(url,title){
   showPlayer(); showLoading("Chargement de "+title+"…");
-  try{ const r=await fetch(url); if(!r.ok) throw new Error(r.status); await openBuffer(await r.arrayBuffer(), url.split("/").pop(), title); }
+  try{ const r=await fetch(url); if(!r.ok) throw new Error(r.status); S.nextUrl=url; await openBuffer(await r.arrayBuffer(), url.split("/").pop(), title); }
   catch(e){ hideLoading(); toast("Morceau introuvable : "+e.message,4000); }
 }
 function filterSongs(){ const q=($("songSearch").value||"").toLowerCase().trim(); document.querySelectorAll("#songs .song").forEach(b=>b.classList.toggle("off",!!q&&!b.dataset.q.includes(q))); }
@@ -1480,6 +1480,8 @@ function buildModel(xmlText){
               if(ins && P.unp[ins.getAttribute("id")]!==undefined) drumKey=P.unp[ins.getAttribute("id")];
               else drumKey=38;
             }
+            // tête de note en croix / barre sur un instrument mélodique (claps, chant, rythme) : MuseScore ne la joue pas
+            if(!P.isDrum&&midi!==null){ const nh=el.querySelector(":scope > notehead"); if(nh&&/^(x|cross|circle-x|slash|none)$/.test(nh.textContent.trim())){ hasNotes=true; break; } }
             const ties=[...el.querySelectorAll(":scope > tie")].map(x=>x.getAttribute("type"));
             const key=midi!==null?"p"+midi:"d"+drumKey;
             if(ties.includes("stop") && openTies[key]){
@@ -1973,7 +1975,7 @@ async function openBuffer(buf, name, title){
   let model;
   try{ model=buildModel(xml); }catch(e){ hideLoading(); console.error(e); toast("Partition illisible : "+e.message,5000); return; }
   S.model=model; S.title=title||model.title||name; S.layout=LAST_LAYOUT; S.idemU={};
-  S.src={buf,name,title:S.title,sid:songId(buf)};
+  S.src={buf,name,title:S.title,sid:songId(buf),url:S.nextUrl||null}; S.nextUrl=null;
   $("title").textContent=S.title;
   S.order=playOrder(model.meas);
   buildSequence();
@@ -3454,7 +3456,7 @@ function admit(from,d){
 function acceptChild(from,d){
   const c=SY.peers.get(from); c.acc=true;
   sendTo(from,{t:"welcome",depth:(SY.role==="m"?0:SY.depth)+1});
-  if(S.src&&d.sid!==S.src.sid) sendSong(from);
+  if(S.src&&d.sid!==S.src.sid) sendSongTo(from);
   if(SY.role==="m") sendTo(from,stateMsg({})); else if(SY.lastRaw) sendTo(from,SY.lastRaw);
   sessUI(); reportUp(); if(window.fxBurst&&SY.role==="m") fxBurst({n:70});
 }
@@ -3468,7 +3470,7 @@ function onChildMsg(d,from){
   if(d.t==="tree"){ c.n=d.n||0; c.parts=d.parts||[]; c.who=d.who||[]; c.leadMax=d.lead||0; sessUI(); return; }   // un hôte décrit ses invités
   if(d.t==="takeover"){ if(SY.role==="m") askHandoff(d); else send(d); return; }             // demande de direction : remonte jusqu'au chef, qui accepte ou refuse
   if(d.t==="need"){
-    if(S.src&&(d.song||(d.sid&&d.sid!==S.src.sid))) sendSong(from);
+    if(S.src&&(d.song||(d.sid&&d.sid!==S.src.sid))) sendSongTo(from,!!d.full);
     if(SY.role==="m") sendTo(from,stateMsg({})); else if(SY.lastRaw) sendTo(from,SY.lastRaw);
     return;
   }
@@ -3492,7 +3494,9 @@ function claimChef(attempt,fresh){
   if(!window.Peer){ toast("Module de synchronisation indisponible (pas de connexion ?)",4000); SY.role=null; return; }
   const pr=new Peer(chefId(),peerOpts()); SY.peer=pr;
   mqChef();
-  pr.on("open",()=>{ SY.opened=true; saveLastSession("m"); if(fresh) sessOpened(); else { toast("Vous dirigez maintenant la séance "+SY.code,3500); if(window.fxBurst) fxBurst({n:80}); } sessUI(); syncPush(S.playing?{start:true}:{}); });
+  pr.on("open",()=>{ SY.opened=true; saveLastSession("m"); if(fresh) sessOpened(); else { toast("Vous dirigez maintenant la séance "+SY.code+(S.model?"":" : choisissez le morceau, tous les musiciens le recevront"),4500); if(window.fxBurst) fxBurst({n:80}); }
+    if(!S.model){ hideLoading(); if($("sessDlg").open) $("sessDlg").close(); showLibrary(); }
+    sessUI(); syncPush(S.playing?{start:true}:{}); });
   pr.on("close",()=>sessUI());
   pr.on("connection",conn=>setupChildConn(conn));
   pr.on("disconnected",()=>{ if(SY.role==="m"&&SY.peer===pr){ setTimeout(()=>{ try{ pr.reconnect(); }catch(e){} },1500); } sessUI(); });
@@ -3593,6 +3597,8 @@ function sessOpened(){ sessUI(); toast("Séance "+SY.code+" ouverte",2500); }
 /* ===== Séance BANDA : toujours le même code (QR code imprimable une fois pour toutes) ===== */
 const CODE_BANDA="BANDA";
 function joinBanda(){ SY.bandaAsk=false; startFollower(CODE_BANDA,{banda:true}); }
+/* « Diriger la séance BANDA » : personne ne dirige → on devient chef tout de suite ; sinon on rejoint et on demande la direction au chef */
+function leadBanda(){ SY.bandaAsk=false; startFollower(CODE_BANDA,{banda:true,asChef:true}).then(()=>{ SY.bandaLead=true; }); }
 function bandaNoChef(){ const box=$("chefGone"); if(!box) return;
   $("chefGoneT").textContent="Personne ne dirige la séance BANDA."; $("chefGoneS").textContent="Prendre la direction ? Les musiciens qui arrivent vous rejoindront automatiquement.";
   box.hidden=false; }
@@ -3600,7 +3606,7 @@ async function startBandaChef(){
   const ac=audio(); try{ await ac.resume(); }catch(e){}
   leaveSession(true); SY.bandaAsk=false;
   SY.code=CODE_BANDA; SY.epoch=1; SY.takeFast=true; DIAG.chef={tries:0,ok:0,fail:0,last:[]}; DIAG.cand={host:0,srflx:0,relay:0};
-  claimChef(0,false); setTimeout(()=>{ if(SY.role==="m"){ sessUI(); $("sessDlg").open||$("sessDlg").showModal(); } },1800);
+  claimChef(0,false); setTimeout(()=>{ if(SY.role==="m"&&S.model){ sessUI(); $("sessDlg").open||$("sessDlg").showModal(); } },1800);
 }
 const SONG_CHUNK=12000;
 function songMsgs(){ const src=S.src; if(!src||!src.buf) return [];
@@ -3609,8 +3615,23 @@ function songMsgs(){ const src=S.src; if(!src||!src.buf) return [];
   for(let i=0;i<n;i++) list.push({t:"songp",sid:src.sid,name:src.name,title:src.title,i,n,len:u.length,b:u.slice(i*SONG_CHUNK,(i+1)*SONG_CHUNK).buffer});
   src._msgs={sid:src.sid,list}; return list; }
 function sendSong(to){ songMsgs().forEach(m=>sendTo(to,m)); }
-function syncSong(){ if(!S.src) return; songMsgs().forEach(m=>broadcast(m)); syncPush(); }
+function songRef(){ const s=S.src; return s&&s.url?{t:"songref",sid:s.sid,url:s.url,name:s.name,title:s.title}:null; }
+/* le chef change de morceau : pour un morceau de la bibliothèque, on n'envoie que sa référence (chaque téléphone le charge
+   lui-même, depuis son cache : instantané, même par le relais internet) ; sinon, le fichier entier, en morceaux */
+function syncSong(){ if(!S.src) return; const ref=songRef(); if(ref) broadcast(ref); else songMsgs().forEach(m=>broadcast(m)); syncPush(); }
+function sendSongTo(to,full){ const ref=songRef(); if(ref&&!full) sendTo(to,ref); else sendSong(to); }
 function toAB(b){ if(!b) return null; if(b instanceof ArrayBuffer) return b; if(b.buffer) return b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength); return b; }
+/* morceau désigné par le chef : chargé depuis la bibliothèque du site (ou le cache) ; en cas d'échec, on demande le fichier au chef */
+function loadRef(d){
+  if(S.src&&S.src.sid===d.sid) return;
+  if(SY.refSid===d.sid||SY.wantSong===d.sid) return; SY.refSid=d.sid;
+  if(!S.model) showLoading("Le chef a choisi « "+(d.title||d.name||"")+" » – chargement…");
+  diag("song","wait","« "+(d.title||d.name||"")+" » : chargement…");
+  fetch(d.url).then(r=>{ if(!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+    .then(buf=>{ if(songId(buf)!==d.sid) throw new Error("version différente"); S.nextUrl=d.url; gotSong(d,buf); })
+    .catch(e=>{ console.warn("songref",e); diag("song","wait","fichier demandé au chef ("+e.message+")…"); send({t:"need",song:true,full:true,sid:S.src&&S.src.sid}); })
+    .finally(()=>{ setTimeout(()=>{ if(SY.refSid===d.sid) SY.refSid=null; },15000); });
+}
 function gotSong(d,buf){
   if(S.src&&S.src.sid===d.sid) return;
   if(SY.wantSong===d.sid) return; SY.wantSong=d.sid;
@@ -3621,7 +3642,7 @@ function gotSong(d,buf){
     .finally(()=>{ SY.wantSong=null; });
 }
 function stateMsg(extra){
-  const st={t:"state",ep:SY.epoch||1,v:++SY.ver,sid:S.src&&S.src.sid,speed:S.speed,loop:S.loop,loopNext:S.loopNext||null,loopArmed:!!S.loopArmed,loopVer:S.loopVer||0,speedAt:S.speedAt?{k:S.speedAt.k,v:S.speedAt.v}:null,countIn:$("countIn").checked,click:$("clickOn").checked,
+  const st={t:"state",ep:SY.epoch||1,v:++SY.ver,sid:S.src&&S.src.sid,url:S.src&&S.src.url||null,title:S.src&&S.src.title||null,speed:S.speed,loop:S.loop,loopNext:S.loopNext||null,loopArmed:!!S.loopArmed,loopVer:S.loopVer||0,speedAt:S.speedAt?{k:S.speedAt.k,v:S.speedAt.v}:null,countIn:$("countIn").checked,click:$("clickOn").checked,
     mix:S.parts.map(p=>[p.mute?1:0,p.solo?1:0,Math.round(p.vol*100)]),playing:S.playing,k:curSeq,off:curOff,at:masterNowMs()};
   if(S.playing){
     if(extra.start && S.anchor){ st.k=S.anchor.k; st.off=S.anchor.off; st.at=ctxToMs(S.anchor.ctx); st.start=true; st.ci=extra.ci||null; }
@@ -3669,7 +3690,8 @@ function followerPeer(){
     if(e.type==="peer-unavailable"){
       if(SY.target===chefId()){
         SY.joinFails++; diag("chef","err","code "+SY.code+" introuvable ("+SY.joinFails+")"); if(SY.joinFails>=2) tryMq();
-        if(SY.code===CODE_BANDA&&!SY.everJoined&&SY.joinFails>=2&&!SY.bandaAsk){ SY.bandaAsk=true; bandaNoChef(); }
+        if(SY.code===CODE_BANDA&&!SY.everJoined&&SY.bandaLead){ SY.bandaLead=false; startBandaChef(); return; }   // « Diriger » et personne ne dirige : on prend la direction
+        if(SY.code===CODE_BANDA&&!SY.everJoined&&SY.joinFails>=1&&!SY.bandaAsk){ SY.bandaAsk=true; bandaNoChef(); }
         if(SY.code===CODE_BANDA&&!SY.everJoined){ $("sessFState").textContent="Personne ne dirige encore la séance BANDA…"; scheduleRetry(); sessUI(); return; }
         if(!SY.everJoined&&SY.joinFails>=3){ const msg=SY.resume?"Cette séance n'existe plus (le chef l'a fermée). Demandez le nouveau code au chef ou scannez son QR code.":"Séance "+SY.code+" introuvable : vérifiez le code auprès du chef.";
           $("sessFState").textContent=msg; banner(""); toast(msg,6000); const was=SY.resume; leaveSession(true); if(was){ sessUI(); $("sessDlg").open||$("sessDlg").showModal(); } return; }
@@ -3737,7 +3759,7 @@ function parentLost(){
 }
 function scheduleRetry(){ clearTimeout(SY.retry); SY.retry=setTimeout(()=>{ if(SY.role==="f"&&!(SY.conn&&SY.conn.open)) connectTo(chefId()); },2500); }
 function followerConnected(){
-  banner(""); SY.last=null;
+  banner(""); SY.last=null; SY.bandaLead=false;
   send({t:"hello",part:partName(),sid:S.src&&S.src.sid,lead:Math.round(leadSec()*1000),dev:SY.id,avoid:SY.avoid});
   SY.samples=[]; burstPing();
   clearInterval(SY.pingT); SY.pingT=setInterval(()=>{ if(SY.role==="f") send({t:"ping",c:performance.now()}); },2000);
@@ -3760,6 +3782,7 @@ function onFollowerMsg(d){
     if(SY.pending&&SY.pending.sid===(S.src&&S.src.sid)){ const p=SY.pending; SY.pending=null; applyState(p); }
     return;
   }
+  if(d.t==="songref"){ broadcast(d); loadRef(d); return; }
   if(d.t==="song"){ broadcast(d); gotSong(d,toAB(d.buf)); return; }   // ancien format (téléphone pas à jour)
   if(d.t==="songp"){
     broadcast(d);                                         // hôte : on relaie tout de suite à nos invités
@@ -3775,8 +3798,11 @@ function onFollowerMsg(d){
     broadcast(d); SY.lastRaw=d;                           // hôte : relais immédiat, avant de l'appliquer ici
     if(SY.wantChef){ SY.wantChef=false; setTimeout(requestChef,300); }
     if(SY.last&&d.v<SY.last.v&&!d.beacon) return;
+    if(!d.sid){ if(!S.model) showLoading("Le chef n'a pas encore choisi de morceau…"); return; }
     if(d.sid!==(S.src&&S.src.sid)||SY.offset===null||!S.model){ SY.pending=d; if(SY.rx&&performance.now()-SY.rx.at>8000) SY.rx=null;
-      if(d.sid!==(S.src&&S.src.sid)&&!SY.wantSong&&!SY.rx){ send({t:"need",song:true,sid:S.src&&S.src.sid}); diag("song","wait","demandé au chef…"); } return; }
+      if(d.sid!==(S.src&&S.src.sid)&&!SY.wantSong&&!SY.rx){
+        if(d.url&&SY.refSid!==d.sid&&!SY.refFail) loadRef({sid:d.sid,url:d.url,title:d.title,name:d.url.split("/").pop()});
+        else if(SY.refSid!==d.sid){ send({t:"need",song:true,full:true,sid:S.src&&S.src.sid}); diag("song","wait","demandé au chef…"); } } return; }
     applyState(d);
   }
 }
@@ -3905,6 +3931,7 @@ function sessUI(){
 $("sessBtn").onclick=()=>{ sessUI(); $("sessDlg").showModal(); };
 function withChecklist(fn){ const d=$("checkDlg"); d.returnValue=""; d.onclose=()=>{ if(d.returnValue==="ok") fn(); }; d.showModal(); }
 $("sessBanda").onclick=()=>{ $("sessDlg").close(); withChecklist(()=>joinBanda()); };
+$("sessBandaChef").onclick=()=>{ $("sessDlg").close(); withChecklist(()=>leadBanda()); };
 $("sessCreate").onclick=()=>{ $("sessDlg").close(); withChecklist(()=>startMaster().then(()=>{ $("sessDlg").showModal(); })); };
 $("sessJoin").onclick=()=>{ const c=$("sessCodeIn").value; $("sessDlg").close(); withChecklist(()=>startFollower(c)); };
 $("sessCodeIn").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); $("sessJoin").click(); } });
@@ -4707,7 +4734,7 @@ const AIDE = {
 
     /* ---- barre du haut / boutons de droite en paysage ---- */
     { cibles: ["#sessBtn", "#lpSess"], nom: "Séance",
-      texte: "<b>Séance BANDA</b> : toujours le même code ; le premier arrivé peut en prendre la direction, les autres la rejoignent (QR code imprimable).<br><b>Le chef</b> : montre le QR code ; il lance, arrête, règle tempo et boucle pour tous. Toucher un musicien dans sa liste lui confie la direction.<br><b>Le musicien</b> : scannez le QR code ou tapez le code. Son téléphone reste muet, sauf s'il coche « Forcer le son » (ampli, casque) : il choisit alors ses propres pistes. « Demander la direction » : le chef accepte ou refuse ; si le chef ne répond plus depuis 20 s, on peut la reprendre directement." },
+      texte: "<b>Séance BANDA</b> : toujours le même code (QR code imprimable). <b>Rejoindre</b> : on suit le chef. <b>Diriger</b> : si personne ne dirige, on devient chef tout de suite et la liste des morceaux s'ouvre ; sinon le chef reçoit la demande. Le morceau choisi par le chef arrive sur tous les téléphones en quelques secondes.<br><b>Le chef</b> : montre le QR code ; il lance, arrête, règle tempo et boucle pour tous. Toucher un musicien dans sa liste lui confie la direction.<br><b>Le musicien</b> : scannez le QR code ou tapez le code. Son téléphone reste muet, sauf s'il coche « Forcer le son » (ampli, casque) : il choisit alors ses propres pistes. « Demander la direction » : le chef accepte ou refuse ; si le chef ne répond plus depuis 20 s, on peut la reprendre directement." },
     { cibles: ["#sideToggle", "#lpSide"], nom: "Réglages",
       texte: "Votre partie, l'affichage (Page, Comme imprimé, Défilement, « En paysage »), la taille, le tempo, le compteur de temps, le métronome et les volumes (Moins-un, Solo, Tutti)." },
     { cibles: ["#tuneBtn", "#lpTune"], nom: "Accordeur",
