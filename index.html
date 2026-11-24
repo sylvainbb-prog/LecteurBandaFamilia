@@ -15,7 +15,7 @@
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "4.23";
+window.BANDA_VERSION = "4.24";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -850,6 +850,20 @@ body.annDirect #score svg.annsvg .ai,body.annDirect #score svg.annsvg .ah{pointe
 .admline{padding:3px 0} .admline.ok{color:#16a34a;font-weight:700} .admline.err{color:#e11d48;font-weight:700} .admline.warn{color:#d97706}
 @media (max-width:520px){ .admrow{flex-wrap:wrap} .admrow .admt{flex-basis:calc(100% - 40px)} }
 #admForm .row,#admEditDlg .row{gap:12px!important} #admForm .row>div,#admEditDlg .row>div{min-width:0} #admNumIn,#admEdNum{width:100%;box-sizing:border-box}
+/* barre de lecture : suivi et affichage */
+.curbtns{display:flex;gap:2px;align-items:center}
+.curbtns button.ic{width:34px;height:34px}
+.curbtns button.ic svg{width:21px;height:21px}
+#curEyeBtn.off{opacity:.7}
+body.nocur #pcur,body.nocur #playhead{visibility:hidden!important}
+/* boucle en défilement : copies du début / de la fin de boucle */
+#score .loopcopy{position:absolute;z-index:3;pointer-events:none;overflow:hidden}
+#score .loopcopy .lcbar{position:absolute;left:0;width:3px;border-radius:2px;background:#0bb3b8}
+#score .loopcopy.l{display:none}
+#score.inloop .loopcopy.l{display:block}
+#score .loopcopy .lcnum{position:absolute;left:6px;font:800 12px/1 var(--ffB,system-ui);color:#0bb3b8;background:#fff;border-radius:4px;padding:1px 4px}
+
+#score .mnum.lchR{visibility:hidden} #score.inloop .mnum.lchL{visibility:hidden}
 
 </style>
 </head>
@@ -876,6 +890,11 @@ body.annDirect #score svg.annsvg .ai,body.annDirect #score svg.annsvg .ah{pointe
   <symbol id="i-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7"/></g><circle cx="12" cy="15.5" r="1.4" fill="currentColor"/></symbol>
   <symbol id="i-unlock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.3-1.4"/><path d="M17.5 3.5l1.6 1.6M19.8 7.2h1.7"/></g></symbol>
   <symbol id="i-pen" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-4.6L15.6 4.8a2 2 0 0 1 2.8 0l.8.8a2 2 0 0 1 0 2.8L8.6 19z"/><path d="M13.6 6.8l3.6 3.6"/></g></symbol>
+  <symbol id="i-cur-reg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h17" stroke-width="2.2"/><path d="M16.5 9.5L20.5 13l-4 3.5"/><path d="M5 17.5v2M9 17.5v2M13 17.5v2M17 17.5v2" stroke-width="1.6" opacity=".75"/></g></symbol>
+  <symbol id="i-cur-gl" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="5.5" cy="12" rx="2.3" ry="1.8" transform="rotate(-20 5.5 12)" fill="currentColor" stroke="none"/><path d="M7.5 11.4V4" stroke-width="1.6"/><ellipse cx="16.5" cy="12" rx="2.3" ry="1.8" transform="rotate(-20 16.5 12)" fill="currentColor" stroke="none"/><path d="M18.5 11.4V4" stroke-width="1.6"/><path d="M5 17h13"/><path d="M15.5 14.8L18.5 17l-3 2.2"/></g></symbol>
+  <symbol id="i-cur-saut" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="5.5" cy="16" rx="2.3" ry="1.8" transform="rotate(-20 5.5 16)" fill="currentColor" stroke="none"/><path d="M7.5 15.4V8" stroke-width="1.6"/><ellipse cx="17" cy="16" rx="2.3" ry="1.8" transform="rotate(-20 17 16)" fill="currentColor" stroke="none"/><path d="M19 15.4V8" stroke-width="1.6"/><path d="M6 9c2-5 9-5 11-1"/><path d="M17.8 4.6L17.2 8.4 13.6 7.4"/></g></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></g></symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12z" opacity=".5"/><circle cx="12" cy="12" r="3" opacity=".5"/><path d="M4 20L20 4" stroke-width="2.2"/></g></symbol>
   <symbol id="i-note" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.6" fill="currentColor"/><circle cx="16.5" cy="16" r="2.6" fill="currentColor"/></symbol>
 </svg>
 <div class="app">
@@ -975,6 +994,7 @@ body.annDirect #score svg.annsvg .ai,body.annDirect #score svg.annsvg .ah{pointe
               <button id="stopBtn" class="ic lk" title="Retour au début"><svg><use href="#i-stop"/></svg></button>
               <button class="play lk" id="playBtn" title="Lecture / pause (espace)"><svg><use href="#i-play"/></svg></button>
               <div class="posbox" id="posbox"><span class="pos" id="pos">Mes. 1</span><span class="snd" id="sndState" title="Sons d'instruments"><i></i><span>Sons</span></span></div>
+              <div class="curbtns"><button type="button" id="curModeBtn" class="ic sm2" title="Suivi de la barre de lecture"><svg><use href="#i-cur-reg"/></svg></button><button type="button" id="curEyeBtn" class="ic sm2" title="Masquer la barre de lecture"><svg><use href="#i-eye"/></svg></button></div>
             </div>
             <div class="tmid">
             <div class="tempo lk" title="Vitesse"><button id="tempoDown" class="ic sm2">−</button><span id="tempoLbl">100 %</span><button id="tempoUp" class="ic sm2">+</button></div>
@@ -2522,6 +2542,29 @@ function xAt(mi,off){
   const f=p1.off>p0.off?(off-p0.off)/(p1.off-p0.off):0;
   return p0.x+(p1.x-p0.x)*Math.max(0,Math.min(1,f));
 }
+/* suivi de la barre de lecture (réglage de chaque téléphone) :
+   « reg » : vitesse constante dans la mesure ; « gl » : passe sur chaque note à son début et glisse jusqu'à la suivante ;
+   « saut » : saute de note en note */
+const CUR_MODES=[["reg","Barre : avance régulière","i-cur-reg"],["gl","Barre : note à note (glissé)","i-cur-gl"],["saut","Barre : note à note (saut)","i-cur-saut"]];
+function curMode(){ const v=store("banda.curMode"); return v==="gl"||v==="saut"?v:"reg"; }
+function curX(d,off){
+  const mode=curMode(); if(mode==="reg") return xAt(d,off);
+  const G=S.geo, m=G&&G.meas[d]; if(!G||!m||m.mr) return xAt(d,off);
+  G.mxu=G.mxu||{}; let st=G.mxu[d];
+  if(!st){ const seen=new Set(); st=G.mxu[d]=(G.mx[d]||[]).filter(x=>{ const k=Math.round(x.off*1000); if(seen.has(k)) return false; seen.add(k); return true; }).sort((a,b)=>a.off-b.off); }
+  if(!st.length) return xAt(d,off);
+  if(off<st[0].off-1e-6) return xAt(d,off);
+  const corr=xAt(d,st[0].off)-st[0].x;            // même repère que le reste de l'affichage
+  let i=0; while(i+1<st.length&&st[i+1].off<=off+1e-6) i++;
+  const p0=st[i]; if(mode==="saut") return p0.x+corr;
+  const M=dmeas(d), len=M?M.len:4, p1=i+1<st.length?st[i+1]:{off:len,x:m.x2+6-corr};
+  const f=p1.off>p0.off?Math.max(0,Math.min(1,(off-p0.off)/(p1.off-p0.off))):0;
+  return p0.x+(p1.x-p0.x)*f+corr;
+}
+function curBtns(){ const md=curMode(), C=CUR_MODES.find(c=>c[0]===md), hid=store("banda.curHide")==="1";
+  const b=$("curModeBtn"); if(b){ b.querySelector("use").setAttribute("href","#"+C[2]); b.title=C[1]+" (toucher pour changer)"; }
+  const e=$("curEyeBtn"); if(e){ e.querySelector("use").setAttribute("href",hid?"#i-eye-off":"#i-eye"); e.title=hid?"Afficher la barre de lecture":"Masquer la barre de lecture"; e.classList.toggle("off",hid); }
+  document.body.classList.toggle("nocur",hid); }
 function stepFor(mi,off){
   let best=-1;
   for(let i=0;i<S.steps.length;i++){ const s=S.steps[i]; if(s.mi===mi){ if(s.off<=off+1e-6) best=i; } else if(best>=0) break; }
@@ -2598,7 +2641,7 @@ function updatePage0(k,force){
 }
 function updateLineView(mi,off){
   if(SIG.on) sigUpdate(mi);
-  const wrap=$("scoreWrap"), x=xAt(mi,off), xi=Math.floor(x);
+  const wrap=$("scoreWrap"), x=curX(mi,off), xi=Math.floor(x);
   wrap.scrollLeft=xi; $("score").style.transform="translateX("+(-(x-xi)).toFixed(2)+"px)";
 }
 /* =====================================================================
@@ -2637,6 +2680,8 @@ function loopRange(){
   return [a,b];
 }
 async function play(noCount){
+  if(SY.role==="m"&&!SY.latTold&&treeTotal()>0&&measuredLead()===null){ SY.latTold=true;   // tout le monde se cale sur le son du chef : sa latence doit être juste
+    toast("Pensez à mesurer la latence de votre enceinte (Paramètres › Son › Mesurer) : toutes les barres de lecture se calent sur votre son",6000); }
   if(!S.model) return;
   endPeek();
   const ac=audio(); if(ac.state!=="running") await ac.resume();
@@ -2790,11 +2835,11 @@ function updateCursor(force,k,off){
   if(S.peek && performance.now()>S.peek.until) endPeek();
   const peeking=!!S.peek;
   const large=$("curSel").value==="large";
-  if(isLine()){ if(peeking) return; updateLineView(k,off);
+  if(isLine()){ if(peeking) return; updateLineView(k,off); if(S.loop) loopCopyState(k);
     const ph=$("playhead"); if(large){ const w=beatPx(k); ph.style.width=w+"px"; ph.style.marginLeft=(-w/2)+"px"; } else { ph.style.width=""; ph.style.marginLeft=""; }
     return; }
   const G=S.geo, m=G&&G.meas[e.mi], pc=$("pcur");
-  if(m && pc){ const sy=G.sys[m.sys]; const x=xAt(e.mi,off)-6;
+  if(m && pc){ const sy=G.sys[m.sys]; const x=curX(e.mi,off)-6;
     const w=large?beatPx(e.mi):3;
     const px=x-(large?w/2:1), ph=sy.bottom-sy.top-8; pc._x=px;
     pc.style.transform="translate3d("+px.toFixed(1)+"px,"+(sy.top+4)+"px,0)";            // déplacement par la carte graphique : pas de redessin de la partition
@@ -2841,6 +2886,11 @@ function gotoMeasure(txt){
   if(occ.length>1){ const r=$("gotoForm").getBoundingClientRect(); choosePass(occ,r.left+r.width/2,r.top); return; }
   jumpTo(occ[0].k);
 }
+["loopA","loopB","gotoIn"].forEach(id=>{ const el=$(id); if(!el) return;
+  const sel=()=>setTimeout(()=>{ try{ if(document.activeElement===el) el.setSelectionRange(0,el.value.length); }catch(e){ try{ el.select(); }catch(_){} } },0);
+  el.addEventListener("focus",()=>{ el._selOnce=true; sel(); });
+  el.addEventListener("mouseup",e=>{ if(el._selOnce){ el._selOnce=false; e.preventDefault(); sel(); } });   // le relâché du doigt ne doit pas annuler la sélection
+  el.addEventListener("touchend",()=>{ if(el._selOnce){ el._selOnce=false; sel(); } }); });
 $("gotoForm").addEventListener("submit",e=>{ e.preventDefault(); const i=$("gotoIn"); gotoMeasure(i.value); i.value=""; i.blur(); });
 function passLabel(e){ return e.pass===1?"1re fois":e.pass===e.passes?"dernière fois":e.pass+"e fois"; }
 function jumpTo(k){
@@ -2947,7 +2997,44 @@ function drawLoopMarks(){
         d.style.cssText=`left:${side==="a"?x-1.5:x-L+1.5}px;top:${y}px;width:${L}px;height:${H}px`; host.appendChild(d); }); };
     mk(ma,"a"); mk(mb,"b"); };
   put(S.loop,false); if(S.loopNext&&S.loopNext!=="off") put(S.loopNext,true);
+  drawLoopCopies();
 }
+/* Défilement avec une boucle : après la dernière mesure de la boucle, on affiche une copie de son début (et, quand on est
+   dans la boucle, une copie de sa fin avant la première mesure). Le retour au début de boucle devient invisible :
+   le musicien voit à l'avance ce qu'il va rejouer. Un trait turquoise marque chaque raccord. */
+function drawLoopCopies(){
+  const host=$("score"); if(!host) return; host.querySelectorAll(".loopcopy").forEach(x=>x.remove()); host.classList.remove("inloop");
+  host.querySelectorAll(".mnum.lchR,.mnum.lchL").forEach(x=>x.classList.remove("lchR","lchL"));
+  const G=S.geo, L=S.loop; if(!isLine()||!G||!L||!S.seq) return;
+  const svg=[...host.querySelectorAll("svg")].find(x=>!x.classList.contains("annsvg")&&!x.closest(".mrep")); if(!svg) return;
+  if(!svg.id) svg.id="lineSvg";
+  const ma=G.meas[L.a], mb=G.meas[L.b]; if(!ma||!mb) return;
+  const ox=6+S.pad, xa=ma.x+ox, xb=mb.x2+ox, len=xb-xa; if(len<20) return;
+  const hr=host.getBoundingClientRect(), sr=svg.getBoundingClientRect(), k=hr.width/(host.offsetWidth||hr.width)||1;
+  const sx=(sr.left-hr.left)/k, sy=(sr.top-hr.top)/k, sh=sr.height/k, W=$("scoreWrap").clientWidth;
+  const u=ma.u, T=40, staff=ma.y+24+T, H=sy+sh+T;
+  // le repère « ↺ » se place au-dessus de la note la plus haute de la boucle : il ne cache jamais une note
+  let topN=ma.y; for(let k=L.a;k<=L.b;k++){ const m=G.meas[k]; if(m&&isFinite(m.top)) topN=Math.min(topN,m.top); }
+  const labY=Math.max(0,Math.min(staff-u*4.2,topN+24+T-u*0.6-16));      // la copie couvre aussi les numéros de mesure au-dessus de la portée
+  const tile=(dest,side,lab)=>{ const d=document.createElement("div"); d.className="loopcopy "+side;
+    d.style.cssText=`left:${dest}px;top:${-T}px;width:${len}px;height:${H}px`;
+    d.innerHTML=`<svg width="${len}" height="${H}" style="display:block;overflow:hidden"><rect width="100%" height="100%" fill="#fff"/><use href="#${svg.id}" x="${sx-xa}" y="${sy+T}"/></svg>`+
+      `<i class="lcbar" style="top:${staff-u*0.5}px;height:${u*5}px"></i>`+(lab?`<span class="lcnum" style="top:${labY}px">↺ ${S.seq[L.a].M.number}</span>`:"");
+    host.appendChild(d); };
+  const nR=Math.min(10,Math.ceil(W/len)+1), nL=Math.min(10,Math.ceil(S.pad/len)+1);
+  for(let i=0;i<nR;i++) tile(xb+i*len,"r",true);
+  // numéros des vraies mesures cachées sous les copies
+  host.querySelectorAll(".mnum").forEach(n=>{ const x=parseFloat(n.style.left)||0;
+    if(x>=xb-12&&x<xb+nR*len) n.classList.add("lchR"); else if(x<xa-4&&x>=xa-nL*len-12) n.classList.add("lchL"); });
+  for(let i=1;i<=nL;i++) tile(xa-i*len,"l",false);
+  loopCopyState();
+}
+function loopCopyState(k){ const host=$("score"); if(!host||!S.loop||!isLine()) return; if(k===undefined) k=curSeq;
+  host.classList.toggle("inloop",k>=S.loop.a&&k<=S.loop.b); }
+$("curModeBtn").onclick=()=>{ const i=CUR_MODES.findIndex(c=>c[0]===curMode()), n=CUR_MODES[(i+1)%CUR_MODES.length];
+  store("banda.curMode",n[0]); curBtns(); toast(n[1],1600); if(S.model){ updateCursor(true); } };
+$("curEyeBtn").onclick=()=>{ const h=store("banda.curHide")==="1"; store("banda.curHide",h?"0":"1"); curBtns(); toast(h?"Barre de lecture affichée":"Barre de lecture masquée",1400); };
+curBtns();
 /* « 48 », « 48² », « 48.2 » ou « 48/2 » (2e passage) -> positions possibles dans la séquence */
 function parseMeasureInput(v){
   v=String(v||"").trim(); if(!v) return null;
@@ -4834,6 +4921,10 @@ const AIDE = {
       texte: "Lance ou met en pause. Barre d'espace sur ordinateur." },
     { cibles: ["#stopBtn"], nom: "Stop",
       texte: "1er appui : retour à l'endroit d'où la lecture est partie. 2e appui : retour au début du morceau." },
+    { cibles: ["#curModeBtn"], nom: "Suivi de la barre",
+      texte: "Trois façons de faire avancer la barre de lecture, au choix de chacun : <b>régulière</b> (vitesse constante dans la mesure), <b>note à note glissée</b> (pile sur chaque note quand elle commence, puis glisse jusqu'à la suivante) ou <b>note à note par sauts</b>. Touchez pour passer d'un mode à l'autre." },
+    { cibles: ["#curEyeBtn"], nom: "Afficher / masquer",
+      texte: "Masque la barre de lecture (ou la remet). Si elle semble en avance ou en retard sur le son : Réglages › Affichage › Curseur." },
     { cibles: ["#posbox"], nom: "Position",
       texte: "Mesure et temps en cours. Le point « Sons » indique si les sons d'instruments sont prêts." },
     { cibles: [".tempo"], nom: "Vitesse",
