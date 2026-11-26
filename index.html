@@ -15,7 +15,7 @@
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "4.24";
+window.BANDA_VERSION = "4.25";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -864,6 +864,16 @@ body.nocur #pcur,body.nocur #playhead{visibility:hidden!important}
 #score .loopcopy .lcnum{position:absolute;left:6px;font:800 12px/1 var(--ffB,system-ui);color:#0bb3b8;background:#fff;border-radius:4px;padding:1px 4px}
 
 #score .mnum.lchR{visibility:hidden} #score.inloop .mnum.lchL{visibility:hidden}
+#scoreWrap.horiz{cursor:grab} #scoreWrap.horiz.grabbing,#scoreWrap.horiz.grabbing #score{cursor:grabbing}
+
+#annPdfDlg{max-width:460px} .pdfbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px} .pdfbtns button{flex:1 1 auto}
+#annPrint.render{display:block;position:fixed;left:-12000px;top:0;width:190mm;background:#fff;z-index:-1}
+#annPrint.render .ppage{width:190mm;background:#fff;padding:0 0 6px}
+#annPrint.render .phead{font:14px Inter,Arial,sans-serif;color:#000;margin:0 0 10px;display:flex;gap:8px;align-items:baseline}
+#annPrint.render .phead span{margin-left:auto;font-size:11px;color:#555}
+#annPrint.render .pwin{position:relative;overflow:hidden;width:190mm}
+#annPrint.render .pwin>div{position:absolute;left:0;top:0}
+#annPrint.render svg{filter:none!important}
 
 </style>
 </head>
@@ -1238,6 +1248,13 @@ body.nocur #pcur,body.nocur #playhead{visibility:hidden!important}
       </div>
       <div id="admLog"></div>
     </div>
+  </form>
+</dialog>
+<dialog id="annPdfDlg">
+  <form method="dialog">
+    <div class="dtitle">Partition annotée (PDF)</div>
+    <p id="annPdfT" class="small">Préparation du PDF…</p>
+    <div class="row pdfbtns"><button type="button" class="primary" id="annPdfShare" disabled>Partager (Mail, Messages…)</button><button type="button" id="annPdfSave" disabled>Enregistrer le PDF</button><button type="button" id="annPdfPrint">Imprimer</button><button value="close">Fermer</button></div>
   </form>
 </dialog>
 <dialog id="admEditDlg">
@@ -3278,6 +3295,23 @@ document.addEventListener("pointerdown",ev=>{ if(!S.pick) return; if(ev.target.c
   bar.addEventListener("pointerup",()=>{ down=false; if(S.peek&&S.playing) S.peek.until=performance.now()+4000; });
   bar.addEventListener("pointercancel",()=>{ down=false; });
 })();
+/* défilement, à la souris : bouton gauche maintenu, on fait glisser la partition (aperçu, comme la barre d'avancement) */
+(function(){
+  const w=$("scoreWrap"); let d=null;
+  w.addEventListener("pointerdown",e=>{ if(e.pointerType!=="mouse"||e.button!==0||!S.model||!isLine()||!S.geo) return;
+    if(typeof ANN!=="undefined"&&ANN.on) return;
+    const tr=($("score").style.transform||"").match(/translateX\((-?[\d.]+)px\)/);
+    d={x:e.clientX,base:w.scrollLeft-(tr?parseFloat(tr[1]):0),moved:false,id:e.pointerId}; });
+  w.addEventListener("pointermove",e=>{ if(!d||e.pointerId!==d.id) return; const dx=vpt(e.clientX,e.clientY).x-vpt(d.x,0).x;
+    if(!d.moved){ if(Math.abs(dx)<6) return; d.moved=true; S.dragged=true; try{ w.setPointerCapture(d.id); }catch(_){} w.classList.add("grabbing"); }
+    peekX(Math.max(0,d.base-dx)); });
+  const up=()=>{ if(!d) return; if(d.moved&&S.peek&&S.playing) S.peek.until=performance.now()+4000; d=null; w.classList.remove("grabbing"); };
+  w.addEventListener("pointerup",up); w.addEventListener("pointercancel",up);
+})();
+function peekX(x){
+  const G=S.geo; let k=0; while(k+1<S.seq.length&&G.meas[k]&&G.meas[k].x2+6<x) k++;
+  peekAt(k); const wrap=$("scoreWrap"), xi=Math.floor(x); wrap.scrollLeft=xi; $("score").style.transform="translateX("+(-(x-xi)).toFixed(2)+"px)";
+}
 function peekAt(k){
   if(!S.geo||!S.seq[k]) return;
   S.peek={k,until:(S.playing||SY.role==="f")?performance.now()+4000:Infinity};
@@ -3299,16 +3333,26 @@ function endPeek(){
 }
 
 /* raccourcis clavier : espace lecture/pause · ←/→ mesure précédente/suivante · Début retour au début · +/- tempo · B boucle · R réglages */
+/* saisie de texte en cours : les touches lui reviennent (pas les curseurs, cases à cocher ni boutons) */
+function typing(t){ if(!t) return false; if(t.isContentEditable||t.tagName==="TEXTAREA"||t.tagName==="SELECT") return true;
+  return t.tagName==="INPUT"&&!/^(range|checkbox|radio|button|submit|color|file)$/i.test(t.type||"text"); }
+// un bouton qui a encore la main ne doit pas être « recliqué » par la barre d'espace (lecture puis pause aussitôt)
+document.addEventListener("keyup",e=>{ if((e.key===" "||e.key==="Enter")&&e.target&&e.target.tagName==="BUTTON"&&e.target._kbdEaten){ e.target._kbdEaten=false; e.preventDefault(); } },true);
 document.addEventListener("keydown",e=>{
-  if(e.target.tagName==="INPUT"||e.target.tagName==="SELECT"||e.target.tagName==="TEXTAREA"||e.ctrlKey||e.metaKey||e.altKey) return;
+  if(typing(e.target)||e.ctrlKey||e.metaKey||e.altKey) return;
+  if(document.querySelector("dialog[open]")) return;
   if(!S.model||!$("player").classList.contains("show")) return;
+  if((e.key===" "||e.key==="ArrowLeft"||e.key==="ArrowRight")&&e.target&&e.target!==document.body){
+    if(e.target.tagName==="BUTTON"&&e.key===" ") e.target._kbdEaten=true;
+    if(e.target.tagName==="INPUT"&&e.key!==" ") return;          // flèches sur un curseur (taille, tempo…) : réglage du curseur
+    try{ e.target.blur(); }catch(_){} }
   if(e.key==="r"||e.key==="R"){ $("sideToggle").click(); return; }
   if(SY.role==="f") return;
   const cur=()=>{ const p=currentPos(); return p?p.k:curSeq; };
   switch(e.key){
     case " ": e.preventDefault(); S.playing?pause():play(); break;
-    case "ArrowRight": e.preventDefault(); seekSeq(Math.min(S.seq.length-1,cur()+1)); break;
-    case "ArrowLeft": e.preventDefault(); seekSeq(Math.max(0,cur()-1)); break;
+    case "ArrowRight": e.preventDefault(); endPeek(); seekSeq(Math.min(S.seq.length-1,cur()+1),0); break;
+    case "ArrowLeft": e.preventDefault(); endPeek(); seekSeq(Math.max(0,cur()-1),0); break;
     case "Home": e.preventDefault(); stop(true); break;
     case "+": case "=": nudgeTempo(5); break;
     case "-": nudgeTempo(-5); break;
@@ -4902,7 +4946,7 @@ const AIDE = {
     { cibles: ["#fullBtn"], nom: "Plein écran",
       texte: "Cache la barre du navigateur pour agrandir la partition." },
     { cibles: ["#annBtn", "#lpAnn"], nom: "Annoter",
-      texte: "Écrire sur <b>sa</b> partition (chacun la sienne, même en séance). L'affichage passe en « Comme imprimé » (la mise en page de la partie papier) et revient comme avant avec <b>Terminé</b>.<br>Outils : Surligner, <b>Stylo</b> (main levée), Texte, Flèche, Entourer, Barrer, Symbole, Gomme, et 6 couleurs. On peut entourer ou surligner plusieurs mesures, même sur deux lignes.<br><b>Modifier</b> : touchez une annotation, puis glissez-la ou tirez ses poignées ; une pastille change sa couleur ; touchez encore un texte pour le réécrire. ↶ annule.<br><b>Loupe</b> (téléphone) : touchez une mesure pour la grossir. Sans loupe, on dessine directement (deux doigts pour faire défiler).<br>Les annotations restent sur ce téléphone. En Page et en Défilement, on ne voit que ce qui suit une note sans gêner la lecture (symboles, textes courts, formes dans une seule mesure) ; flèches, stylo et formes sur plusieurs mesures restent en « Comme imprimé », signalées par un petit ✎ au-dessus de la mesure. <b>PDF / Mail</b> : imprimer, enregistrer ou envoyer la partition annotée." },
+      texte: "Écrire sur <b>sa</b> partition (chacun la sienne, même en séance). L'affichage passe en « Comme imprimé » (la mise en page de la partie papier) et revient comme avant avec <b>Terminé</b>.<br>Outils : Surligner, <b>Stylo</b> (main levée), Texte, Flèche, Entourer, Barrer, Symbole, Gomme, et 6 couleurs. On peut entourer ou surligner plusieurs mesures, même sur deux lignes.<br><b>Modifier</b> : touchez une annotation, puis glissez-la ou tirez ses poignées ; une pastille change sa couleur ; touchez encore un texte pour le réécrire. ↶ annule.<br><b>Loupe</b> (téléphone) : touchez une mesure pour la grossir. Sans loupe, on dessine directement (deux doigts pour faire défiler).<br>Les annotations restent sur ce téléphone. En Page et en Défilement, on ne voit que ce qui suit une note sans gêner la lecture (symboles, textes courts, formes dans une seule mesure) ; flèches, stylo et formes sur plusieurs mesures restent en « Comme imprimé », signalées par un petit ✎ au-dessus de la mesure. <b>PDF / Mail</b> : l'application fabrique le PDF de la partition annotée, puis <b>Partager</b> (Mail, Messages, WhatsApp, Fichiers…), <b>Enregistrer</b> ou <b>Imprimer</b>." },
     { cibles: ["#rotBtn", "#lpRot"], nom: "Verrou",
       texte: "Fige l'orientation : la partition ne tourne plus quand vous bougez. Sur iPhone, si l'écran pivote quand même, l'application se tourne à l'inverse pour garder le même sens de lecture. Touchez à nouveau pour libérer." },
     { cibles: ["#lpView"], nom: "Paysage",
@@ -5540,6 +5584,8 @@ function annOpenEdit(kind,A,idx){
       b.onpointerdown=ev=>ev.preventDefault();   // le clavier reste ouvert
       b.onclick=()=>annSym(s); sb.appendChild(b); }); }
   dlg.classList.add("show");
+  ANN.editPt=null; { const it2=idx>=0?ANN.items[idx]:null, p=A||(it2&&it2.a); if(p&&ANN.d>=0){ const P=annPt(Object.assign({},p,{_mi:p._mi!=null?p._mi:p.mi}),ANN.d); if(P) ANN.editPt=P; } }
+  annEditLayout(); setTimeout(annEditLayout,350); setTimeout(annEditLayout,800);
   if(kind==="tx") setTimeout(()=>{ try{ inp.focus({preventScroll:true}); }catch(e){ inp.focus(); } },30);
 }
 function annBigSync(){ document.querySelectorAll("#annSize button").forEach(b=>b.classList.toggle("on",(b.dataset.v==="big")===!!(ANN.edit&&ANN.edit.big))); }
@@ -5554,24 +5600,30 @@ function annEditOk(){ const E=ANN.edit; if(!E) return; const s=$("annText").valu
   if(E.idx>=0){ annPush(); const it=ANN.items[E.idx]; it.s=s; it.z=z; annSave(); annRefresh(); annSyncBar(); }
   else annAdd({t:E.kind,c:ANN.col,a:annClean(E.A),s,z});
   annCloseEdit(); }
-function annCloseEdit(){ ANN.edit=null; const d=$("annEdit"); if(d) d.classList.remove("show"); const i=$("annText"); if(i) i.blur(); }
+/* pendant l'écriture, la loupe descend sous la fenêtre de texte et se limite à la place laissée par le clavier */
+function annEditLayout(){
+  const lp=$("annLoupe"), dlg=$("annEdit"); if(!lp||!dlg.classList.contains("show")||!lp.classList.contains("show")||ANN.d<0) return;
+  const r=vrect(dlg), vv=window.visualViewport, bottom=vv?vv.offsetTop+vv.height:VH();
+  const top=r.bottom+8; lp.style.top=top+"px"; ANN.editMoved=true;
+  const head=lp.querySelector(".annHead"), hh=head?head.offsetHeight:34, vp=$("annView"), avail=Math.max(90,bottom-top-hh-8);
+  if(vp.offsetHeight>avail){ vp.style.height=avail+"px"; }
+  if(ANN.editPt){ const H=vp.offsetHeight/ANN.z; ANN.y0=ANN.editPt.y-H/2; const inner=vp.querySelector(".annInner"); if(inner) inner.style.transform=`scale(${ANN.z}) translate(${-ANN.x0}px,${-ANN.y0}px)`; }
+}
+if(window.visualViewport) window.visualViewport.addEventListener("resize",()=>{ if(ANN.edit) annEditLayout(); });
+function annCloseEdit(){ ANN.edit=null; if(ANN.editMoved){ ANN.editMoved=false; const lp=$("annLoupe"); if(lp) lp.style.top=""; if(ANN.d>=0&&lp&&lp.classList.contains("show")) annLoupe(ANN.d); } const d=$("annEdit"); if(d) d.classList.remove("show"); const i=$("annText"); if(i) i.blur(); }
 
 /* ---------- export PDF (impression) : Enregistrer en PDF, Partager, Mail ---------- */
-async function annExport(){
-  if(!S.geo||!S.model) return;
-  if(!ANN.on){ annToggle(true); toast("Affichage « Comme imprimé » : touchez à nouveau PDF / Mail",3000); return; }
-  ANN.sel=-1; annRefresh();
-  try{ if(document.fonts&&document.fonts.load) await Promise.race([document.fonts.load("20px 'Noto Music'","♯𝄐"),new Promise(r=>setTimeout(r,1500))]); }catch(e){}
-  annCloseLoupe(); annCloseEdit();
+/* PDF de la partition annotée : fabriqué par l'application (pages A4), puis Partager (Mail, Messages…), Enregistrer ou Imprimer */
+const PDF_LIBS=["https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js","https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"];
+function annLoadScript(u){ return new Promise((res,rej)=>{ if(document.querySelector('script[src="'+u+'"]')&&(window.html2canvas||window.jspdf)) return res();
+  const s=document.createElement("script"); s.src=u; s.onload=res; s.onerror=()=>rej(new Error("module PDF indisponible (pas de connexion ?)")); document.head.appendChild(s); }); }
+function annBuildPages(){
   const host=$("score"), G=S.geo, W=host.offsetWidth, PW=718, s=Math.min(1.6,PW/W), PH=1040;
   const old=$("annPrint"); if(old) old.remove();
   const box=document.createElement("div"); box.id="annPrint";
   const P=S.model.parts[S.myPart], dt=new Date().toLocaleDateString("fr-FR");
-  const base=annCloneOf(host); base.querySelectorAll(".lbrk").forEach(x=>x.remove());
-  let i=0, first=true;
-  // en-tête (titre) au-dessus de la 1re ligne
-  const titleTop=0;
-  let cut=titleTop;
+  const base=annCloneOf(host); base.querySelectorAll(".lbrk,.loopcopy").forEach(x=>x.remove());
+  let i=0, first=true, cut=0;
   while(i<G.sys.length){ const top=cut; let j=i; const avail=(first?PH-40:PH)/s;
     while(j+1<G.sys.length&&G.sys[j+1].bottom+4-top<=avail) j++;
     const bot=j+1<G.sys.length?(G.sys[j].bottom+G.sys[j+1].top)/2:Math.max(G.sys[j].bottom+8,annMaxY(host));
@@ -5581,12 +5633,39 @@ async function annExport(){
     const cl=base.cloneNode(true); cl.style.transform=`scale(${s}) translateY(${-top}px)`; cl.style.transformOrigin="0 0";
     win.appendChild(cl); pg.appendChild(win); box.appendChild(pg);
     first=false; i=j+1; cut=bot; }
-  document.body.appendChild(box); document.body.classList.add("annprinting");
+  document.body.appendChild(box); return box; }
+function annPdfName(){ const P=S.model.parts[S.myPart]; return ((S.title||"Partition")+" - "+(P?P.name:"")).replace(/[\\/:*?"<>|]+/g,"").trim()+".pdf"; }
+async function annExport(){
+  if(!S.geo||!S.model) return;
+  if(!ANN.on){ annToggle(true); toast("Affichage « Comme imprimé » : touchez à nouveau PDF / Mail",3000); return; }
+  ANN.sel=-1; annRefresh();
+  annCloseLoupe(); annCloseEdit();
+  const d=$("annPdfDlg"); ANN.pdf=null;
+  $("annPdfT").textContent="Préparation du PDF…"; $("annPdfShare").disabled=$("annPdfSave").disabled=true; $("annPdfShare").hidden=false; d.showModal();
+  try{
+    try{ if(document.fonts&&document.fonts.load) await Promise.race([document.fonts.load("20px 'Noto Music'","♯𝄐"),new Promise(r=>setTimeout(r,1500))]); }catch(e){}
+    for(const u of PDF_LIBS) await annLoadScript(u);
+    const box=annBuildPages(); box.classList.add("render");
+    const pages=[...box.querySelectorAll(".ppage")], pdf=new window.jspdf.jsPDF({unit:"mm",format:"a4",orientation:"portrait"});
+    for(let n=0;n<pages.length;n++){ $("annPdfT").textContent="Préparation du PDF… page "+(n+1)+" / "+pages.length;
+      const c=await window.html2canvas(pages[n],{scale:2,backgroundColor:"#ffffff",logging:false});
+      const h=Math.min(277,c.height/c.width*190); if(n) pdf.addPage(); pdf.addImage(c.toDataURL("image/jpeg",0.92),"JPEG",10,10,190,h); }
+    box.remove();
+    const blob=pdf.output("blob"), name=annPdfName(); ANN.pdf=new File([blob],name,{type:"application/pdf"});
+    const canShare=!!(navigator.canShare&&navigator.canShare({files:[ANN.pdf]}));
+    $("annPdfT").textContent="PDF prêt ("+pages.length+" page"+(pages.length>1?"s":"")+") : "+name;
+    $("annPdfShare").hidden=!canShare; $("annPdfShare").disabled=false; $("annPdfSave").disabled=false;
+  }catch(e){ console.error(e); const b=$("annPrint"); if(b) b.remove(); $("annPdfT").textContent="Le PDF n'a pas pu être préparé ("+e.message+"). Vous pouvez imprimer."; }
+}
+function annPdfShare(){ const f=ANN.pdf; if(!f) return;
+  navigator.share({files:[f],title:f.name.replace(/\.pdf$/,""),text:"Partition annotée – La Banda Familia"}).then(()=>$("annPdfDlg").close()).catch(e=>{ if(e&&e.name!=="AbortError") toast("Partage impossible : "+e.message,3500); }); }
+function annPdfSave(){ const f=ANN.pdf; if(!f) return; const a=document.createElement("a"); a.href=URL.createObjectURL(f); a.download=f.name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },4000); toast("PDF enregistré (dossier Téléchargements)",3000); }
+function annPrint(){
+  $("annPdfDlg").close(); const box=annBuildPages(); document.body.classList.add("annprinting");
   const done=()=>{ document.body.classList.remove("annprinting"); box.remove(); window.removeEventListener("afterprint",done); };
   window.addEventListener("afterprint",done);
-  toast("Choisissez « Enregistrer en PDF », ou Partager › Mail",3500);
-  setTimeout(()=>{ try{ window.print(); }catch(e){ done(); toast("Impression impossible sur cet appareil",3000); } },350);
-}
+  setTimeout(()=>{ try{ window.print(); }catch(e){ done(); toast("Impression impossible sur cet appareil",3000); } },350); }
 function annMaxY(host){ const svg=host.querySelector("svg.annsvg"); let m=0; if(svg) svg.querySelectorAll("g").forEach(g=>{ try{ const b=g.getBBox(); m=Math.max(m,b.y+b.height+6); }catch(e){} }); return m; }
 function annEsc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
@@ -5614,6 +5693,7 @@ function annEsc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt
   ["annBtn","lpAnn"].forEach(id=>{ const b=$(id); if(b) b.onclick=()=>annToggle(); });
   $("annPrev").onclick=()=>annStep(-1); $("annNext").onclick=()=>annStep(1); $("annClose").onclick=annCloseLoupe;
   $("annOk").onclick=annEditOk; $("annCancel").onclick=annCloseEdit;
+  $("annPdfShare").onclick=annPdfShare; $("annPdfSave").onclick=annPdfSave; $("annPdfPrint").onclick=annPrint;
   $("annDel").onclick=()=>{ $("annText").value=""; annEditOk(); };
   $("annText").addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); annEditOk(); } if(e.key==="Escape") annCloseEdit(); });
   document.querySelectorAll("#annSize button").forEach(b=>b.onclick=()=>{ if(ANN.edit){ ANN.edit.big=b.dataset.v==="big"; annBigSync(); } });
