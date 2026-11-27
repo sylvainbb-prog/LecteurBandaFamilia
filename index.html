@@ -15,7 +15,7 @@
 <script>
 /* CONFIGURATION facultative (Google Drive) : clé API et dossier, sinon les morceaux du dossier « morceaux » sont utilisés */
 window.BANDA_CONFIG = { apiKey: "", folderId: "" };
-window.BANDA_VERSION = "4.25";
+window.BANDA_VERSION = "4.26";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js"></script>
@@ -5614,9 +5614,6 @@ function annCloseEdit(){ ANN.edit=null; if(ANN.editMoved){ ANN.editMoved=false; 
 
 /* ---------- export PDF (impression) : Enregistrer en PDF, Partager, Mail ---------- */
 /* PDF de la partition annotée : fabriqué par l'application (pages A4), puis Partager (Mail, Messages…), Enregistrer ou Imprimer */
-const PDF_LIBS=["https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js","https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"];
-function annLoadScript(u){ return new Promise((res,rej)=>{ if(document.querySelector('script[src="'+u+'"]')&&(window.html2canvas||window.jspdf)) return res();
-  const s=document.createElement("script"); s.src=u; s.onload=res; s.onerror=()=>rej(new Error("module PDF indisponible (pas de connexion ?)")); document.head.appendChild(s); }); }
 function annBuildPages(){
   const host=$("score"), G=S.geo, W=host.offsetWidth, PW=718, s=Math.min(1.6,PW/W), PH=1040;
   const old=$("annPrint"); if(old) old.remove();
@@ -5635,6 +5632,65 @@ function annBuildPages(){
     first=false; i=j+1; cut=bot; }
   document.body.appendChild(box); return box; }
 function annPdfName(){ const P=S.model.parts[S.myPart]; return ((S.title||"Partition")+" - "+(P?P.name:"")).replace(/[\\/:*?"<>|]+/g,"").trim()+".pdf"; }
+/* Le PDF est dessiné directement (une seule zone de dessin réutilisée page après page) : peu de mémoire, rapide, hors ligne */
+const PDF_W=718, PDF_H=1040, PDF_R=2;   // largeur utile A4 (190 mm) en px, hauteur utile, finesse ×2
+function annPdfCuts(host){ const G=S.geo, W=host.offsetWidth, s=Math.min(1.6,PDF_W/W), cuts=[];
+  let i=0, first=true, cut=0;
+  while(i<G.sys.length){ const top=cut; let j=i; const avail=(first?PDF_H-40:PDF_H)/s;
+    while(j+1<G.sys.length&&G.sys[j+1].bottom+4-top<=avail) j++;
+    const bot=j+1<G.sys.length?(G.sys[j].bottom+G.sys[j+1].top)/2:Math.max(G.sys[j].bottom+8,annMaxY(host));
+    cuts.push({top,bot,first}); first=false; i=j+1; cut=bot; }
+  return {s,cuts}; }
+function annSvgImage(svg,box,isAnn){
+  const cl=svg.cloneNode(true); cl.removeAttribute("class"); cl.removeAttribute("style"); cl.removeAttribute("id");
+  let x=box.x,y=box.y,w=box.w,h=box.h;
+  if(isAnn){ cl.querySelectorAll("text").forEach(t=>t.remove());
+    if(!svg.getAttribute("viewBox")){ const P=60; cl.setAttribute("viewBox",`${-P} ${-P} ${w+2*P} ${h+2*P}`); x-=P; y-=P; w+=2*P; h+=2*P; } }
+  cl.setAttribute("width",w); cl.setAttribute("height",h); cl.setAttribute("xmlns",SVGNS);
+  const url=URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(cl)],{type:"image/svg+xml"}));
+  return new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res({im,url,x,y,w,h}); im.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error("dessin de la partition impossible")); }; im.src=url; }); }
+async function annPdfScene(host){
+  const hr=host.getBoundingClientRect(), hs=hr.width/(host.offsetWidth||1)||1;
+  const rel=e=>{ const r=e.getBoundingClientRect(); return {x:(r.left-hr.left)/hs,y:(r.top-hr.top)/hs,w:r.width/hs,h:r.height/hs}; };
+  const imgs=[], boxes=[], labels=[], texts=[];
+  const skip=e=>e.closest("#pcur,#jumpMark,#pageMask,.cuering,.cueframe,.lbrk,.loopcopy,.annhint,.lcbar,.lcnum")||getComputedStyle(e).display==="none"||getComputedStyle(e).visibility==="hidden";
+  for(const sv of host.querySelectorAll("svg")){ if(sv.parentElement.closest("svg")||skip(sv)) continue;
+    const isAnn=sv.classList.contains("annsvg"), b=rel(sv); if(b.w<1||b.h<1) continue;
+    imgs.push(await annSvgImage(sv,isAnn?{x:b.x,y:b.y,w:+sv.getAttribute("width")||b.w,h:+sv.getAttribute("height")||b.h}:b,isAnn));
+    if(isAnn){ const m0=sv.getScreenCTM();
+      sv.querySelectorAll("text").forEach(t=>{ const m=t.getScreenCTM()||m0; if(!m) return; const cs=getComputedStyle(t);
+        const fs=parseFloat(t.getAttribute("font-size"))||16, k=Math.hypot(m.a,m.b)/hs; let yy=parseFloat(t.getAttribute("y"))||0;
+        [...t.querySelectorAll("tspan")].forEach((ts,j)=>{ yy+=parseFloat(ts.getAttribute("dy"))||0; const xx=parseFloat(ts.getAttribute("x")??t.getAttribute("x"))||0;
+          texts.push({s:ts.textContent,x:(m.a*xx+m.c*yy+m.e-hr.left)/hs,y:(m.b*xx+m.d*yy+m.f-hr.top)/hs,fs:fs*k,
+            font:`${t.getAttribute("font-style")||"normal"} ${t.getAttribute("font-weight")||"400"} ${(fs*k).toFixed(2)}px ${t.getAttribute("font-family")||ANN_FONT}`,
+            fill:t.getAttribute("fill")||"#000",stroke:t.getAttribute("stroke"),sw:(parseFloat(t.getAttribute("stroke-width"))||0)*k,anchor:t.getAttribute("text-anchor")==="middle"?"center":"left"}); }); }); } }
+  host.querySelectorAll("*").forEach(e=>{ if(e.closest("svg")||e.tagName==="IMG"||skip(e)) return; const cs=getComputedStyle(e), b=rel(e); if(b.w<=0||b.h<=0) return;
+    const bg=cs.backgroundColor; if(bg&&!/rgba\(.*,\s*0\)$|transparent/.test(bg)) boxes.push({...b,bg,rad:parseFloat(cs.borderTopLeftRadius)||0});
+    if([...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())&&!e.parentElement.closest("[data-pdftx]")){ e.setAttribute("data-pdftx","1");
+      labels.push({...b,s:e.textContent.replace(/\s+/g," ").trim(),st:cs.fontStyle,wt:cs.fontWeight,fs:parseFloat(cs.fontSize)||12,fam:cs.fontFamily,col:cs.color}); } });
+  host.querySelectorAll("[data-pdftx]").forEach(e=>e.removeAttribute("data-pdftx"));
+  return {imgs,boxes,labels,texts}; }
+function annPdfDraw(ctx,sc){
+  sc.boxes.forEach(b=>{ ctx.fillStyle=b.bg; ctx.beginPath(); if(ctx.roundRect&&b.rad) ctx.roundRect(b.x,b.y,b.w,b.h,Math.min(b.rad,b.h/2)); else ctx.rect(b.x,b.y,b.w,b.h); ctx.fill(); });
+  sc.imgs.forEach(o=>ctx.drawImage(o.im,o.x,o.y,o.w,o.h));
+  /* repères ajoutés par l'application (To Coda, D.S.…) : à la taille des nuances de la partition, calés sur leur bord droit */
+  ctx.textBaseline="middle"; ctx.textAlign="right"; sc.labels.forEach(l=>{ const f=Math.min(l.fs,7.5); ctx.font=`${l.st} ${l.wt} ${f}px ${l.fam}`; ctx.fillStyle=l.col; ctx.fillText(l.s,l.x+l.w,l.y+l.h/2); });
+  ctx.textBaseline="middle"; ctx.lineJoin="round";
+  sc.texts.forEach(t=>{ ctx.font=t.font; ctx.textAlign=t.anchor; if(t.stroke&&t.sw){ ctx.strokeStyle=t.stroke; ctx.lineWidth=t.sw; ctx.strokeText(t.s,t.x,t.y); } ctx.fillStyle=t.fill; ctx.fillText(t.s,t.x,t.y); }); }
+function annMakePdf(pages){   // pages : [{jpg:Uint8Array,w,h,mmH}] → fichier PDF (une image JPEG par page A4)
+  const enc=new TextEncoder(), parts=[], offs=[]; let len=0;
+  const push=x=>{ const b=typeof x==="string"?enc.encode(x):x; parts.push(b); len+=b.length; };
+  const obj=(id,body,stream)=>{ offs[id]=len; push(id+" 0 obj\n"+body); if(stream){ push("\nstream\n"); push(stream); push("\nendstream"); } push("\nendobj\n"); };
+  push(new Uint8Array([37,80,68,70,45,49,46,52,10,37,226,227,207,211,10]));
+  const n=pages.length, k=72/25.4, N=3+3*n;
+  obj(1,"<< /Type /Catalog /Pages 2 0 R >>");
+  obj(2,`<< /Type /Pages /Count ${n} /Kids [${pages.map((p,i)=>(3+3*i)+" 0 R").join(" ")}] >>`);
+  pages.forEach((p,i)=>{ const id=3+3*i, ww=190*k, hh=p.mmH*k, x=10*k, y=841.89-10*k-hh;
+    obj(id,`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /Im0 ${id+2} 0 R >> >> /Contents ${id+1} 0 R >>`);
+    const c=`q ${ww.toFixed(2)} 0 0 ${hh.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm /Im0 Do Q`; obj(id+1,`<< /Length ${c.length} >>`,enc.encode(c));
+    obj(id+2,`<< /Type /XObject /Subtype /Image /Width ${p.w} /Height ${p.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.jpg.length} >>`,p.jpg); });
+  const xr=len; push(`xref\n0 ${N}\n0000000000 65535 f \n`+offs.slice(1,N).map(o=>String(o).padStart(10,"0")+" 00000 n \n").join("")+`trailer\n<< /Size ${N} /Root 1 0 R >>\nstartxref\n${xr}\n%%EOF\n`);
+  return new Blob(parts,{type:"application/pdf"}); }
 async function annExport(){
   if(!S.geo||!S.model) return;
   if(!ANN.on){ annToggle(true); toast("Affichage « Comme imprimé » : touchez à nouveau PDF / Mail",3000); return; }
@@ -5642,21 +5698,33 @@ async function annExport(){
   annCloseLoupe(); annCloseEdit();
   const d=$("annPdfDlg"); ANN.pdf=null;
   $("annPdfT").textContent="Préparation du PDF…"; $("annPdfShare").disabled=$("annPdfSave").disabled=true; $("annPdfShare").hidden=false; d.showModal();
+  let sc=null, cv=null;
+  try{ localStorage.setItem("banda.pdfBusy",String(Date.now())); }catch(e){}
   try{
-    try{ if(document.fonts&&document.fonts.load) await Promise.race([document.fonts.load("20px 'Noto Music'","♯𝄐"),new Promise(r=>setTimeout(r,1500))]); }catch(e){}
-    for(const u of PDF_LIBS) await annLoadScript(u);
-    const box=annBuildPages(); box.classList.add("render");
-    const pages=[...box.querySelectorAll(".ppage")], pdf=new window.jspdf.jsPDF({unit:"mm",format:"a4",orientation:"portrait"});
-    for(let n=0;n<pages.length;n++){ $("annPdfT").textContent="Préparation du PDF… page "+(n+1)+" / "+pages.length;
-      const c=await window.html2canvas(pages[n],{scale:2,backgroundColor:"#ffffff",logging:false});
-      const h=Math.min(277,c.height/c.width*190); if(n) pdf.addPage(); pdf.addImage(c.toDataURL("image/jpeg",0.92),"JPEG",10,10,190,h); }
-    box.remove();
-    const blob=pdf.output("blob"), name=annPdfName(); ANN.pdf=new File([blob],name,{type:"application/pdf"});
+    try{ if(document.fonts&&document.fonts.load) await Promise.race([Promise.all([document.fonts.load("700 20px 'Noto Music'","♯𝄐"),document.fonts.load("700 14px Inter")]),new Promise(r=>setTimeout(r,1500))]); }catch(e){}
+    const host=$("score"), {s,cuts}=annPdfCuts(host); sc=await annPdfScene(host);
+    const P=S.model.parts[S.myPart], dt=new Date().toLocaleDateString("fr-FR"), pages=[];
+    cv=document.createElement("canvas"); const ctx=cv.getContext("2d");
+    for(let n=0;n<cuts.length;n++){ const c=cuts[n]; $("annPdfT").textContent="Préparation du PDF… page "+(n+1)+" / "+cuts.length;
+      const hd=c.first?34:0, ch=Math.ceil(hd+(c.bot-c.top)*s+6);
+      cv.width=PDF_W*PDF_R; cv.height=ch*PDF_R; ctx.setTransform(PDF_R,0,0,PDF_R,0,0); ctx.fillStyle="#fff"; ctx.fillRect(0,0,PDF_W,ch);
+      if(c.first){ ctx.textBaseline="alphabetic"; ctx.textAlign="left"; ctx.fillStyle="#000"; ctx.font="800 15px Inter, Arial, sans-serif";
+        const t1=(S.title||"")+" — "+(P?P.name:""); ctx.fillText(t1,0,18);
+        ctx.font="400 11px Inter, Arial, sans-serif"; ctx.fillStyle="#555"; ctx.textAlign="right"; ctx.fillText("annotations du "+dt+" · La Banda Familia",PDF_W,18); }
+      ctx.save(); ctx.translate(0,hd); ctx.beginPath(); ctx.rect(0,0,PDF_W,(c.bot-c.top)*s); ctx.clip(); ctx.scale(s,s); ctx.translate(0,-c.top);
+      annPdfDraw(ctx,sc); ctx.restore();
+      const blob=await new Promise((res,rej)=>cv.toBlob(b=>b?res(b):rej(new Error("image de page impossible")),"image/jpeg",0.9));
+      pages.push({jpg:new Uint8Array(await blob.arrayBuffer()),w:cv.width,h:cv.height,mmH:Math.min(277,ch/PDF_W*190)});
+      await new Promise(r=>setTimeout(r,30)); }
+    const name=annPdfName(); ANN.pdf=new File([annMakePdf(pages)],name,{type:"application/pdf"});
     const canShare=!!(navigator.canShare&&navigator.canShare({files:[ANN.pdf]}));
     $("annPdfT").textContent="PDF prêt ("+pages.length+" page"+(pages.length>1?"s":"")+") : "+name;
     $("annPdfShare").hidden=!canShare; $("annPdfShare").disabled=false; $("annPdfSave").disabled=false;
-  }catch(e){ console.error(e); const b=$("annPrint"); if(b) b.remove(); $("annPdfT").textContent="Le PDF n'a pas pu être préparé ("+e.message+"). Vous pouvez imprimer."; }
+  }catch(e){ console.error(e); $("annPdfT").textContent="Le PDF n'a pas pu être préparé ("+e.message+"). Vous pouvez utiliser Imprimer."; $("annPdfShare").hidden=true; }
+  finally{ if(sc) sc.imgs.forEach(o=>URL.revokeObjectURL(o.url)); if(cv){ cv.width=cv.height=0; } try{ localStorage.removeItem("banda.pdfBusy"); }catch(e){} }
 }
+/* si l'appareil a dû recharger la page pendant la fabrication du PDF (manque de mémoire), on le dit au retour */
+setTimeout(()=>{ try{ const t=+localStorage.getItem("banda.pdfBusy"); if(t){ localStorage.removeItem("banda.pdfBusy"); if(Date.now()-t<5*60000) toast("Le PDF n'a pas pu être fabriqué sur cet appareil (mémoire). Essayez « Imprimer » ou depuis un ordinateur.",7000); } }catch(e){} },2500);
 function annPdfShare(){ const f=ANN.pdf; if(!f) return;
   navigator.share({files:[f],title:f.name.replace(/\.pdf$/,""),text:"Partition annotée – La Banda Familia"}).then(()=>$("annPdfDlg").close()).catch(e=>{ if(e&&e.name!=="AbortError") toast("Partage impossible : "+e.message,3500); }); }
 function annPdfSave(){ const f=ANN.pdf; if(!f) return; const a=document.createElement("a"); a.href=URL.createObjectURL(f); a.download=f.name; document.body.appendChild(a); a.click();
